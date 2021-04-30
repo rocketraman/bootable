@@ -1,0 +1,9 @@
+= Bootable
+
+A relatively simple opinionated framework for booting applications.
+Intended to be much simpler than Spring Boot or even modern iterations like Quarkus and Micronaut, but still featureful enough to be useful.
+Handles stopping, starting, lifecycle management, and integrates Kodein-DI.
+
+== Author
+
+Raman Gupta <rocketraman@gmail.com>
