@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="error">
+  <Appenders>
+    <Console name="Console">
+      <PatternLayout disableAnsi="false" pattern="%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd HH:mm:ss.SSS}} %highlight{${LOG_LEVEL_PATTERN:-%5p}}{FATAL=red blink, ERROR=red, WARN=yellow bold, INFO=green, DEBUG=green bold, TRACE=blue} [%15.15t] %style{%-40.40C{1.}}{cyan} : %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%xEx}"/>
+    </Console>
+  </Appenders>
+  <Loggers>
+    <Root level="${env:LOGGING_LEVEL:-${sys:logging.level:-info}}">
+      <AppenderRef ref="Console"/>
+    </Root>
+    <!-- Chatty logger at startup, suppress it -->
+    <Logger name="com.jdiazcano.cfg4k.loaders.PropertyConfigLoader" level="error" additivity="false">
+      <AppenderRef ref="Console"/>
+    </Logger>
+  </Loggers>
+</Configuration>

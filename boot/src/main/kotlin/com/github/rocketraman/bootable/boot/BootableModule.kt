@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.boot
 
+import com.github.rocketraman.bootable.logging.log4j2.loggingInit
 import org.apache.logging.log4j.kotlin.logger
 import org.kodein.di.*
 import kotlin.system.exitProcess
@@ -11,6 +12,7 @@ import kotlin.system.exitProcess
  * argument, and then calls [Bootable.boot].
  */
 fun boot(maxShutdownTime: Long = 30, mainBuilder: DI.MainBuilder.() -> Unit) {
+  loggingInit()
   val log = logger("Bootable")
 
   try {

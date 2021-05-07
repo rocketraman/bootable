@@ -8,6 +8,10 @@ import org.kodein.di.inSet
 fun DI.Builder.bindAppServiceSet() = bindSet<AppService>()
 
 /**
- * Convenience binding function for application services.
+ * Convenience binding function for application services. Use it like this in a module:
+ *
+ * ```
+ * bindAppService() with singleton { Whatever() }
+ * ```
  */
 fun DI.Builder.bindAppService() = bind<AppService>().inSet()

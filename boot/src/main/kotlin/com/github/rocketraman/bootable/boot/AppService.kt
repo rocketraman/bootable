@@ -2,6 +2,12 @@ package com.github.rocketraman.bootable.boot
 
 import com.github.rocketraman.bootable.common.Ignore
 
+/**
+ * An application service, with a lifecycle.
+ *
+ * Binding implementations of AppService into the DI environment (see [bindAppService]) will register it with
+ * the boot system, which will start it up and shut it down, according to its priority.
+ */
 interface AppService {
   /**
    * The service name, which defaults to the simple java class name.

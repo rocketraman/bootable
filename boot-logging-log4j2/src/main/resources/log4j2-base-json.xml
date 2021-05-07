@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="error">
+  <Appenders>
+    <Console name="Console" target="SYSTEM_OUT" direct="true">
+      <JsonLayout eventEol="true" compact="true" stacktraceAsString="true" objectMessageAsJsonObject="true" properties="true"/>
+    </Console>
+  </Appenders>
+  <Loggers>
+    <Root level="${env:LOGGING_LEVEL:-${sys:logging.level:-debug}}">
+      <AppenderRef ref="Console"/>
+    </Root>
+    <!-- Chatty logger at startup, suppress it -->
+    <Logger name="com.jdiazcano.cfg4k.loaders.PropertyConfigLoader" level="error" additivity="false">
+      <AppenderRef ref="Console"/>
+    </Logger>
+  </Loggers>
+</Configuration>

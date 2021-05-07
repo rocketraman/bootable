@@ -4,6 +4,29 @@ A relatively simple opinionated framework for booting applications.
 Intended to be much simpler than Spring Boot or even modern iterations like Quarkus and Micronaut, but still featureful enough to be useful.
 Handles stopping, starting, lifecycle management, and integrates Kodein-DI.
 
+== Features
+
+* Creates a DI context.
+* Manages the lifecycle of application services.
+* Allows registration of lifecycle controllers, which can be used to control the lifecycle of application services in various ways.
+The basic built-in implementation of this is the `AppStartStopLifecycleController` which starts application services on app start, and shuts them down on app close, in priority order.
+Another basic implementation, intended to be used in conjunction with `AppStartStopLifecycleController`, is the `StopSignalHandlerLifecycleController`, which registers signal handlers, which, when received, cleanly shuts the system down.
+Other implementations are possible: for example starting/stopping services at runtime based on a command system, like start/stop messages from RPCs or web requests.
+
+== How to Use (Basic)
+
+* Application components that have a lifecycle should implement `AppService` or `AdvancedAppService`, and these should be bound into the DI context via `bindAppService`.
+* Start the system with the `boot` function.
+
+== How to Use (Advanced)
+
+* Customize with additional `LifecycleController` implementations.
+* Override the `boot` function to achieve more custom behavior.
+
+== TODOs
+
+* Multiple logging implementations for different scenarios, loggingInit via `ServiceLoader`
+
 == Author
 
 Raman Gupta <rocketraman@gmail.com>

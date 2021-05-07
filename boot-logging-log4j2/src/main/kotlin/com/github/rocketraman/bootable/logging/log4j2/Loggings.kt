@@ -27,6 +27,6 @@ fun loggingInit(redirectStandardOutErr: Boolean = true) {
     System.setErr(IoBuilder.forLogger(LogManager.getLogger("STDERR")).setLevel(Level.WARN).buildPrintStream())
   }
 
-  logger("org.shotstoarms.engine.common.loggingInit")
+  logger("com.github.rocketraman.bootable.logging.log4j2.loggingInit")
     .debug { "Logger initialization complete, stdout/err redirection = $redirectStandardOutErr" }
 }

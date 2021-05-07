@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="GradleMigrationSettings" migrationVersion="1" />
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
+        <option name="delegatedBuild" value="true" />
+        <option name="testRunner" value="GRADLE" />
         <option name="distributionType" value="DEFAULT_WRAPPED" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="gradleHome" value="$OPTDIR$/gradle-6" />
@@ -12,8 +15,23 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/boot" />
             <option value="$PROJECT_DIR$/boot-common" />
+            <option value="$PROJECT_DIR$/boot-config-cfg4k" />
+            <option value="$PROJECT_DIR$/boot-config-common" />
+            <option value="$PROJECT_DIR$/boot-env" />
             <option value="$PROJECT_DIR$/boot-logging-log4j2" />
+            <option value="$PROJECT_DIR$/boot-server-http-ktor" />
             <option value="$PROJECT_DIR$/buildSrc" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="distributionType" value="WRAPPED" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$/examples/server-ktor" />
+        <option name="gradleHome" value="$OPTDIR$/gradle-6" />
+        <option name="gradleJvm" value="#JAVA_HOME" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/examples/server-ktor" />
           </set>
         </option>
       </GradleProjectSettings>
