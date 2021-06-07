@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-  kotlin("jvm") version "1.5.0"
+  kotlin("jvm") version "1.5.10"
   application
 }
 
@@ -21,8 +21,8 @@ dependencies {
   implementation("com.github.rocketraman.bootable:boot-config-cfg4k:0.1")
   implementation("com.github.rocketraman.bootable:boot-logging-log4j2:0.1")
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor:0.1")
-  implementation("io.ktor:ktor-server-netty:1.5.2")
-  implementation("io.ktor:ktor-html-builder:1.5.2")
+  implementation("io.ktor:ktor-server-netty:1.6.0")
+  implementation("io.ktor:ktor-html-builder:1.6.0")
   implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.7.2")
 
   testImplementation(kotlin("test-junit5"))

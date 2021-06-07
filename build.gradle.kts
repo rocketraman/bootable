@@ -24,7 +24,7 @@ subprojects {
 
   dependencies {
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
-    api("org.kodein.di:kodein-di:7.5.0")
+    api("org.kodein.di:kodein-di:${Libs.Kodein.version}")
   }
 
   tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
@@ -69,9 +69,9 @@ project("boot-common") {
 project("boot-config-cfg4k") {
   dependencies {
     implementation(project(":boot"))
-    api("com.jdiazcano.cfg4k:cfg4k-core:0.9.5")
-    api("com.jdiazcano.cfg4k:cfg4k-hocon:0.9.5")
-    api("com.typesafe:config:1.3.3")
+    api("com.jdiazcano.cfg4k:cfg4k-core:${Libs.Config.Cfg4k.version}")
+    api("com.jdiazcano.cfg4k:cfg4k-hocon:${Libs.Config.Cfg4k.version}")
+    api("com.typesafe:config:${Libs.Config.TypesafeConfig.version}")
   }
 }
 
@@ -80,7 +80,7 @@ project("boot-config-common") {
 
 project("boot-logging-log4j2") {
   dependencies {
-    api("org.apache.logging.log4j:log4j-api-kotlin:1.0.0")
+    api("org.apache.logging.log4j:log4j-api-kotlin:${Libs.Log4j2.KotlinApi.version}")
     api("org.apache.logging.log4j:log4j-api:${Libs.Log4j2.version}")
     implementation("org.apache.logging.log4j:log4j-iostreams:${Libs.Log4j2.version}")
     implementation("org.apache.logging.log4j:log4j-core:${Libs.Log4j2.version}")

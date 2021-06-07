@@ -16,4 +16,7 @@
       <projects_view />
     </option>
   </component>
+  <component name="SuppressKotlinCodeStyleNotification">
+    <option name="disableForAll" value="true" />
+  </component>
 </project>
