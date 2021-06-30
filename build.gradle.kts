@@ -84,6 +84,7 @@ project("boot-logging-log4j2") {
     implementation("org.apache.logging.log4j:log4j-iostreams:${Libs.Log4j2.version}")
     implementation("org.apache.logging.log4j:log4j-core:${Libs.Log4j2.version}")
     implementation("org.apache.logging.log4j:log4j-jul:${Libs.Log4j2.version}")
+    implementation("org.apache.logging.log4j:log4j-layout-template-json:${Libs.Log4j2.version}")
     implementation("org.apache.logging.log4j:log4j-slf4j-impl:${Libs.Log4j2.version}")
   }
 }

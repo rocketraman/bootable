@@ -12,7 +12,7 @@ import org.apache.logging.log4j.kotlin.logger
  *
  * CLI tools can use this too, but should specify [redirectStandardOutErr] as `false`.
  */
-fun loggingInit(redirectStandardOutErr: Boolean = true) {
+fun loggingInit(redirectStandardOutErr: Boolean = true, loggingType: String? = null) {
   fun setSystemPropIfNotSet(prop: String, value: String) {
     if(System.getProperty(prop) == null) System.setProperty(prop, value)
   }
@@ -20,11 +20,15 @@ fun loggingInit(redirectStandardOutErr: Boolean = true) {
   // JUL should use log4j2
   setSystemPropIfNotSet("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager")
 
-  if (System.getenv("LOGGING_TYPE")?.lowercase() == "json") {
-    setSystemPropIfNotSet("log4j.configurationFile", "log4j2-base-json.xml,log4j2.xml")
-  } else {
-    setSystemPropIfNotSet("log4j.configurationFile", "log4j2-base.xml,log4j2.xml")
-  }
+  val envLoggingType = System.getenv("LOGGING_TYPE")?.lowercase()
+  setSystemPropIfNotSet("log4j.configurationFile", when {
+    envLoggingType ?: loggingType == "json" ->
+      "log4j2-base-json.xml,log4j2.xml"
+    envLoggingType ?: loggingType == "gcloud" ->
+      "log4j2-base-json-gcloud.xml,log4j2.xml"
+    else ->
+      "log4j2-base.xml,log4j2.xml"
+  })
 
   // redirect std out and err to the logger (for third party libs that are not good standard out/err citizens)
   if(redirectStandardOutErr) {
