@@ -6,7 +6,7 @@
     </Console>
   </Appenders>
   <Loggers>
-    <Root level="${env:LOGGING_LEVEL:-${sys:logging.level:-debug}}">
+    <Root level="${env:LOGGING_LEVEL:-${sys:logging.level:-info}}">
       <AppenderRef ref="Console"/>
     </Root>
     <!-- Chatty logger at startup, suppress it -->

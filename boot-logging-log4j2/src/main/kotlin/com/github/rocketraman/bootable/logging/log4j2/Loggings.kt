@@ -19,7 +19,12 @@ fun loggingInit(redirectStandardOutErr: Boolean = true) {
 
   // JUL should use log4j2
   setSystemPropIfNotSet("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager")
-  setSystemPropIfNotSet("log4j.configurationFile", "log4j2-base.xml,log4j2.xml")
+
+  if (System.getenv("LOGGING_TYPE")?.lowercase() == "json") {
+    setSystemPropIfNotSet("log4j.configurationFile", "log4j2-base-json.xml,log4j2.xml")
+  } else {
+    setSystemPropIfNotSet("log4j.configurationFile", "log4j2-base.xml,log4j2.xml")
+  }
 
   // redirect std out and err to the logger (for third party libs that are not good standard out/err citizens)
   if(redirectStandardOutErr) {
