@@ -10,7 +10,6 @@ subprojects {
   apply {
     plugin("java-library")
     plugin("org.jetbrains.kotlin.jvm")
-    plugin("maven")
     plugin("maven-publish")
   }
 
