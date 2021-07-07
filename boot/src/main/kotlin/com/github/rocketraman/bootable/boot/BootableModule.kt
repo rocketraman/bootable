@@ -2,8 +2,12 @@ package com.github.rocketraman.bootable.boot
 
 import com.github.rocketraman.bootable.logging.log4j2.loggingInit
 import org.apache.logging.log4j.kotlin.logger
-import org.kodein.di.*
+import org.kodein.di.DI
+import org.kodein.di.bind
+import org.kodein.di.instance
+import org.kodein.di.singleton
 import kotlin.system.exitProcess
+import kotlin.time.TimeSource
 
 /**
  * A convenience function that initializes logging, creates a Kodein context, imports all available
@@ -12,6 +16,8 @@ import kotlin.system.exitProcess
  * argument, and then calls [Bootable.boot].
  */
 fun boot(maxShutdownTime: Long = 30, mainBuilder: DI.MainBuilder.() -> Unit) {
+  val startupMark = TimeSource.Monotonic.markNow()
+
   loggingInit()
   val log = logger("Bootable")
 
@@ -19,7 +25,7 @@ fun boot(maxShutdownTime: Long = 30, mainBuilder: DI.MainBuilder.() -> Unit) {
     log.info("=> Creating application dependencies")
 
     @Suppress("RemoveExplicitTypeArguments")
-    DI.direct {
+    val bootable = DI.direct {
       bindAppServiceSet()
 
       bindLifecycleControllerSet()
@@ -31,8 +37,11 @@ fun boot(maxShutdownTime: Long = 30, mainBuilder: DI.MainBuilder.() -> Unit) {
         instance<Set<LifecycleController>>(),
         maxShutdownTime
       ) } }
+
       mainBuilder()
-    }.instance<Bootable>().boot()
+    }.instance<Bootable>()
+
+    bootable.boot(startupMark)
   } catch (e: Exception) {
     log.fatal(e) { "Failed to start application. Exiting..." }
     exitProcess(-1)
