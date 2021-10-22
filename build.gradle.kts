@@ -1,5 +1,5 @@
 plugins {
-  kotlin("jvm") version Libs.Kotlin.version
+  kotlin("jvm")
 }
 
 repositories {
@@ -18,16 +18,29 @@ subprojects {
 
   repositories {
     mavenCentral()
-    jcenter()
+    jcenter {
+      content {
+        includeGroup("com.jdiazcano.cfg4k")
+      }
+    }
   }
 
   dependencies {
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
-    api("org.kodein.di:kodein-di:${Libs.Kodein.version}")
+    api(rootProject.libs.kodein.di)
   }
 
   tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     kotlinOptions.jvmTarget = "11"
+  }
+
+  configurations.all {
+    resolutionStrategy.eachDependency {
+      if (requested.group == "org.jetbrains.kotlin") {
+        useVersion(rootProject.libs.versions.kotlin.get())
+        because("Use consistent Kotlin stdlib and reflect artifacts")
+      }
+    }
   }
 
   java {
@@ -49,7 +62,7 @@ project("boot") {
     // todo for now, we depend on boot-logging-log4j2, later we could use service loaders to discover implementations at runtime
     implementation(project(":boot-logging-log4j2"))
 
-    implementation(kotlin("reflect", Libs.Kotlin.version))
+    implementation(kotlin("reflect"))
   }
 
   tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
@@ -61,16 +74,16 @@ project("boot") {
 
 project("boot-common") {
   dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:${Libs.Kotlinx.Coroutines.version}")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:${rootProject.libs.versions.kotlinx.coroutines.get()}")
   }
 }
 
 project("boot-config-cfg4k") {
   dependencies {
     implementation(project(":boot"))
-    api("com.jdiazcano.cfg4k:cfg4k-core:${Libs.Config.Cfg4k.version}")
-    api("com.jdiazcano.cfg4k:cfg4k-hocon:${Libs.Config.Cfg4k.version}")
-    api("com.typesafe:config:${Libs.Config.TypesafeConfig.version}")
+    api("com.jdiazcano.cfg4k:cfg4k-core:${rootProject.libs.versions.cfg4k.get()}")
+    api("com.jdiazcano.cfg4k:cfg4k-hocon:${rootProject.libs.versions.cfg4k.get()}")
+    api("com.typesafe:config:${rootProject.libs.versions.config.get()}")
   }
 }
 
@@ -79,13 +92,8 @@ project("boot-config-common") {
 
 project("boot-logging-log4j2") {
   dependencies {
-    api("org.apache.logging.log4j:log4j-api-kotlin:${Libs.Log4j2.KotlinApi.version}")
-    api("org.apache.logging.log4j:log4j-api:${Libs.Log4j2.version}")
-    implementation("org.apache.logging.log4j:log4j-iostreams:${Libs.Log4j2.version}")
-    implementation("org.apache.logging.log4j:log4j-core:${Libs.Log4j2.version}")
-    implementation("org.apache.logging.log4j:log4j-jul:${Libs.Log4j2.version}")
-    implementation("org.apache.logging.log4j:log4j-layout-template-json:${Libs.Log4j2.version}")
-    implementation("org.apache.logging.log4j:log4j-slf4j-impl:${Libs.Log4j2.version}")
+    api(rootProject.libs.bundles.log4j.api)
+    implementation(rootProject.libs.bundles.log4j.impl)
   }
 }
 
@@ -93,7 +101,7 @@ project("boot-server-http-ktor") {
   dependencies {
     implementation(project(":boot"))
     api(project(":boot-config-common"))
-    api("io.ktor:ktor-server-core:${Libs.Ktor.version}")
-    api("io.ktor:ktor-server-netty:${Libs.Ktor.version}")
+    api(rootProject.libs.ktor.server.core)
+    api(rootProject.libs.ktor.server.netty)
   }
 }

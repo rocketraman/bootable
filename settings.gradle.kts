@@ -1,3 +1,15 @@
+enableFeaturePreview("VERSION_CATALOGS")
+
+pluginManagement {
+  plugins {
+    resolutionStrategy {
+      eachPlugin {
+        if (requested.id.id.startsWith("org.jetbrains.kotlin.")) useVersion("1.5.31")
+      }
+    }
+  }
+}
+
 rootProject.name = "bootable"
 
 include("boot")

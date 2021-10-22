@@ -9,11 +9,19 @@ group = "com.github.rocketraman.bootable.examples"
 version = "1.0"
 
 repositories {
-  jcenter()
-  mavenCentral()
-  maven { url = uri("https://maven.pkg.jetbrains.space/public/p/kotlinx-html/maven") }
-  // temporary for boot
+  // to use the locally built version of boot
   mavenLocal()
+  mavenCentral()
+  maven(url = "https://maven.pkg.jetbrains.space/public/p/kotlinx-html/maven") {
+    content {
+      includeModule("org.jetbrains.kotlinx", "kotlinx-html-jvm")
+    }
+  }
+  jcenter {
+    content {
+      includeGroup("com.jdiazcano.cfg4k")
+    }
+  }
 }
 
 dependencies {
