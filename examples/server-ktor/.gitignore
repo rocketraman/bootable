@@ -1,0 +1,25 @@
+# IntelliJ IDEA, ignore everything except vcs, run configs, code style, and inspection profiles
+.idea/*
+!.idea/gradle.xml
+!.idea/vcs.xml
+!.idea/runConfigurations.xml
+!.idea/runConfigurations
+!.idea/codeStyles
+!.idea/codeStyleSettings.xml
+!.idea/inspectionProfiles
+
+application-local.conf
+
+# VSCode, ignore everything
+.vscode/
+
+.gradle/
+gradle-app.setting
+gradle-local.properties
+build/
+out/
+target/
+classes/
+.DS_Store
+
+data/
