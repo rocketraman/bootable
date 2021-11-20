@@ -2,6 +2,10 @@ enableFeaturePreview("VERSION_CATALOGS")
 
 pluginManagement {
   plugins {
+    repositories {
+      gradlePluginPortal()
+      mavenCentral()
+    }
     resolutionStrategy {
       eachPlugin {
         if (requested.id.id.startsWith("org.jetbrains.kotlin.")) useVersion("1.5.31")
