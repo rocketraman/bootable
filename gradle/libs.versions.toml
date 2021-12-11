@@ -6,7 +6,7 @@ kodein = "7.5.0"
 kotlin = "1.5.31"
 kotlinx-coroutines = "1.5.0"
 ktor = "1.6.3"
-log4j = "2.14.1"
+log4j = "2.15.0"
 log4j-kotlin-api = "1.1.0"
 
 [libraries]
