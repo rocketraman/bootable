@@ -8,7 +8,7 @@ pluginManagement {
     }
     resolutionStrategy {
       eachPlugin {
-        if (requested.id.id.startsWith("org.jetbrains.kotlin.")) useVersion("1.5.31")
+        if (requested.id.id.startsWith("org.jetbrains.kotlin.")) useVersion("1.6.10")
       }
     }
   }
