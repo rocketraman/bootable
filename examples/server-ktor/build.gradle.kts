@@ -25,17 +25,17 @@ repositories {
 }
 
 dependencies {
-  implementation("com.github.rocketraman.bootable:boot:0.3")
-  implementation("com.github.rocketraman.bootable:boot-config-cfg4k:0.3")
-  implementation("com.github.rocketraman.bootable:boot-logging-log4j2:0.3")
-  implementation("com.github.rocketraman.bootable:boot-server-http-ktor:0.3")
-  implementation("io.ktor:ktor-server-netty:1.6.0")
-  implementation("io.ktor:ktor-html-builder:1.6.0")
-  implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.7.2")
+  implementation("com.github.rocketraman.bootable:boot:0.4-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-config-cfg4k:0.4-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2:0.4-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-server-http-ktor:0.4-SNAPSHOT")
+  implementation("io.ktor:ktor-server-netty:1.6.7")
+  implementation("io.ktor:ktor-html-builder:1.6.7")
+  implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.7.3")
 
   testImplementation(kotlin("test-junit5"))
-  testImplementation("org.junit.jupiter:junit-jupiter-api:5.6.0")
-  testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.6.0")
+  testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
+  testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.2")
 }
 
 tasks.test {
