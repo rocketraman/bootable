@@ -25,10 +25,10 @@ repositories {
 }
 
 dependencies {
-  implementation("com.github.rocketraman.bootable:boot:0.4")
-  implementation("com.github.rocketraman.bootable:boot-config-cfg4k:0.4")
-  implementation("com.github.rocketraman.bootable:boot-logging-log4j2:0.4")
-  implementation("com.github.rocketraman.bootable:boot-server-http-ktor:0.4")
+  implementation("com.github.rocketraman.bootable:boot:0.5-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-config-cfg4k:0.5-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2:0.5-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-server-http-ktor:0.5-SNAPSHOT")
   implementation("io.ktor:ktor-server-netty:1.6.7")
   implementation("io.ktor:ktor-html-builder:1.6.7")
   implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.7.3")
