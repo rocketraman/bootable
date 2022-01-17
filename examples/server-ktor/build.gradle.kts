@@ -17,11 +17,6 @@ repositories {
       includeModule("org.jetbrains.kotlinx", "kotlinx-html-jvm")
     }
   }
-  jcenter {
-    content {
-      includeGroup("com.jdiazcano.cfg4k")
-    }
-  }
 }
 
 dependencies {
@@ -43,7 +38,20 @@ tasks.test {
 }
 
 tasks.withType<KotlinCompile>() {
-  kotlinOptions.jvmTarget = "11"
+  kotlinOptions.jvmTarget = JavaVersion.VERSION_11.toString()
+}
+
+java {
+  withSourcesJar()
+  toolchain {
+    languageVersion.set(JavaLanguageVersion.of(11))
+  }
+}
+
+kotlin {
+  jvmToolchain {
+    (this as JavaToolchainSpec).languageVersion.set(JavaLanguageVersion.of(11))
+  }
 }
 
 application {
