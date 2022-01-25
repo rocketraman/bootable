@@ -1,6 +1,6 @@
 = Bootable
 
-image:https://img.shields.io/maven-central/v/com.github.rocketraman.bootable/boot[Maven Central]
+image:https://img.shields.io/maven-central/v/com.github.rocketraman.bootable/boot[Maven Central,link="https://search.maven.org/search?q=g:com.github.rocketraman.bootable"]
 image:https://img.shields.io/github/license/rocketraman/bootable["GitHub license",link="https://github.com/rocketraman/bootable"]
 
 A relatively simple opinionated framework for booting applications.
