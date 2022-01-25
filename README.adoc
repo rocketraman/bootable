@@ -1,7 +1,7 @@
 = Bootable
 
 image:https://img.shields.io/maven-central/v/com.github.rocketraman.bootable/boot[Maven Central,link="https://search.maven.org/search?q=g:com.github.rocketraman.bootable"]
-image:https://img.shields.io/github/license/rocketraman/bootable["GitHub license",link="https://github.com/rocketraman/bootable"]
+image:https://img.shields.io/github/license/rocketraman/bootable["GitHub license",link="https://github.com/rocketraman/bootable/blob/master/LICENSE"]
 
 A relatively simple opinionated framework for booting applications.
 Intended to be much simpler than Spring Boot or even modern iterations like Quarkus and Micronaut, but still featureful enough to be useful.
