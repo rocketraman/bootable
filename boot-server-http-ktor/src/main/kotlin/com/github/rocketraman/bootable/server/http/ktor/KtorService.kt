@@ -4,7 +4,7 @@ import com.github.rocketraman.bootable.boot.AdvancedAppService
 import com.github.rocketraman.bootable.config.common.HostPort
 import com.github.rocketraman.bootable.config.common.host
 import com.github.rocketraman.bootable.config.common.port
-import io.ktor.application.*
+import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import org.slf4j.LoggerFactory

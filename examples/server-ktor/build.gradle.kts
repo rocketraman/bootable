@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-  kotlin("jvm") version "1.6.10"
+  kotlin("jvm") version "1.6.21"
   application
 }
 
@@ -24,8 +24,8 @@ dependencies {
   implementation("com.github.rocketraman.bootable:boot-config-cfg4k:0.7-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-logging-log4j2:0.7-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor:0.7-SNAPSHOT")
-  implementation("io.ktor:ktor-server-netty:1.6.7")
-  implementation("io.ktor:ktor-html-builder:1.6.7")
+  implementation("io.ktor:ktor-server-html-builder:2.0.2")
+  implementation("io.ktor:ktor-server-netty:2.0.2")
   implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.7.3")
 
   testImplementation(kotlin("test-junit5"))
@@ -43,9 +43,6 @@ tasks.withType<KotlinCompile>() {
 
 java {
   withSourcesJar()
-  toolchain {
-    languageVersion.set(JavaLanguageVersion.of(11))
-  }
 }
 
 kotlin {
@@ -55,5 +52,5 @@ kotlin {
 }
 
 application {
-  mainClassName = "ServerKt"
+  mainClassName = "AppKt"
 }

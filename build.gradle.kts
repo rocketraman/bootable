@@ -1,6 +1,6 @@
 plugins {
   kotlin("jvm")
-  id("org.jetbrains.dokka") version "1.6.10"
+  id("org.jetbrains.dokka") version "1.6.21"
   signing
   `maven-publish`
 }
@@ -45,9 +45,6 @@ subprojects {
 
   java {
     withSourcesJar()
-    toolchain {
-      languageVersion.set(JavaLanguageVersion.of(11))
-    }
   }
 
   kotlin {
@@ -158,7 +155,6 @@ project("boot-server-http-ktor") {
   dependencies {
     implementation(project(":boot"))
     api(project(":boot-config-common"))
-    api(rootProject.libs.ktor.server.core)
     api(rootProject.libs.ktor.server.netty)
   }
 }

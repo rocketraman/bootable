@@ -5,11 +5,11 @@ import com.github.rocketraman.bootable.config.common.HostPort
 import com.github.rocketraman.bootable.config.common.host
 import com.github.rocketraman.bootable.config.configModule
 import com.github.rocketraman.bootable.server.http.ktor.KtorService
-import io.ktor.application.*
-import io.ktor.html.*
 import io.ktor.http.*
-import io.ktor.response.*
-import io.ktor.routing.*
+import io.ktor.server.html.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import io.ktor.server.application.*
 import kotlinx.html.*
 import org.apache.logging.log4j.kotlin.logger
 import org.kodein.di.DI
@@ -37,8 +37,8 @@ class ExampleServer(config: ServerConfig) : KtorService("test", config) {
       }
 
       get("/die") {
-        call.respond(HttpStatusCode.OK,"Dying! 🙁")
-        logger.info { "Dying! 🙁" }
+        call.respond(HttpStatusCode.OK,"Dying! \uD83D\uDE10")
+        logger.info { "Dying! \uD83D\uDE10" }
         die()
       }
     }
