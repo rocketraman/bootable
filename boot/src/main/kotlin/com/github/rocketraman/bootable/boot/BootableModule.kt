@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.boot
 
+import com.github.rocketraman.bootable.logging.log4j2.LoggingType
 import com.github.rocketraman.bootable.logging.log4j2.loggingInit
 import org.apache.logging.log4j.kotlin.logger
 import org.kodein.di.DI
@@ -15,12 +16,17 @@ import kotlin.time.TimeSource
  * controller and signal handler controllers), obtains additional modules to boot using the provided
  * argument, and then calls [Bootable.boot].
  */
-fun boot(maxShutdownTime: Long = 30, mainBuilder: DI.MainBuilder.() -> Unit) {
+fun boot(
+  maxShutdownTime: Long = 30,
+  loggingType: LoggingType? = null,
+  mainBuilder: DI.MainBuilder.() -> Unit,
+) {
   val startupMark = TimeSource.Monotonic.markNow()
 
-  loggingInit()
+  loggingInit(loggingType = loggingType)
   val log = logger("Bootable")
 
+  @Suppress("TooGenericExceptionCaught")
   try {
     log.info("=> Creating application dependencies")
 
