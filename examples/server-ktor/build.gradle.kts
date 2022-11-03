@@ -24,13 +24,13 @@ dependencies {
   implementation("com.github.rocketraman.bootable:boot-config-cfg4k:0.8-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-logging-log4j2:0.8-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor:0.8-SNAPSHOT")
-  implementation("io.ktor:ktor-server-html-builder:2.0.2")
-  implementation("io.ktor:ktor-server-netty:2.0.2")
-  implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.7.3")
+  implementation("io.ktor:ktor-server-html-builder:2.1.3")
+  implementation("io.ktor:ktor-server-netty:2.1.3")
+  implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.8.0")
 
   testImplementation(kotlin("test-junit5"))
-  testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
-  testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.2")
+  testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.0")
+  testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.9.0")
 }
 
 tasks.test {
@@ -47,7 +47,7 @@ java {
 
 kotlin {
   jvmToolchain {
-    (this as JavaToolchainSpec).languageVersion.set(JavaLanguageVersion.of(11))
+    languageVersion.set(JavaLanguageVersion.of(11))
   }
 }
 
