@@ -1,6 +1,6 @@
 plugins {
   kotlin("jvm")
-  id("org.jetbrains.dokka") version "1.6.21"
+  id("org.jetbrains.dokka") version "1.7.20"
   signing
   `maven-publish`
 }
@@ -49,7 +49,7 @@ subprojects {
 
   kotlin {
     jvmToolchain {
-      (this as JavaToolchainSpec).languageVersion.set(JavaLanguageVersion.of(11))
+      languageVersion.set(JavaLanguageVersion.of(11))
     }
   }
 
