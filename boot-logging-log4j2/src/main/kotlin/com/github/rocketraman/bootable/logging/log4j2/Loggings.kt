@@ -45,9 +45,21 @@ fun loggingInit(redirectStandardOutErr: Boolean = true, loggingType: LoggingType
 
   val envLoggingType = System.getenv("LOGGING_TYPE")
 
+  val warnings = mutableListOf<String>()
+
   // passed in value takes precedence, then env var, then default
   val configuredLoggingType = loggingType
-    ?: envLoggingType?.let { LoggingType.valueOf(it) }
+    ?: envLoggingType?.let { envType ->
+      LoggingType.valueOfOrNull(envType).also { resolvedEnvType ->
+        if (resolvedEnvType == null) {
+          warnings.add(
+            "Invalid LOGGING_TYPE environment value '$envType', " +
+              "expected one of ${LoggingType.values().joinToString { it.name }}, " +
+              "continuing with default logging type"
+          )
+        }
+      }
+    }
     ?: LoggingType.DEFAULT
 
   setSystemPropIfNotSet("log4j.configurationFile", when(configuredLoggingType) {
@@ -62,6 +74,11 @@ fun loggingInit(redirectStandardOutErr: Boolean = true, loggingType: LoggingType
     System.setErr(IoBuilder.forLogger(LogManager.getLogger("STDERR")).setLevel(Level.WARN).buildPrintStream())
   }
 
-  logger("com.github.rocketraman.bootable.logging.log4j2.loggingInit")
-    .debug { "Logger initialization complete, stdout/err redirection = $redirectStandardOutErr" }
+  val initLogger = logger("com.github.rocketraman.bootable.logging.log4j2.loggingInit")
+
+  warnings.forEach { w ->
+    initLogger.warn(w)
+  }
+
+  initLogger.debug { "Logger initialization complete, stdout/err redirection = $redirectStandardOutErr" }
 }
