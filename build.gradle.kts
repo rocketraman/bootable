@@ -19,7 +19,7 @@ subprojects {
   }
 
   group = "com.github.rocketraman.bootable"
-  version = "0.8"
+  version = "0.8.1-SNAPSHOT"
 
   repositories {
     mavenCentral()
