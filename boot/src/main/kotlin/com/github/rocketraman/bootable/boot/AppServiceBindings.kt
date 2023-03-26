@@ -1,9 +1,7 @@
 package com.github.rocketraman.bootable.boot
 
-import org.kodein.di.DI
-import org.kodein.di.bind
-import org.kodein.di.bindSet
-import org.kodein.di.inSet
+import org.kodein.di.*
+import org.kodein.di.bindings.DIBinding
 
 fun DI.Builder.bindAppServiceSet() = bindSet<AppService>()
 
@@ -14,4 +12,15 @@ fun DI.Builder.bindAppServiceSet() = bindSet<AppService>()
  * bindAppService() with singleton { Whatever() }
  * ```
  */
+@Suppress("DeprecatedCallableAddReplaceWith", "DEPRECATION")
+@Deprecated("Use `bindAppService { singleton { ... } }` instead")
 fun DI.Builder.bindAppService() = bind<AppService>().inSet()
+
+/**
+ * Convenience binding function for application services. Use it like this in a module:
+ *
+ * ```
+ * bindAppService { singleton { Whatever() } }
+ * ```
+ */
+fun DI.Builder.bindAppService(createBinding: () -> DIBinding<*, *, AppService>) = inBindSet { add(createBinding) }

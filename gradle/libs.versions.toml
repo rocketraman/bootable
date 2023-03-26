@@ -2,7 +2,7 @@
 cfg4k = "0.9.6"
 config = "1.4.2"
 junit-jupiter = "5.8.2"
-kodein = "7.14.0"
+kodein = "7.18.0"
 kotlin = "1.7.20"
 kotlinx-coroutines = "1.6.4"
 ktor = "2.1.3"

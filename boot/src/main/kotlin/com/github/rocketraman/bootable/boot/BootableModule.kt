@@ -35,8 +35,8 @@ fun boot(
       bindAppServiceSet()
 
       bindLifecycleControllerSet()
-      bindLifecycleController() with singleton { AppStartStopLifecycleController() }
-      bindLifecycleController() with singleton { StopSignalHandlerLifecycleController() }
+      bindLifecycleController { singleton { AppStartStopLifecycleController() } }
+      bindLifecycleController { singleton { StopSignalHandlerLifecycleController() } }
 
       bind { singleton { Bootable(
         instance<Set<AppService>>(),
