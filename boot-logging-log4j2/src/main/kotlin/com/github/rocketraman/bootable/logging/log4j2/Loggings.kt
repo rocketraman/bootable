@@ -73,7 +73,7 @@ fun loggingInit(
         if (resolvedEnvType == null) {
           warnings.add(
             "Invalid LOGGING_TYPE environment value '$envType', " +
-              "expected one of ${LoggingType.values().joinToString { it.name }}, " +
+              "expected one of ${LoggingType.entries.joinToString { it.name }}, " +
               "continuing with default logging type"
           )
         }

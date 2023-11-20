@@ -41,23 +41,27 @@ fun configModule(
   withConfigStage2: Config.() -> Config = { this },
   withConfigStage3: Config.() -> Config = { this },
 ) = DI.Module("configModule") {
-  bind<ConfigProvider>() with singleton { OverrideConfigProvider(
-    ProxyConfigProvider(EnvironmentConfigLoader()),
-    ProxyConfigProvider(SystemPropertyConfigLoader()),
-    ProxyConfigProvider(HoconConfigLoader {
-      // this is a workaround for https://github.com/jdiazcano/cfg4k/issues/54
-      // we use typesafe config directly to perform the props overrides within HOCON
-      ConfigFactory
-        .empty()
-        .withConfigStage1()
-        .withFallback(ConfigFactory.systemEnvironment())
-        .withFallback(ConfigFactory.systemProperties())
-        .withConfigStage2()
-        .withFallback(ConfigFactory.parseResources("application-local.conf"))
-        .withFallback(ConfigFactory.parseResources("application.conf"))
-        .withConfigStage3()
-    })
-  ).cache() }
+  bind<ConfigProvider> {
+    singleton {
+      OverrideConfigProvider(
+        ProxyConfigProvider(EnvironmentConfigLoader()),
+        ProxyConfigProvider(SystemPropertyConfigLoader()),
+        ProxyConfigProvider(HoconConfigLoader {
+          // this is a workaround for https://github.com/jdiazcano/cfg4k/issues/54
+          // we use typesafe config directly to perform the props overrides within HOCON
+          ConfigFactory
+            .empty()
+            .withConfigStage1()
+            .withFallback(ConfigFactory.systemEnvironment())
+            .withFallback(ConfigFactory.systemProperties())
+            .withConfigStage2()
+            .withFallback(ConfigFactory.parseResources("application-local.conf"))
+            .withFallback(ConfigFactory.parseResources("application.conf"))
+            .withConfigStage3()
+        })
+      ).cache()
+    }
+  }
 
   bind<ConfigProvider>("reloadable") with multiton { file: File ->
     ProxyConfigProvider(HoconConfigLoader(file), FileChangeReloadStrategy(file)).cache()

@@ -1,15 +1,13 @@
 import com.github.rocketraman.bootable.boot.bindAppService
 import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.config.bindConfig
-import com.github.rocketraman.bootable.config.common.HostPort
-import com.github.rocketraman.bootable.config.common.host
 import com.github.rocketraman.bootable.config.configModule
 import com.github.rocketraman.bootable.server.http.ktor.KtorService
 import io.ktor.http.*
+import io.ktor.server.application.*
 import io.ktor.server.html.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.ktor.server.application.*
 import kotlinx.html.*
 import org.apache.logging.log4j.kotlin.logger
 import org.kodein.di.DI
@@ -50,7 +48,7 @@ val serverModule = DI.Module("serverModule") {
 
   bindConfig<ServerConfig>("server")
 
-  bindAppService() with singleton { ExampleServer(instance<ServerConfig>()) }
+  bindAppService { singleton { ExampleServer(instance<ServerConfig>()) } }
 }
 
 fun main() {

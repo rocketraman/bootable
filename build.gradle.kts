@@ -1,9 +1,12 @@
 plugins {
-  kotlin("jvm")
-  id("org.jetbrains.dokka") version "1.8.10"
+  val kotlinVersion: String by System.getProperties()
+  kotlin("jvm") version kotlinVersion
+  id("org.jetbrains.dokka") version "1.9.10"
   signing
   `maven-publish`
 }
+
+val kotlinVersion: String by System.getProperties()
 
 repositories {
   mavenCentral()
@@ -19,7 +22,7 @@ subprojects {
   }
 
   group = "com.github.rocketraman.bootable"
-  version = "0.8.1-SNAPSHOT"
+  version = "0.9.0-SNAPSHOT"
 
   repositories {
     mavenCentral()
@@ -33,7 +36,7 @@ subprojects {
   configurations.all {
     resolutionStrategy.eachDependency {
       if (requested.group == "org.jetbrains.kotlin") {
-        useVersion(rootProject.libs.versions.kotlin.get())
+        useVersion(kotlinVersion)
         because("Use consistent Kotlin stdlib and reflect artifacts")
       }
     }
@@ -123,8 +126,8 @@ project("boot") {
   }
 
   tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-    kotlinOptions.freeCompilerArgs += listOf(
-      "-Xopt-in=kotlin.time.ExperimentalTime"
+    kotlinOptions.options.optIn.addAll(
+      "kotlin.time.ExperimentalTime"
     )
   }
 }

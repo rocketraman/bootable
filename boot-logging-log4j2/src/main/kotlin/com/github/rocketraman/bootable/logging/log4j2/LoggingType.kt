@@ -14,6 +14,6 @@ enum class LoggingType {
   ;
 
   companion object {
-    fun valueOfOrNull(value: String): LoggingType? = values().firstOrNull { it.name == value.uppercase() }
+    fun valueOfOrNull(value: String): LoggingType? = entries.firstOrNull { it.name == value.uppercase() }
   }
 }

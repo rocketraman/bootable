@@ -7,6 +7,10 @@ A relatively simple opinionated framework for booting applications.
 Intended to be much simpler than Spring Boot or even modern iterations like Quarkus and Micronaut, but still featureful enough to be useful.
 Handles stopping, starting, lifecycle management, and integrates Kodein-DI.
 
+An important element of simplicity is to prefer the use of explicit references and configuration.
+Spring Boot's runtime discovery of components and plugins via reflection is https://www.youtube.com/watch?v=SxdOUGdseq4[easy but not simple].
+Too many projects use Spring Boot, but fail to understand the hidden complexities, resulting in nasty bugs in production.
+
 == Features
 
 * Creates a DI context.
@@ -17,6 +21,8 @@ Another basic implementation, intended to be used in conjunction with `AppStartS
 Other implementations are possible: for example starting/stopping services at runtime based on a command system, like start/stop messages from RPCs or web requests.
 
 == How to Use (Basic)
+
+See the projects in the `examples` directory.
 
 * Application components that have a lifecycle should implement `AppService` or `AdvancedAppService`, and these should be bound into the DI context via `bindAppService`.
 * Start the system with the `boot` function.
