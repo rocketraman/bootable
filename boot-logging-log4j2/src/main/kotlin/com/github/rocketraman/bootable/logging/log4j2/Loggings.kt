@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.logging.log4j2
 
+import com.github.rocketraman.bootable.logging.BootLoggingLevel
 import org.apache.logging.log4j.Level
 import org.apache.logging.log4j.LogManager
 import org.apache.logging.log4j.io.IoBuilder
@@ -34,14 +35,32 @@ fun loggingInit(redirectStandardOutErr: Boolean = true, loggingType: String? = n
  * created via DI, or any loggers are created or called.
  *
  * CLI tools can use this too, but should specify [redirectStandardOutErr] as `false`.
+ *
+ * Allow merging specifies whether a log4j2.xml file should be merged with the base configuration file. This
+ * is true by default and allows projects to specify their own log4j2.xml files that are merged with the base
+ * configuration.
+ *
+ * Merging is done in the following order:
+ * * Base configuration from Bootable
+ * * Configuration provided by `log4j2-<loggingtype>.xml` e.g. `log4j2-color.xml`
+ * * Configuration provided by `log4j2.xml`
  */
-fun loggingInit(redirectStandardOutErr: Boolean = true, loggingType: LoggingType? = null) {
+fun loggingInit(
+  redirectStandardOutErr: Boolean = true,
+  loggingType: LoggingType? = null,
+  allowMerging: Boolean = true,
+  overrideLoggingLevel: BootLoggingLevel? = null,
+) {
   fun setSystemPropIfNotSet(prop: String, value: String) {
     if(System.getProperty(prop) == null) System.setProperty(prop, value)
   }
 
   // JUL should use log4j2
   setSystemPropIfNotSet("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager")
+
+  if (overrideLoggingLevel != null) {
+    setSystemPropIfNotSet("logging.level", overrideLoggingLevel.name)
+  }
 
   val envLoggingType = System.getenv("LOGGING_TYPE")
 
@@ -63,10 +82,13 @@ fun loggingInit(redirectStandardOutErr: Boolean = true, loggingType: LoggingType
     ?: LoggingType.DEFAULT
 
   setSystemPropIfNotSet("log4j.configurationFile", when(configuredLoggingType) {
-    LoggingType.PLAIN, LoggingType.DEFAULT -> "log4j2-base-plain.xml,log4j2.xml"
-    LoggingType.JSON -> "log4j2-base-json.xml,log4j2.xml"
-    LoggingType.GCLOUD -> "log4j2-base-json-gcloud.xml,log4j2.xml"
-  })
+    LoggingType.COLOR, LoggingType.DEFAULT -> "log4j2-base.xml"
+    LoggingType.PLAIN -> "log4j2-base-plain.xml"
+    LoggingType.JSON -> "log4j2-base-json.xml"
+    LoggingType.GCLOUD -> "log4j2-base-json-gcloud.xml"
+    // TODO test this
+    LoggingType.EMPTY -> "log4j2-base-empty.xml"
+  }.let { if (allowMerging) "$it,log4j2-${configuredLoggingType.name.lowercase()}.xml,log4j2.xml" else it })
 
   // redirect std out and err to the logger (for third party libs that are not good standard out/err citizens)
   if(redirectStandardOutErr) {

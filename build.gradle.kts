@@ -144,8 +144,11 @@ project("boot-config-cfg4k") {
 project("boot-config-common") {
 }
 
+project("boot-logging")
+
 project("boot-logging-log4j2") {
   dependencies {
+    api(project(":boot-logging"))
     api(rootProject.libs.bundles.log4j.api)
     implementation(rootProject.libs.bundles.log4j.impl)
   }
