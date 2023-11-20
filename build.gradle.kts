@@ -30,10 +30,6 @@ subprojects {
     api(rootProject.libs.kodein.di)
   }
 
-  tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-    kotlinOptions.jvmTarget = JavaVersion.VERSION_11.toString()
-  }
-
   configurations.all {
     resolutionStrategy.eachDependency {
       if (requested.group == "org.jetbrains.kotlin") {
@@ -48,9 +44,18 @@ subprojects {
   }
 
   kotlin {
-    jvmToolchain {
-      languageVersion.set(JavaLanguageVersion.of(11))
-    }
+    jvmToolchain(17)
+  }
+
+  // target 11 for max compatibility
+  tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+    kotlinOptions.jvmTarget = JavaVersion.VERSION_11.toString()
+  }
+
+  // target 11 for max compatibility
+  tasks.withType<JavaCompile> {
+    sourceCompatibility = "11"
+    targetCompatibility = "11"
   }
 
   val dokkaHtml by tasks.getting(org.jetbrains.dokka.gradle.DokkaTask::class)
@@ -163,5 +168,5 @@ project("boot-server-http-ktor") {
 }
 
 tasks.dokkaHtmlMultiModule.configure {
-  outputDirectory.set(buildDir.resolve("apidocs"))
+  outputDirectory = layout.buildDirectory.dir("apidocs")
 }

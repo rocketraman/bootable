@@ -4,9 +4,6 @@
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
-        <option name="delegatedBuild" value="true" />
-        <option name="testRunner" value="GRADLE" />
-        <option name="distributionType" value="DEFAULT_WRAPPED" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="gradleHome" value="$OPTDIR$/gradle-6" />
         <option name="gradleJvm" value="#JAVA_HOME" />
@@ -18,13 +15,13 @@
             <option value="$PROJECT_DIR$/boot-config-cfg4k" />
             <option value="$PROJECT_DIR$/boot-config-common" />
             <option value="$PROJECT_DIR$/boot-env" />
+            <option value="$PROJECT_DIR$/boot-logging" />
             <option value="$PROJECT_DIR$/boot-logging-log4j2" />
             <option value="$PROJECT_DIR$/boot-server-http-ktor" />
           </set>
         </option>
       </GradleProjectSettings>
       <GradleProjectSettings>
-        <option name="distributionType" value="DEFAULT_WRAPPED" />
         <option name="externalProjectPath" value="$PROJECT_DIR$/examples/server-ktor" />
         <option name="gradleHome" value="$OPTDIR$/gradle-7" />
         <option name="gradleJvm" value="#JAVA_HOME" />
