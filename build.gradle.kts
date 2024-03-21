@@ -163,6 +163,13 @@ project("boot-config-hoplite") {
 project("boot-config-common") {
 }
 
+project("boot-env") {
+  dependencies {
+    api(project(":boot-config-common"))
+    implementation(project(":boot"))
+  }
+}
+
 project("boot-logging")
 
 project("boot-logging-log4j2") {
