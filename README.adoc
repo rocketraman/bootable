@@ -1,15 +1,22 @@
 = Bootable
 
 image:https://img.shields.io/maven-central/v/com.github.rocketraman.bootable/boot[Maven Central,link="https://search.maven.org/search?q=g:com.github.rocketraman.bootable"]
-image:https://img.shields.io/github/license/rocketraman/bootable["GitHub license",link="https://github.com/rocketraman/bootable/blob/master/LICENSE"]
+image:https://img.shields.io/github/license/rocketraman/bootable["GitHub license",link="https://github.com/rocketraman/bootable/blob/HEAD/LICENSE"]
 
-A relatively simple opinionated framework for booting applications.
+A simple opinionated framework for booting applications.
 Intended to be much simpler than Spring Boot or even modern iterations like Quarkus and Micronaut, but still featureful enough to be useful.
-Handles stopping, starting, lifecycle management, and integrates Kodein-DI.
+Handles stopping, starting, lifecycle management, logging, configuration, and other basic reusable components, and integrates Kodein-DI.
 
 An important element of simplicity is to prefer the use of explicit references and configuration.
-Spring Boot's runtime discovery of components and plugins via reflection is https://www.youtube.com/watch?v=SxdOUGdseq4[easy but not simple].
+Spring Boot's runtime discovery of components and plugins via annotation and reflection is https://www.youtube.com/watch?v=SxdOUGdseq4[easy but not simple].
+To use Spring Boot, you have to understand two layers: the libraries underneath Spring, as well as all of Spring's own auto-magic annotations.
 Too many projects use Spring Boot, but fail to understand the hidden complexities, resulting in nasty bugs in production.
+
+The goal of Bootable is to provide a minimal framework for running Kotlin (or Java?) applications, and then gets out of your way.
+
+Useful reading:
+
+* https://dantanner.com/post/spring-rites/[Spring Rites: A caution against annotation-based web frameworks] by Dan Tanner
 
 == Features
 
@@ -19,6 +26,62 @@ Too many projects use Spring Boot, but fail to understand the hidden complexitie
 The basic built-in implementation of this is the `AppStartStopLifecycleController` which starts application services on app start, and shuts them down on app close, in priority order.
 Another basic implementation, intended to be used in conjunction with `AppStartStopLifecycleController`, is the `StopSignalHandlerLifecycleController`, which registers signal handlers, which, when received, cleanly shuts the system down.
 Other implementations are possible: for example starting/stopping services at runtime based on a command system, like start/stop messages from RPCs or web requests.
+
+== Modules
+
+Bootable is modular, and provides a number of modules to help you build your application.
+The core module is simply `com.github.rocketraman.bootable:boot`, which provides the basic application lifecycle features of Bootable.
+Add additional modules as you wish.
+
+[[Configuration]]
+=== Configuration
+
+==== cfg4k
+
+See https://github.com/rocketraman/cfg4k[cfg4k].
+
+Unmaintained but works very well.
+Add this module to your project to use cfg4k for configuration.
+
+xref:./boot-config-cfg4k/README.adoc[Documentation]
+
+==== Hoplite
+
+See https://github.com/sksamuel/hoplite[hoplite].
+
+Incubating.
+Ideally this will replace the unmaintained cfg4k.
+However, we are blocked on https://github.com/sksamuel/hoplite/issues/386[Issue 386].
+
+Add this module to your project to use Hoplite for configuration.
+
+xref:./boot-config-hoplite/README.adoc[Documentation]
+
+=== Environment
+
+WARNING: Over-using this abstraction is a code smell.
+
+This module simply exposes a strongly-typed global `environment` variable to the system, which is initialized via the configuration system when `environmentConfigModule` is imported.
+
+This should be *rarely* used, but sometimes it is useful to have a way to identify the environment e.g. dev, test, prod, or other.
+Good use cases are tagging metrics with the environment, or extremely complex environment-specific configuration that can't be easily abstracted using one of the <<Configuration>> modules.
+
+Note that this is also useful in a JavaScript environment, where the environment may be bound to a global variable by something like https://github.com/mrsteele/dotenv-webpack[dotenv-webpack].
+The environment abstraction may be used to abstract away the underlying details of this binding in a way that can be used in both frontend and backend in the common code source set.
+
+NOTE: We currently do not publish multi-platform versions of these modules, but may do so in the future.
+
+=== Logging (Log4j2)
+
+This module provides all the necessary imports to configure Log4j2 as the logging system for the application.
+It provides good default logging layouts, and supports multiple output types e.g. plain (both color and not), JSON, and GCloud.
+See https://github.com/rocketraman/bootable/blob/HEAD/boot-logging-log4j2/src/main/kotlin/com/github/rocketraman/bootable/logging/log4j2/LoggingType.kt[LoggingType].
+
+=== Server HTTP (Ktor)
+
+Provides a basic Ktor service abstraction with Bootable lifecycle integration i.e. the server starts and stops with the application.
+Does not attempt to configure Ktor in any significant way — this is left to the user.
+See https://github.com/rocketraman/bootable/blob/HEAD/boot-server-http-ktor/src/main/kotlin/com/github/rocketraman/bootable/server/http/ktor/KtorService.kt[KtorService].
 
 == How to Use (Basic)
 
@@ -32,9 +95,39 @@ See the projects in the `examples` directory.
 * Customize with additional `LifecycleController` implementations.
 * Override the `boot` function to achieve more custom behavior.
 
+== Design
+
+=== Why Dependency Injection? Why Kodein-DI?
+
+The heavy-weight nature of DI frameworks like Spring has given DI a bit of a bad rap.
+
+Kodein-DI is a simple, lightweight, and fast dependency injection framework.
+
+Many people argue that DI is unnecessary with Kotlin, and that simple constructor injection is sufficient.
+This is absolutely true for small projects, but as a project grows, inevitably the need for modularity and more complex component scopes arises.
+Consider a multi-module app, each module of which exposes one or more `AppService` implementations without having any code be aware of all the possible implementations in advance.
+
+All the modules that Bootable provides connect together via Kodein-DI.
+
+That being said, nothing Bootable does is highly tied to Kodein-DI.
+Internally, Bootable is DI agnostic.
+See, for example, the main framework class https://github.com/rocketraman/bootable/blob/HEAD/boot/src/main/kotlin/com/github/rocketraman/bootable/boot/Bootable.kt[Bootable.kt] which does the basic work of starting and stopping the system.
+There are no references to any DI framework — it simply uses constructor injection.
+
+To skip use of Kodein-DI, it is simple to use this class directly rather than the https://github.com/rocketraman/bootable/blob/HEAD/boot/src/main/kotlin/com/github/rocketraman/bootable/boot/BootableModule.kt#L19[`boot`] convenience function which initiates the system via Kodein-DI.
+Each module exposed by Bootable via Kodein-DI modules can also be exposed via other frameworks, or no framework at all.
+
+Therefore, in the future Kodein-DI may be replaced in Bootable with some other DI-agnostic approach such as context injection or even basic constructor injection.
+
 == TODOs
 
-* Multiple logging implementations for different scenarios, loggingInit via `ServiceLoader`
+* [ ] Replace unmaintained https://github.com/rocketraman/cfg4k[cfg4k] with https://github.com/sksamuel/hoplite[hoplite] for configuration
+* [ ] Do we need really Kodein-DI? At the moment, only the `boot` function uses it, and that could easily be "fixed".
+The config and environment modules also expose Kodein modules, but could just as easily not do so.
+* [ ] Multiple logging implementations for different scenarios, loggingInit via `ServiceLoader` — or perhaps remain opinionated and do not do this?
+* [ ] Create a boot-server-http-ktor-cohort module using https://github.com/sksamuel/cohort[Cohort]
+* [ ] Update the ktor example to integrate https://github.com/sksamuel/hoplite[Kompendium] — this is outside the scope of Bootable, but it would be a good example of how to integrate Bootable with other libraries
+* [ ] Make multiplatform — some modules are backend only e.g. Hoplite, Log4j2, but others could easily be adapted for multiplatform usage
 
 == Author
 
