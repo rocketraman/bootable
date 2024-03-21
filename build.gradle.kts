@@ -7,6 +7,7 @@ plugins {
 }
 
 val kotlinVersion: String by System.getProperties()
+val signingRequired: String by project
 
 repositories {
   mavenCentral()
@@ -71,7 +72,7 @@ subprojects {
 
   publishing {
     publications {
-      create<MavenPublication>("mavenCentral") {
+      create<MavenPublication>("maven") {
         artifact(javadocJar)
         from(components["java"])
         pom {
@@ -110,9 +111,11 @@ subprojects {
     }
   }
 
-  signing {
-    useGpgCmd()
-    sign(publishing.publications["mavenCentral"])
+  if (signingRequired.toBoolean()) {
+    signing {
+      useGpgCmd()
+      sign(publishing.publications["maven"])
+    }
   }
 }
 
