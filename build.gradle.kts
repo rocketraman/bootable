@@ -1,7 +1,7 @@
 plugins {
   val kotlinVersion: String by System.getProperties()
   kotlin("jvm") version kotlinVersion
-  id("org.jetbrains.dokka") version "1.9.10"
+  id("org.jetbrains.dokka") version "1.9.20"
   signing
   `maven-publish`
 }

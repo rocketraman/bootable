@@ -11,7 +11,7 @@ import io.ktor.server.routing.*
 import kotlinx.html.*
 import org.apache.logging.log4j.kotlin.logger
 import org.kodein.di.DI
-import org.kodein.di.instance
+import org.kodein.di.new
 import org.kodein.di.singleton
 
 fun HTML.index() {
@@ -48,7 +48,7 @@ val serverModule = DI.Module("serverModule") {
 
   bindConfig<ServerConfig>("server")
 
-  bindAppService { singleton { ExampleServer(instance<ServerConfig>()) } }
+  bindAppService { singleton { new(::ExampleServer) } }
 }
 
 fun main() {
