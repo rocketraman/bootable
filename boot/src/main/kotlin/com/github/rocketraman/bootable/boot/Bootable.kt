@@ -10,10 +10,11 @@ import kotlin.system.exitProcess
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 
-class Bootable constructor(
+class Bootable(
   private val appServices: Set<AppService>,
   private val lifecycleControllers: Set<LifecycleController>,
-  private val maxShutdownTime: Long = 30) {
+  private val maxShutdownTime: Long = 30
+) {
 
   @Volatile private var running = true
   private val terminationQueue = SynchronousQueue<Int>()
@@ -76,7 +77,7 @@ class Bootable constructor(
 
   private fun appShutdown() {
     lifecycleControllers.sortedBy { it.priority() }.forEach {
-      it.appShutdown(ServiceContext(appServices, ::serviceStart, ::serviceShutdown), maxShutdownTime, ::exit)
+      it.appShutdown(ServiceContext(appServices, ::serviceStart, ::serviceShutdown), maxShutdownTime, ::halt)
     }
   }
 
@@ -134,14 +135,18 @@ class Bootable constructor(
     log.warn { "==> Service ${service.javaClass.simpleName} died… shutting down system." }
     timer(name = "forceShutdownTimer", daemon = true, initialDelay = 30000, period = Long.MAX_VALUE) {
       log.warn { "Application died but did not shutdown normally, forcing exit. Current stack trace: ${threadStacks()}" }
-      exit(1)
+      halt(1)
     }
     appTerminate(1)
   }
 
-  private fun exit(exitCode: Int = 0) {
+  private fun exit(status: Int = 0) {
     // we're exiting the process now, no need for the shutdown hook
     Runtime.getRuntime().removeShutdownHook(shutdownHook)
-    exitProcess(exitCode)
+    exitProcess(status)
+  }
+
+  private fun halt(status: Int = 0) {
+    Runtime.getRuntime().halt(status)
   }
 }

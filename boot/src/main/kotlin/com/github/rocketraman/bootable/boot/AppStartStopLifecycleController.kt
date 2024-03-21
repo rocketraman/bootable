@@ -17,10 +17,10 @@ class AppStartStopLifecycleController: LifecycleController {
     serviceContext.appServices.sortedByDescending { it.priority() }.forEach(serviceContext.serviceStart)
   }
 
-  override fun appShutdown(serviceContext: ServiceContext, maxShutdownTime: Long, exitProcess: (exitCode: Int) -> Unit) {
+  override fun appShutdown(serviceContext: ServiceContext, maxShutdownTime: Long, haltProcess: (status: Int) -> Unit) {
     timer(name = "shutdownTimer", daemon = true, initialDelay = maxShutdownTime * 1000, period = Long.MAX_VALUE) {
       log.warn { "Application stopped but did not shutdown normally, forcing exit. Current stack trace: ${threadStacks()}" }
-      exitProcess(1)
+      haltProcess(1)
     }
     serviceContext.appServices.sortedBy { it.priority() }.forEach(serviceContext.serviceShutdown)
   }
