@@ -1,0 +1,5 @@
+# Bootable Configuration Module (Hoplite)
+
+## Overview
+
+TODO

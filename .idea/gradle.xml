@@ -14,6 +14,7 @@
             <option value="$PROJECT_DIR$/boot-common" />
             <option value="$PROJECT_DIR$/boot-config-cfg4k" />
             <option value="$PROJECT_DIR$/boot-config-common" />
+            <option value="$PROJECT_DIR$/boot-config-hoplite" />
             <option value="$PROJECT_DIR$/boot-env" />
             <option value="$PROJECT_DIR$/boot-logging" />
             <option value="$PROJECT_DIR$/boot-logging-log4j2" />

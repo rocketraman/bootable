@@ -10,10 +10,7 @@ import com.jdiazcano.cfg4k.providers.cache
 import com.jdiazcano.cfg4k.reloadstrategies.FileChangeReloadStrategy
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
-import org.kodein.di.DI
-import org.kodein.di.bind
-import org.kodein.di.multiton
-import org.kodein.di.singleton
+import org.kodein.di.*
 import java.io.File
 
 /**
@@ -65,5 +62,9 @@ fun configModule(
 
   bind<ConfigProvider>("reloadable") with multiton { file: File ->
     ProxyConfigProvider(HoconConfigLoader(file), FileChangeReloadStrategy(file)).cache()
+  }
+
+  bind<ConfigBinder> {
+    singleton { new(::Cfg4kConfigBinder) }
   }
 }

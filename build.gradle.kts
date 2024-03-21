@@ -140,12 +140,23 @@ project("boot-common") {
 
 project("boot-config-cfg4k") {
   dependencies {
-    implementation(project(":boot"))
+    api(project(":boot-config-common"))
     // com.jdiazcano.cfg4k -> com.github.rocketraman.cfg4k temporarily
     // see https://github.com/jdiazcano/cfg4k/issues/67
     api("com.github.rocketraman.cfg4k:cfg4k-core:${rootProject.libs.versions.cfg4k.get()}")
     api("com.github.rocketraman.cfg4k:cfg4k-hocon:${rootProject.libs.versions.cfg4k.get()}")
     api("com.typesafe:config:${rootProject.libs.versions.config.get()}")
+
+    implementation(project(":boot"))
+  }
+}
+
+project("boot-config-hoplite") {
+  dependencies {
+    api(project(":boot-config-common"))
+    api(rootProject.libs.bundles.hoplite)
+
+    implementation(project(":boot"))
   }
 }
 

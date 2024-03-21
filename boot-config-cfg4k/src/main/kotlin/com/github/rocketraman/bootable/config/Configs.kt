@@ -1,22 +1,15 @@
 package com.github.rocketraman.bootable.config
 
 import com.jdiazcano.cfg4k.providers.ConfigProvider
-import com.jdiazcano.cfg4k.providers.bind
 import org.kodein.di.*
 import org.kodein.di.bindings.NoArgBindingDI
 import java.io.File
 
 /**
- * Convenience function for binding configuration interfaces in Kodein modules via cfg4k. To use it,
- * simply do `bindConfig<ConfigInterfaceToBind>('config-key')`.
- */
-inline fun <reified T: Any> DI.Builder.bindConfig(key: String, tag: Any? = null) {
-  bind(tag) { singleton { instance<ConfigProvider>().bind<T>(key) } }
-}
-
-/**
  * Convenience function for binding a listenable config from a specific file. If [ignoreMissing] is true, then
  * a regular non-reloadable ConfigProvider is used.
+ *
+ * TODO move this interface to boot-common, once we have hoplite figured out.
  */
 inline fun <reified T: Any> DI.Builder.bindListenableConfigFile(path: String, key: String, tag: Any? = null, ignoreMissing: Boolean = false) {
   bind(tag) { singleton { ListenableConfig<T>(reloadableConfigProviderByFile(path, ignoreMissing), key) } }
