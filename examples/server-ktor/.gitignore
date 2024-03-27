@@ -8,8 +8,6 @@
 !.idea/codeStyleSettings.xml
 !.idea/inspectionProfiles
 
-application-local.conf
-
 # VSCode, ignore everything
 .vscode/
 

@@ -1,3 +1,6 @@
 import com.github.rocketraman.bootable.config.common.HostPort
 
-interface ServerConfig: HostPort
+data class ServerConfig(
+  override val hostPort: String,
+  val fakeSecret: String,
+) : HostPort

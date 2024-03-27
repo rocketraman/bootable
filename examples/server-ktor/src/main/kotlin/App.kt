@@ -25,13 +25,17 @@ fun HTML.index() {
   }
 }
 
-class ExampleServer(config: ServerConfig) : KtorService("test", config) {
+class ExampleServer(config: ServerConfig, private val hello: HelloConfig) : KtorService("test", config) {
   private val logger = logger()
 
   override fun Application.module() {
     routing {
       get("/") {
         call.respondHtml(HttpStatusCode.OK, HTML::index)
+      }
+
+      get("/hello") {
+        call.respond(HttpStatusCode.OK, hello.response)
       }
 
       get("/die") {
@@ -45,6 +49,8 @@ class ExampleServer(config: ServerConfig) : KtorService("test", config) {
 
 val serverModule = DI.Module("serverModule") {
   import(configModule)
+
+  bindConfig<HelloConfig>("hello")
 
   bindConfig<ServerConfig>("server")
 

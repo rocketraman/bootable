@@ -20,7 +20,7 @@ repositories {
 
 dependencies {
   implementation("com.github.rocketraman.bootable:boot:1.0.0-SNAPSHOT")
-  implementation("com.github.rocketraman.bootable:boot-config-cfg4k:1.0.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-config-hoplite:1.0.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-logging-log4j2:1.0.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor:1.0.0-SNAPSHOT")
   implementation("io.ktor:ktor-server-html-builder:2.3.6")
