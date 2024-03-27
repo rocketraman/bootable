@@ -2,4 +2,48 @@
 
 ## Overview
 
-TODO
+## Usage
+
+`import(configModule)`
+
+Configuration loading can be customized with optional parameters to `configModule`, providing additional stage 1, 2, or 3 config sources, as well as whether to use config reporting at startup, or to set secrets policies and obfuscators.
+
+## Environment Variable Mapping Rules
+
+The way Hoplite maps environment variables is a bit non-standard and non-idiomatic.
+
+Ideally, Hoplite would support an approach that allows defining environment variables in an idiomatic way, mapping these to properties in a configuration class.
+
+See https://github.com/sksamuel/hoplite/issues/410[hoplite issue #410].
+
+A workaround is to be explicit about support env var overrides by using the env var preprocessor which is registered by default.
+This allows defining properties with the syntax:
+
+```
+server {
+  hostPort = "${SERVER_HOSTPORT:-8000}"
+}
+```
+
+which would obtain this property from the `SERVER_HOSTPORT` environment variable, or default to `8000` if the environment variable is not set.
+
+## Custom Types
+
+Hoplite `Decoder` instances may be registered via the Java ServiceLoader framework, or registered via the `configModule` parameters.
+
+## Reporting
+
+By default, Hoplite will report on all config values that are loaded.
+This can be disabled by setting the `report = false` parameter of the `configModule`.
+
+A Hoplite `SecretsPolicy` passed to the `configModule will be used by the config loader.
+
+By default, a value is considered a secret if any of the following are true:
+
+* if a name contains "secret", "credential", or "pass" it is considered a secret
+* if a config source provides metadata that indicates the value is a secret
+* if the variable type is a Hoplite `Secret`.
+
+A Hoplite `Obfuscator` passed to the `configModule` will be used by the config loader.
+
+By default, values are strictly obfuscated.

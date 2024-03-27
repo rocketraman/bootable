@@ -40,8 +40,9 @@ Add additional modules as you wish.
 
 See https://github.com/rocketraman/cfg4k[cfg4k].
 
-Unmaintained but works very well.
 Add this module to your project to use cfg4k for configuration.
+Note that while cfg4k works well, it is unmaintained.
+We recommend using Hoplite instead.
 
 xref:./boot-config-cfg4k/README.adoc[Documentation]
 
