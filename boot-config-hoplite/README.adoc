@@ -4,9 +4,10 @@
 
 ## Usage
 
-`import(configModule)`
+* `import(configModule)`, OR
+* `import(configModule(...))`
 
-Configuration loading can be customized with optional parameters to `configModule`, providing additional stage 1, 2, or 3 config sources, as well as whether to use config reporting at startup, or to set secrets policies and obfuscators.
+Configuration loading can be customized with optional parameters to the `configModule()` function, providing additional stage 1, 2, or 3 config sources, as well as whether to use config reporting at startup, or to set secrets policies and obfuscators.
 
 ## Environment Variable Mapping Rules
 

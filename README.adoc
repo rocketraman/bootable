@@ -50,10 +50,6 @@ xref:./boot-config-cfg4k/README.adoc[Documentation]
 
 See https://github.com/sksamuel/hoplite[hoplite].
 
-Incubating.
-Ideally this will replace the unmaintained cfg4k.
-However, we are blocked on https://github.com/sksamuel/hoplite/issues/386[Issue 386].
-
 Add this module to your project to use Hoplite for configuration.
 
 xref:./boot-config-hoplite/README.adoc[Documentation]

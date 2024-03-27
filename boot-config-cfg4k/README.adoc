@@ -2,4 +2,9 @@
 
 ## Overview
 
-TODO
+## Usage
+
+* `import(configModule)`, OR
+* `import(configModule(...))`
+
+Configuration loading can be customized with optional parameters to the `configModule()` function, providing additional stage 1, 2, or 3 config sources.
