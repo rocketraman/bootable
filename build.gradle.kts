@@ -27,6 +27,11 @@ subprojects {
 
   repositories {
     mavenCentral()
+    mavenLocal {
+      content {
+        includeGroup("com.sksamuel.hoplite")
+      }
+    }
   }
 
   dependencies {

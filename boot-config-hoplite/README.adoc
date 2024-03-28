@@ -11,22 +11,9 @@ Configuration loading can be customized with optional parameters to the `configM
 
 ## Environment Variable Mapping Rules
 
-The way Hoplite maps environment variables is a bit non-standard and non-idiomatic.
+Bootable injects a Hoplite `ParameterMapper` that maps configuration properties to environment variables https://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/#features.external-config.typesafe-configuration-properties.relaxed-binding.environment-variables[in the same way that Spring Boot does], less the support for arrays/lists.
 
-Ideally, Hoplite would support an approach that allows defining environment variables in an idiomatic way, mapping these to properties in a configuration class.
-
-See https://github.com/sksamuel/hoplite/issues/410[hoplite issue #410].
-
-A workaround is to be explicit about support env var overrides by using the env var preprocessor which is registered by default.
-This allows defining properties with the syntax:
-
-```
-server {
-  hostPort = "${SERVER_HOSTPORT:-8000}"
-}
-```
-
-which would obtain this property from the `SERVER_HOSTPORT` environment variable, or default to `8000` if the environment variable is not set.
+See also https://github.com/sksamuel/hoplite/issues/410[hoplite issue #410].
 
 ## Custom Types
 

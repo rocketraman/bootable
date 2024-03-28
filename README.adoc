@@ -36,7 +36,7 @@ Add additional modules as you wish.
 [[Configuration]]
 === Configuration
 
-==== cfg4k
+==== cfg4k (Deprecated)
 
 See https://github.com/rocketraman/cfg4k[cfg4k].
 

@@ -1,9 +1,9 @@
 package com.github.rocketraman.bootable.config
 
-import com.sksamuel.hoplite.ConfigLoader
+import com.sksamuel.hoplite.ConfigBinder as UpstreamConfigBinder
 import kotlin.reflect.KClass
 
-class HopliteConfigBinder(private val configLoaderFn: (String) -> ConfigLoader): ConfigBinder {
+class HopliteConfigBinder(private val binder: UpstreamConfigBinder): ConfigBinder {
   override fun <T: Any> configOf(prefix: String, type: KClass<T>): T =
-    configLoaderFn(prefix).loadConfigOrThrow(type, emptyList())
+    binder.bindOrThrow(type, prefix)
 }
