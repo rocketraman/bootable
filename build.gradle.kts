@@ -192,5 +192,5 @@ project("boot-server-http-ktor") {
 }
 
 tasks.dokkaHtmlMultiModule.configure {
-  outputDirectory = layout.buildDirectory.dir("apidocs")
+  outputDirectory.set(layout.buildDirectory.dir("apidocs"))
 }

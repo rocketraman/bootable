@@ -23,8 +23,14 @@
         </option>
       </GradleProjectSettings>
       <GradleProjectSettings>
+        <compositeConfiguration>
+          <compositeBuild compositeDefinitionSource="IDE">
+            <builds>
+              <build path="$PROJECT_DIR$" name="bootable" />
+            </builds>
+          </compositeBuild>
+        </compositeConfiguration>
         <option name="externalProjectPath" value="$PROJECT_DIR$/examples/server-ktor" />
-        <option name="gradleHome" value="$OPTDIR$/gradle-7" />
         <option name="gradleJvm" value="#JAVA_HOME" />
         <option name="modules">
           <set>
