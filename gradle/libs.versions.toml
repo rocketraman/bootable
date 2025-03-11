@@ -1,7 +1,7 @@
 [versions]
 cfg4k = "0.9.6"
 config = "1.4.2"
-hoplite = "2.7.5"
+hoplite = "2.9.0-LOCAL"
 junit-jupiter = "5.10.0"
 kodein = "7.21.2"
 kotlinx-coroutines = "1.8.0"

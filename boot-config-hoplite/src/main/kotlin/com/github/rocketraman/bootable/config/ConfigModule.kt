@@ -1,13 +1,20 @@
 package com.github.rocketraman.bootable.config
 
 import com.sksamuel.hoplite.*
+import com.sksamuel.hoplite.ConfigBinder as UpstreamConfigBinder
 import com.sksamuel.hoplite.decoder.Decoder
 import com.sksamuel.hoplite.secrets.Obfuscator
 import com.sksamuel.hoplite.secrets.SecretsPolicy
 import com.sksamuel.hoplite.secrets.StandardSecretsPolicy
 import com.sksamuel.hoplite.secrets.StrictObfuscator
-import com.sksamuel.hoplite.sources.*
-import org.kodein.di.*
+import com.sksamuel.hoplite.sources.SystemPropertiesPropertySource
+import com.sksamuel.hoplite.sources.UserSettingsPropertySource
+import com.sksamuel.hoplite.sources.XdgConfigPropertySource
+import com.sksamuel.hoplite.transformer.PathNormalizer
+import org.kodein.di.DI
+import org.kodein.di.bind
+import org.kodein.di.new
+import org.kodein.di.singleton
 
 /**
  * A default Hoplite-based configuration module, that reads properties in the following order, from highest priority
@@ -47,18 +54,14 @@ fun configModule(
   report: Boolean = true,
   strict: Boolean = false,
 ) = DI.Module("configModule") {
-  bind<ConfigLoader> {
-    // workaround https://github.com/sksamuel/hoplite/issues/386 by making it a factory with the prefix
-    // ideally we can move this back to a singleton later
-    // at the moment, it will cause the config to be reloaded for every prefix, which is not ideal, and
-    // if reporting is enabled, a report will print out for every prefix as well
-    factory { prefix: String ->
+  bind<UpstreamConfigBinder> {
+    singleton {
       @OptIn(ExperimentalHoplite::class)
       ConfigLoaderBuilder.empty()
         .addDefaultDecoders()
         .addDecoders(decoders)
         .addDefaultPreprocessors()
-        .addPreprocessor(PrefixPreprocessor(prefix))
+        .addDefaultNodeTransformers()
         .addDefaultParamMappers()
         .withConfigStage1()
         .addEnvironmentSource()
@@ -80,11 +83,13 @@ fun configModule(
             strict()
           }
         }
+        .withExplicitSealedTypes()
         .build()
+        .configBinder()
     }
   }
 
   bind<ConfigBinder> {
-    singleton { HopliteConfigBinder(factory()) }
+    singleton { new(::HopliteConfigBinder) }
   }
 }
