@@ -64,7 +64,7 @@ fun configModule(
         .addDefaultNodeTransformers()
         .addDefaultParamMappers()
         .withConfigStage1()
-        .addIdiomaticEnvironmentSource()
+        .addEnvironmentSource()
         .addPropertySource(SystemPropertiesPropertySource) // requires config.override. prefix
         .addPropertySource(UserSettingsPropertySource)
         .addPropertySource(XdgConfigPropertySource)
