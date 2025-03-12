@@ -61,7 +61,7 @@ subprojects {
   }
 
   dependencies {
-    implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
+    implementation(platform(rootProject.libs.kotlin.bom))
     api(rootProject.libs.kodein.di)
   }
 
@@ -150,7 +150,7 @@ project("boot") {
     // todo for now, we depend on boot-logging-log4j2, later we could use service loaders to discover implementations at runtime
     implementation(project(":boot-logging-log4j2"))
 
-    implementation(kotlin("reflect"))
+    implementation(rootProject.libs.kotlin.reflect)
   }
 
   kotlin {
