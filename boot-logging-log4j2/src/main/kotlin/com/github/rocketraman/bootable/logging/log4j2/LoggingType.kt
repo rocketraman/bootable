@@ -14,6 +14,7 @@ enum class LoggingType {
   ;
 
   companion object {
+    @OptIn(ExperimentalStdlibApi::class)
     fun valueOfOrNull(value: String): LoggingType? = entries.firstOrNull { it.name == value.uppercase() }
   }
 }

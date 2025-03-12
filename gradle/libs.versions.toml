@@ -1,15 +1,27 @@
 [versions]
 cfg4k = "0.9.6"
-config = "1.4.2"
+config = "1.4.3"
+dokka = "2.0.0"
 hoplite = "2.9.0-LOCAL"
-junit-jupiter = "5.10.0"
-kodein = "7.21.2"
-kotlinx-coroutines = "1.8.0"
-ktor = "2.3.9"
-log4j = "2.23.1"
-log4j-kotlin-api = "1.4.0"
+junit-jupiter = "5.12.0"
+kodein = "7.25.0"
+kotlin = "2.1.10"
+kotlinx-coroutines = "1.10.1"
+ktor = "3.1.1"
+log4j = "2.24.3"
+log4j-kotlin-api = "1.5.0"
+
+[plugins]
+dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
+dokka-javadoc = { id = "org.jetbrains.dokka-javadoc", version.ref = "dokka" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 
 [libraries]
+# com.jdiazcano.cfg4k -> com.github.rocketraman.cfg4k temporarily
+# see https://github.com/jdiazcano/cfg4k/issues/67
+cfg4k-core = { module = "com.github.rocketraman.cfg4k:cfg4k-core", version.ref = "cfg4k" }
+cfg4k-hocon = { module = "com.github.rocketraman.cfg4k:cfg4k-hocon", version.ref = "cfg4k" }
+
 hoplite-core = { module = "com.sksamuel.hoplite:hoplite-core", version.ref = "hoplite" }
 hoplite-hocon = { module = "com.sksamuel.hoplite:hoplite-hocon", version.ref = "hoplite" }
 
@@ -29,11 +41,14 @@ ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor"
 
 log4j-api = { module = "org.apache.logging.log4j:log4j-api", version.ref = "log4j" }
 log4j-api-kotlin = { module = "org.apache.logging.log4j:log4j-api-kotlin", version.ref = "log4j-kotlin-api" }
+log4j-bom = { module = "org.apache.logging.log4j:log4j-bom", version.ref = "log4j" }
 log4j-iostreams = { module = "org.apache.logging.log4j:log4j-iostreams", version.ref = "log4j" }
 log4j-core = { module = "org.apache.logging.log4j:log4j-core", version.ref = "log4j" }
 log4j-jul = { module = "org.apache.logging.log4j:log4j-jul", version.ref = "log4j" }
 log4j-layout-template-json = { module = "org.apache.logging.log4j:log4j-layout-template-json", version.ref = "log4j" }
 log4j-slf4j-impl = { module = "org.apache.logging.log4j:log4j-slf4j2-impl", version.ref = "log4j" }
+
+typesafe-config = { module = "com.typesafe:config", version.ref = "config" }
 
 [bundles]
 hoplite = [

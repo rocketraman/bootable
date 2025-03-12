@@ -18,24 +18,26 @@ abstract class KtorService(
   private val hostPort: HostPort
 ) : AdvancedAppService {
 
-  lateinit var server: ApplicationEngine
+  lateinit var server: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>
 
   lateinit var die: () -> Unit
 
   override fun start(die: () -> Unit) {
     this.die = die
-    val environment = applicationEngineEnvironment {
+    val environment = applicationEnvironment {
       log = LoggerFactory.getLogger(name)
-      connector {
-        host = this@KtorService.hostPort.host()
-        port = this@KtorService.hostPort.port(8080)
-      }
-      this.module {
-        module()
-      }
     }
 
-    server = embeddedServer(Netty, environment)
+    server = embeddedServer(Netty,
+      environment = environment,
+      configure = {
+        connector {
+          host = this@KtorService.hostPort.host()
+          port = this@KtorService.hostPort.port(8080)
+        }
+      },
+      { module() }
+    )
     server.start(false)
   }
 

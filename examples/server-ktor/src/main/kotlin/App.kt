@@ -22,6 +22,18 @@ fun HTML.index() {
     div {
       +"Hello from Ktor"
     }
+    div {
+      p {
+        a(href = "/hello") {
+          +"/Hello"
+        }
+      }
+      p {
+        a(href = "/die") {
+          +"/Die"
+        }
+      }
+    }
   }
 }
 
@@ -31,10 +43,12 @@ class ExampleServer(config: ServerConfig, private val hello: HelloConfig) : Ktor
   override fun Application.module() {
     routing {
       get("/") {
+        logger.info { "/ called, returning index" }
         call.respondHtml(HttpStatusCode.OK, HTML::index)
       }
 
       get("/hello") {
+        logger.info { "/hello called, returning response ${hello.response}" }
         call.respond(HttpStatusCode.OK, hello.response)
       }
 

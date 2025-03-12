@@ -1,0 +1,30 @@
+[versions]
+bootable = "2.0.0-SNAPSHOT"
+junit-jupiter = "5.12.0"
+kotlin = "2.1.10"
+kotlinx-html = "0.12.0"
+ktor = "3.1.1"
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+
+[libraries]
+bootable-boot = { module = "com.github.rocketraman.bootable:boot", version.ref = "bootable" }
+bootable-boot-config-hoplite = { module = "com.github.rocketraman.bootable:boot-config-hoplite", version.ref = "bootable" }
+bootable-boot-logging-log4j2 = { module = "com.github.rocketraman.bootable:boot-logging-log4j2", version.ref = "bootable" }
+bootable-boot-server-http-ktor = { module = "com.github.rocketraman.bootable:boot-server-http-ktor", version.ref = "bootable" }
+
+junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit-jupiter" }
+junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit-jupiter" }
+
+kotlinx-html = { module = "org.jetbrains.kotlinx:kotlinx-html", version.ref = "kotlinx-html" }
+
+ktor-server-html-builder = { module = "io.ktor:ktor-server-html-builder", version.ref = "ktor" }
+
+[bundles]
+bootable = [
+  "bootable-boot",
+  "bootable-boot-config-hoplite",
+  "bootable-boot-logging-log4j2",
+  "bootable-boot-server-http-ktor",
+]

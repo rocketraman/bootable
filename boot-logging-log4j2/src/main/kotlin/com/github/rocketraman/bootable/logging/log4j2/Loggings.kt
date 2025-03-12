@@ -6,6 +6,8 @@ import org.apache.logging.log4j.LogManager
 import org.apache.logging.log4j.io.IoBuilder
 import org.apache.logging.log4j.kotlin.logger
 
+private var loggingIsInitialized = false
+
 /**
  * Basic setup that should be done at application initialization time, before anything else is done, such
  * as setting system properties or configuring logging. Call this before the application dependency graph is
@@ -45,12 +47,19 @@ fun loggingInit(redirectStandardOutErr: Boolean = true, loggingType: String? = n
  * * Configuration provided by `log4j2-<loggingtype>.xml` e.g. `log4j2-color.xml`
  * * Configuration provided by `log4j2.xml`
  */
+@OptIn(ExperimentalStdlibApi::class)
 fun loggingInit(
   redirectStandardOutErr: Boolean = true,
   loggingType: LoggingType? = null,
   allowMerging: Boolean = true,
   overrideLoggingLevel: BootLoggingLevel? = null,
 ) {
+  // prevent double initialization -- this isn't meant to be thread-safe, initialization should occur immediately
+  // on startup before anything else is done, also this method is idempotent except that the logging occurs twice
+  if (loggingIsInitialized) return
+
+  loggingIsInitialized = true
+
   fun setSystemPropIfNotSet(prop: String, value: String) {
     if(System.getProperty(prop) == null) System.setProperty(prop, value)
   }
