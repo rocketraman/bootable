@@ -11,10 +11,9 @@ interface ConfigBinder {
 }
 
 /**
- * Convenience function for binding configuration classes in Kodein modules via hoplite. To use it,
- * simply do `bindConfig<ConfigClassToBind>()`.
- *
- * At the moment, we do not support prefix-based bindings, see https://github.com/sksamuel/hoplite/issues/386.
+ * Convenience function for binding configuration classes in Kodein modules via hoplite. To use it, simply do
+ * `bindConfig<ConfigClassToBind>()` with an optional key (config prefix) if the related configuration is in its
+ * own section.
  */
 inline fun <reified T: Any> DI.Builder.bindConfig(key: String, tag: Any? = null) {
   bind(tag) { singleton { instance<ConfigBinder>().configOf(key, T::class) } }
