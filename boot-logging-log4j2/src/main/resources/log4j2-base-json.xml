@@ -2,7 +2,7 @@
 <Configuration status="error">
   <Appenders>
     <Console name="Console" target="SYSTEM_OUT" direct="true">
-      <JsonLayout eventEol="true" compact="true" stacktraceAsString="true" objectMessageAsJsonObject="true" properties="true"/>
+      <JsonTemplateLayout locationInfoEnabled="${env:LOGGING_LOCATION_ENABLED:-${sys:logging.location.enabled:-false}}"/>
     </Console>
   </Appenders>
   <Loggers>

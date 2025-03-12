@@ -1,6 +1,5 @@
 plugins {
-  val kotlinVersion: String by System.getProperties()
-  kotlin("jvm") version kotlinVersion
+  alias(libs.plugins.kotlin.jvm)
   application
 }
 
@@ -19,17 +18,20 @@ repositories {
 }
 
 dependencies {
-  implementation("com.github.rocketraman.bootable:boot:1.0.0-SNAPSHOT")
-  implementation("com.github.rocketraman.bootable:boot-config-hoplite:1.0.0-SNAPSHOT")
-  implementation("com.github.rocketraman.bootable:boot-logging-log4j2:1.0.0-SNAPSHOT")
-  implementation("com.github.rocketraman.bootable:boot-server-http-ktor:1.0.0-SNAPSHOT")
-  implementation("io.ktor:ktor-server-html-builder:2.3.6")
-  implementation("io.ktor:ktor-server-netty:2.3.6")
-  implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.8.0")
+  // Mix-and-match bootable modules as necessary.
+  // This basic set provides the basic boot functionality configuration via hoplite, logging via log4j2, and convenience
+  // methods for exposing ktor services.
+  implementation(libs.bootable.boot)
+  implementation(libs.bootable.boot.config.hoplite)
+  implementation(libs.bootable.boot.logging.log4j2)
+  implementation(libs.bootable.boot.server.http.ktor)
+
+  implementation(libs.ktor.server.html.builder)
+  implementation(libs.kotlinx.html)
 
   testImplementation(kotlin("test-junit5"))
-  testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
-  testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.0")
+  testImplementation(libs.junit.jupiter.api)
+  testRuntimeOnly(libs.junit.jupiter.engine)
 }
 
 tasks.test {
@@ -37,7 +39,7 @@ tasks.test {
 }
 
 kotlin {
-  jvmToolchain(17)
+  jvmToolchain(21)
 }
 
 java {
