@@ -2,7 +2,7 @@
 <Configuration status="error">
   <Appenders>
     <Console name="Console" target="SYSTEM_OUT" direct="true">
-      <JsonTemplateLayout eventTemplateUri="classpath:GoogleCloudJsonEventLayout.json" locationInfoEnabled="${env:LOGGING_LOCATION_ENABLED:-${sys:logging.location.enabled:-false}}"/>
+      <JsonTemplateLayout eventTemplateUri="classpath:GcpLayout.json" locationInfoEnabled="${env:LOGGING_LOCATION_ENABLED:-${sys:logging.location.enabled:-false}}"/>
     </Console>
   </Appenders>
   <Loggers>
