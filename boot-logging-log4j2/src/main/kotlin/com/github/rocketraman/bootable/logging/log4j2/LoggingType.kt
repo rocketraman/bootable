@@ -6,7 +6,6 @@ enum class LoggingType {
   PLAIN,
   DEFAULT,
   // json types
-  /** Note that the JSON type requires the implementor to provide Jackson on the runtime classpath. */
   JSON,
   GCLOUD,
   // no logging
