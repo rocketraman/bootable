@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="error">
   <Appenders>
-    <Console name="Console">
-      <PatternLayout disableAnsi="${LOG_DISABLE_ANSI:false}" pattern="%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd HH:mm:ss.SSS}} %highlight{${LOG_LEVEL_PATTERN:-%5p}}{FATAL=red blink, ERROR=red, WARN=yellow bold, INFO=green, DEBUG=green bold, TRACE=blue} [%15.15t] %style{%-40.40c{1.}}{cyan} : %X %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%xEx}"/>
+    <!-- Setting direct to false can cause a race with standard i/o redirection -->
+    <Console name="Console" direct="${env:LOGGING_CONSOLE_DIRECT:-${sys:logging.console.direct:-true}}">
+      <PatternLayout disableAnsi="${env:LOGGING_ANSI_DISABLE:-${sys:logging.ansi.disable:-false}}" pattern="%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd HH:mm:ss.SSS}} %highlight{${LOG_LEVEL_PATTERN:-%5p}}{FATAL=red blink, ERROR=red, WARN=yellow bold, INFO=green, DEBUG=green bold, TRACE=blue} [%15.15t] %style{%-40.40c{1.}}{cyan} : %X %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%xEx}"/>
     </Console>
   </Appenders>
   <Loggers>

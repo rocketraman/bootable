@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="error">
   <Appenders>
-    <Console name="Console" target="SYSTEM_OUT" direct="true">
+    <!-- Setting direct to false can cause a race with standard i/o redirection -->
+    <Console name="Console" direct="${env:LOGGING_CONSOLE_DIRECT:-${sys:logging.console.direct:-true}}">
       <JsonTemplateLayout eventTemplateUri="classpath:GcpLayout.json" locationInfoEnabled="${env:LOGGING_LOCATION_ENABLED:-${sys:logging.location.enabled:-false}}"/>
     </Console>
   </Appenders>
