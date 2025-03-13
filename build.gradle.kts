@@ -11,21 +11,6 @@ plugins {
 
 val signingRequired: String by project
 
-repositories {
-  // for the hoplite version built from github/rocketraman/hoplite
-  maven {
-    url = uri("https://maven.pkg.github.com/rocketraman/hoplite")
-    credentials {
-      username = project.findProperty("githubRepoUser") as? String ?: ""
-      password = project.findProperty("githubRepoToken") as? String ?: ""
-    }
-    mavenContent {
-      includeGroup("com.sksamuel.hoplite")
-    }
-  }
-  mavenCentral()
-}
-
 dependencies {
   dokka(project(":boot"))
   dokka(project(":boot-common"))
@@ -38,6 +23,11 @@ dependencies {
   dokka(project(":boot-server-http-ktor"))
 }
 
+allprojects {
+  group = "com.github.rocketraman.bootable"
+  version = "2.0.1"
+}
+
 subprojects {
   apply {
     plugin("java-library")
@@ -46,18 +36,6 @@ subprojects {
     plugin("org.jetbrains.dokka-javadoc")
     plugin("signing")
     plugin("maven-publish")
-  }
-
-  group = "com.github.rocketraman.bootable"
-  version = "2.0.1"
-
-  repositories {
-    mavenCentral()
-    mavenLocal {
-      content {
-        includeGroup("com.sksamuel.hoplite")
-      }
-    }
   }
 
   dependencies {
