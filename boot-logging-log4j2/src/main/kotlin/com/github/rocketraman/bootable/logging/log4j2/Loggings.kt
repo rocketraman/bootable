@@ -64,9 +64,6 @@ fun loggingInit(
     if(System.getProperty(prop) == null) System.setProperty(prop, value)
   }
 
-  // JUL should use log4j2
-  setSystemPropIfNotSet("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager")
-
   if (overrideLoggingLevel != null) {
     setSystemPropIfNotSet("logging.level", overrideLoggingLevel.name)
   }
@@ -98,6 +95,9 @@ fun loggingInit(
     // TODO test this
     LoggingType.EMPTY -> "log4j2-base-empty.xml"
   }.let { if (allowMerging) "$it,log4j2-${configuredLoggingType.name.lowercase()}.xml,log4j2.xml" else it })
+
+  // JUL should use log4j2
+  setSystemPropIfNotSet("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager")
 
   // redirect std out and err to the logger (for third party libs that are not good standard out/err citizens)
   if(redirectStandardOutErr) {
