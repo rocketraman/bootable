@@ -38,6 +38,17 @@ fun loggingInit(redirectStandardOutErr: Boolean = true, loggingType: String? = n
  *
  * CLI tools can use this too, but should specify [redirectStandardOutErr] as `false`.
  *
+ * If the Console appender is configured in follow mode, DO NOT set [redirectStandardOutErr] to `true` -- this
+ * will cause a Log4j2 "Recursive call to appender Console" error.
+ *
+ * In addition, if packaging the application in a fat jar via shadow functionality, in some cases (if
+ * `Multi-Release: true` is not set), then Log4j2 can initialize multiple contexts, and this may cause an issue
+ * with the Console appender reading System.out *after* standard I/O has already ben redirected, which will
+ * again cause the Log4j2 "Recursive call to appender Console" error.
+ *
+ * The default mode Console appender is configured with is direct=true and follow=false which should avoid these
+ * issues. Change that configuration under advisement if [redirectStandardOutErr] remains `true`.
+ *
  * Allow merging specifies whether a log4j2.xml file should be merged with the base configuration file. This
  * is true by default and allows projects to specify their own log4j2.xml files that are merged with the base
  * configuration.
@@ -99,12 +110,6 @@ fun loggingInit(
   // JUL should use log4j2
   setSystemPropIfNotSet("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager")
 
-  // redirect std out and err to the logger (for third party libs that are not good standard out/err citizens)
-  if(redirectStandardOutErr) {
-    System.setOut(IoBuilder.forLogger(LogManager.getLogger("STDOUT")).setLevel(Level.INFO).buildPrintStream())
-    System.setErr(IoBuilder.forLogger(LogManager.getLogger("STDERR")).setLevel(Level.WARN).buildPrintStream())
-  }
-
   val initLogger = logger("com.github.rocketraman.bootable.logging.log4j2.loggingInit")
 
   warnings.forEach { w ->
@@ -112,4 +117,13 @@ fun loggingInit(
   }
 
   initLogger.debug { "Logger initialization complete, stdout/err redirection = $redirectStandardOutErr" }
+
+  // redirect std out and err to the logger (for third party libs that are not good standard out/err citizens)
+  // this is done *after* logging system initialization to avoid races with the Console appender read of System.out
+  // in non-direct mode
+  // NOTE: this is also incompatible with Console appender in follow mode
+  if(redirectStandardOutErr) {
+    System.setOut(IoBuilder.forLogger(LogManager.getLogger("STDOUT")).setLevel(Level.INFO).buildPrintStream())
+    System.setErr(IoBuilder.forLogger(LogManager.getLogger("STDERR")).setLevel(Level.WARN).buildPrintStream())
+  }
 }
