@@ -3,7 +3,7 @@ package com.github.rocketraman.bootable.boot
 import org.kodein.di.*
 import org.kodein.di.bindings.DIBinding
 
-fun DI.Builder.bindLifecycleControllerSet() = bindSet<LifecycleController>()
+internal fun DI.Builder.bindLifecycleControllerSet() = bindSet<LifecycleController>()
 
 /**
  * Convenience binding function for lifecycle controllers.

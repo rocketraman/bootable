@@ -3,7 +3,7 @@ package com.github.rocketraman.bootable.boot
 import org.kodein.di.*
 import org.kodein.di.bindings.DIBinding
 
-fun DI.Builder.bindAppServiceSet() = bindSet<AppService>()
+internal fun DI.Builder.bindAppServiceSet() = bindSet<AppService>()
 
 /**
  * Convenience binding function for application services. Use it like this in a module:
