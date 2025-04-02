@@ -22,5 +22,24 @@ fun DI.Builder.bindAppService() = bind<AppService>().inSet()
  * ```
  * bindAppService { singleton { Whatever() } }
  * ```
+ *
+ * See also [bindAppServiceWith] if the type itself should be bound as well.
  */
-fun DI.Builder.bindAppService(createBinding: () -> DIBinding<*, *, AppService>) = inBindSet { add(createBinding) }
+fun DI.Builder.bindAppService(createBinding: () -> DIBinding<*, *, out AppService>) =
+  inBindSet { add(createBinding) }
+
+/**
+ * Convenience binding function for binding the given binding as an [AppService], as well as the given type T.
+ *
+ * ```
+ * bindAsAppService<Whatever> { singleton { Whatever() } }
+ * ```
+ *
+ * See [bindAppService] if the type itself does not need to be bound.
+ */
+inline fun <reified T: AppService> DI.Builder.bindAppServiceWith(crossinline createBinding: () -> DIBinding<*, *, out T>) {
+  createBinding().let {
+    bind<T>() with it
+    inBindSet<AppService> { add { it } }
+  }
+}
