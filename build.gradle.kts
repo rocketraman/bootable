@@ -105,12 +105,20 @@ subprojects {
     }
     repositories {
       maven {
-        url = uri("https://oss.sonatype.org/service/local/staging/deploy/maven2")
+        // https://central.sonatype.org/publish/publish-portal-ossrh-staging-api/#getting-started-for-maven-api-like-plugins
+        name = "sonatype"
+        url = uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2")
         credentials {
           username = project.findProperty("sonatypeUser") as? String
           password = project.findProperty("sonatypePassword") as? String
         }
       }
+    }
+  }
+
+  tasks.withType<PublishToMavenRepository>().configureEach {
+    if (signingRequired.toBoolean()) {
+      mustRunAfter(tasks.withType<Sign>())
     }
   }
 
