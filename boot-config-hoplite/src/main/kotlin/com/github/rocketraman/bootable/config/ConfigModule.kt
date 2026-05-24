@@ -19,7 +19,7 @@ import org.kodein.di.singleton
 /**
  * A default Hoplite-based configuration module, that reads properties in the following order, from highest priority
  * to lowest:
- * - environment variables (supports upper case, convert `__` to `.`)
+ * - environment variables (supports upper case, convert `_` to `.`)
  * - system properties (with `config.override.` prefix)
  * - `application-local.conf` in resources
  * - `application.conf` in resources

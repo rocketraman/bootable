@@ -3,6 +3,7 @@ rootProject.name = "bootable"
 dependencyResolutionManagement {
   @Suppress("UnstableApiUsage")
   repositories {
+/*
     // for the hoplite version built from github/rocketraman/hoplite
     maven {
       url = uri("https://maven.pkg.github.com/rocketraman/hoplite")
@@ -16,6 +17,7 @@ dependencyResolutionManagement {
         includeGroup("com.sksamuel.hoplite")
       }
     }
+*/
     mavenCentral()
   }
 }
