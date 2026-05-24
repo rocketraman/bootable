@@ -25,7 +25,7 @@ dependencies {
 
 allprojects {
   group = "com.github.rocketraman.bootable"
-  version = "2.0.3-SNAPSHOT"
+  version = "2.1.0"
 }
 
 subprojects {
