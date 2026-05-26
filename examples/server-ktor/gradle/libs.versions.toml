@@ -1,7 +1,7 @@
 [versions]
-bootable = "2.1.0"
+bootable = "2.2.0-SNAPSHOT"
 junit-jupiter = "5.12.0"
-kotlin = "2.1.10"
+kotlin = "2.3.21"
 kotlinx-html = "0.12.0"
 ktor = "3.1.1"
 

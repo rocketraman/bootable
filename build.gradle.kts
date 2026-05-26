@@ -1,6 +1,7 @@
 import com.vanniktech.maven.publish.JavaLibrary
 import com.vanniktech.maven.publish.JavadocJar
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
+import com.vanniktech.maven.publish.SourcesJar
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
@@ -66,7 +67,7 @@ subprojects {
     compilerOptions {
       // target 11 for max compatibility
       jvmTarget.set(JvmTarget.JVM_11)
-      apiVersion.set(KotlinVersion.KOTLIN_1_8)
+      apiVersion.set(KotlinVersion.KOTLIN_2_1)
       languageVersion.set(KotlinVersion.KOTLIN_2_1)
     }
   }
@@ -75,7 +76,7 @@ subprojects {
     configure(
       JavaLibrary(
         javadocJar = JavadocJar.Dokka("dokkaGeneratePublicationHtml"),
-        sourcesJar = true,
+        sourcesJar = SourcesJar.Sources(),
       )
     )
     // uploads to the Central Portal and releases automatically once validation passes
