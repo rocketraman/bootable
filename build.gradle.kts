@@ -1,3 +1,6 @@
+import com.vanniktech.maven.publish.JavaLibrary
+import com.vanniktech.maven.publish.JavadocJar
+import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
@@ -6,7 +9,7 @@ plugins {
   alias(libs.plugins.dokka)
   alias(libs.plugins.dokka.javadoc)
   signing
-  `maven-publish`
+  alias(libs.plugins.maven.publish) apply false
 }
 
 val signingRequired: String by project
@@ -35,7 +38,7 @@ subprojects {
     plugin("org.jetbrains.dokka")
     plugin("org.jetbrains.dokka-javadoc")
     plugin("signing")
-    plugin("maven-publish")
+    plugin("com.vanniktech.maven.publish")
   }
 
   dependencies {
@@ -53,8 +56,6 @@ subprojects {
   }
 
   java {
-    withJavadocJar()
-    withSourcesJar()
     // target 11 for max compatibility
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
@@ -70,62 +71,47 @@ subprojects {
     }
   }
 
-  tasks.named<Jar>("javadocJar") {
-    from(tasks.dokkaGeneratePublicationHtml)
-  }
-
-  publishing {
-    publications {
-      create<MavenPublication>("maven") {
-        from(components["java"])
-        pom {
-          name.set(project.name)
-          description.set("Simple opinionated microservice runtime")
-          url.set("https://github.com/rocketraman/bootable")
-          licenses {
-            license {
-              name.set("The Apache License, Version 2.0")
-              url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
-            }
-          }
-          developers {
-            developer {
-              id.set("rocketraman")
-              name.set("Raman Gupta")
-              email.set("rocketraman@gmail.com")
-            }
-          }
-          scm {
-            connection.set("scm:git:git@github.com:rocketraman/bootable.git")
-            developerConnection.set("scm:git:ssh://github.com:rocketraman/bootable.git")
-            url.set("https://github.com/rocketraman/bootable")
-          }
-        }
-      }
-    }
-    repositories {
-      maven {
-        // https://central.sonatype.org/publish/publish-portal-ossrh-staging-api/#getting-started-for-maven-api-like-plugins
-        name = "sonatype"
-        url = uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2")
-        credentials {
-          username = project.findProperty("sonatypeUser") as? String
-          password = project.findProperty("sonatypePassword") as? String
-        }
-      }
-    }
-  }
-
-  tasks.withType<PublishToMavenRepository>().configureEach {
+  configure<MavenPublishBaseExtension> {
+    configure(
+      JavaLibrary(
+        javadocJar = JavadocJar.Dokka("dokkaGeneratePublicationHtml"),
+        sourcesJar = true,
+      )
+    )
+    // uploads to the Central Portal and releases automatically once validation passes
+    publishToMavenCentral(automaticRelease = true)
     if (signingRequired.toBoolean()) {
-      mustRunAfter(tasks.withType<Sign>())
+      signAllPublications()
+    }
+    pom {
+      name.set(project.name)
+      description.set("Simple opinionated microservice runtime")
+      url.set("https://github.com/rocketraman/bootable")
+      licenses {
+        license {
+          name.set("The Apache License, Version 2.0")
+          url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
+        }
+      }
+      developers {
+        developer {
+          id.set("rocketraman")
+          name.set("Raman Gupta")
+          email.set("rocketraman@gmail.com")
+        }
+      }
+      scm {
+        connection.set("scm:git:git@github.com:rocketraman/bootable.git")
+        developerConnection.set("scm:git:ssh://github.com:rocketraman/bootable.git")
+        url.set("https://github.com/rocketraman/bootable")
+      }
     }
   }
 
+  // vanniktech's signAllPublications() delegates to the signing plugin; keep using the local gpg agent
   if (signingRequired.toBoolean()) {
     signing {
       useGpgCmd()
-      sign(publishing.publications["maven"])
     }
   }
 }

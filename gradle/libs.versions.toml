@@ -10,11 +10,13 @@ kotlinx-coroutines = "1.10.1"
 ktor = "3.1.1"
 log4j = "2.24.3"
 log4j-kotlin-api = "1.5.0"
+vanniktech-publish = "0.35.0"
 
 [plugins]
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 dokka-javadoc = { id = "org.jetbrains.dokka-javadoc", version.ref = "dokka" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "vanniktech-publish" }
 
 [libraries]
 # com.jdiazcano.cfg4k -> com.github.rocketraman.cfg4k temporarily
