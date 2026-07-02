@@ -1,5 +1,6 @@
 plugins {
   alias(libs.plugins.kotlin.jvm)
+  alias(libs.plugins.graalvm.native)
   application
 }
 
@@ -48,4 +49,22 @@ java {
 
 application {
   mainClass.set("AppKt")
+}
+
+// GraalVM native-image smoke test. This example consumes bootable from mavenLocal and exercises
+// boot + hoplite config (ServerConfig implements HostPort) + log4j2 base-xml selection + ktor.
+// It relies entirely on the reachability-metadata bundled inside the bootable jars — there is no
+// hand-maintained native metadata here. Build with `./gradlew nativeCompile`, run the binary,
+// then send SIGTERM and confirm a clean shutdown with no KotlinReflectionInternalError.
+graalvmNative {
+  metadataRepository {
+    enabled.set(true)
+  }
+  binaries {
+    named("main") {
+      // a missing reflection/resource registration must be a hard error, never a JVM fallback
+      fallback.set(false)
+      quickBuild.set(true)
+    }
+  }
 }

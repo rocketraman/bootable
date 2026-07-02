@@ -1,0 +1,16 @@
+{
+  "reflection": [
+    {
+      "type": "com.github.rocketraman.bootable.config.common.HostPort",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.config.common.HostPort$Companion",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "resources": [
+    { "glob": "log4j2-base.xml" },
+    { "glob": "log4j2-base-plain.xml" },
+    { "glob": "log4j2-base-json.xml" },
+    { "glob": "log4j2-base-json-gcloud.xml" },
+    { "glob": "log4j2-base-empty.xml" }
+  ]
+}

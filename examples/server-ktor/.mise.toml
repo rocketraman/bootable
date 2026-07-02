@@ -1,0 +1,20 @@
+# Toolchain pins for building this example as a GraalVM native image.
+#
+# Run `mise trust` once when you first cd into this dir, then `mise install`.
+#
+# Two JDKs:
+#   - temurin-21 (listed FIRST → the default `java`/Gradle daemon JDK, and satisfies the
+#     `jvmToolchain(21)` compile target).
+#   - graalvm-community-24 provides `native-image`. GraalVM for JDK 23+ is required to read the
+#     unified `reachability-metadata.json` that the bootable library bundles inside its jars
+#     (GraalVM 21 silently ignores it, and its `native-image` is what `JAVA_HOME` would otherwise
+#     point the plugin at — the "native-image wasn't found" error).
+#
+# GRAALVM_HOME below points the GraalVM Native Build Tools plugin (nativeCompile/nativeRun) at the
+# GraalVM install, so native builds need no manual JAVA_HOME juggling.
+
+[tools]
+java = ["temurin-21", "graalvm-community-24.0.2"]
+
+[env]
+GRAALVM_HOME = "{{ env.HOME }}/.local/share/mise/installs/java/graalvm-community-24.0.2"

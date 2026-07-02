@@ -1,0 +1,34 @@
+{
+  "reflection": [
+    {
+      "type": "com.github.rocketraman.bootable.boot.Bootable",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.boot.Bootable$Companion",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.boot.StopSignalHandlerLifecycleController",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.boot.StopSignalHandlerLifecycleController$StopSignalHandler",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.boot.StopSignalHandlerLifecycleController$StopSignalHandler$Companion",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    }
+  ]
+}
