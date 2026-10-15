@@ -122,7 +122,7 @@ and boot the graph's `bootable`:
 class ExampleServer(config: ServerConfig, hello: HelloConfig) : KtorService("test", config)
 
 @ContributesTo(AppScope::class)
-interface ServerModule : ConfigBindings {          // config bindings are just a type and a key
+interface ServerConfigBindings : ConfigBinderProvider {  // config bindings are just a type and a key
   @Provides fun serverConfig(): ServerConfig = config("server")
   @Provides fun helloConfig(): HelloConfig = config("hello")
 }
@@ -133,7 +133,7 @@ interface AppGraph : BootableGraph
 fun main() = boot { createGraph<AppGraph>().bootable }
 ----
 
-`BootableGraph`, `BootScope`, `BootableDefaults` come from `boot-metro`; `ConfigBindings` from
+`BootableGraph`, `BootScope`, `BootableDefaultBindings` come from `boot-metro`; `ConfigBinderProvider` from
 `boot-config-common-metro` (re-exposed by `boot-config-hoplite-metro`). The rest of this section is the one
 concept in Metro worth understanding before you rely on it.
 
@@ -195,7 +195,7 @@ interface AppGraph : BootableGraph
 ----
 @DependencyGraph(
   AppScope::class,
-  bindingContainers = [BootableDefaults::class, HopliteConfigBindings::class],
+  bindingContainers = [BootableDefaultBindings::class, ConfigBindings::class],
 )
 interface AppGraph : BootableGraph
 ----

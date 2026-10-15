@@ -4,6 +4,6 @@ import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 
 /** A Kodein module binding the default Hoplite [ConfigBinder]. */
-val configModule = DI.Module("configModule") {
+val configModule by DI.Module {
   bindSingleton<ConfigBinder> { hopliteConfigBinder() }
 }

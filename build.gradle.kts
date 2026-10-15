@@ -175,7 +175,7 @@ project("boot-config-hoplite") {
 
     implementation(project(":boot"))
     // the metro flavor contributes to boot's BootScope, and re-exposes config-common's metro flavor
-    // (ConfigBindings) so consumers of boot-config-hoplite-metro get the config helper too. In-repo these
+    // (ConfigBinderProvider) so consumers of boot-config-hoplite-metro get the config helper too. In-repo these
     // resolve the sibling metro source sets; in the published POM they map to the -metro coordinates.
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-config-common", configuration = "metroElements"))

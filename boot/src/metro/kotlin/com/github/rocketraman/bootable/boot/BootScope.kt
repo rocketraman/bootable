@@ -18,7 +18,7 @@ package com.github.rocketraman.bootable.boot
  *
  * Explicit — named, nothing discovered from the classpath:
  * ```
- * @DependencyGraph(AppScope::class, bindingContainers = [BootableDefaults::class, HopliteConfigBindings::class])
+ * @DependencyGraph(AppScope::class, bindingContainers = [BootableDefaultBindings::class, ConfigBindings::class])
  * interface AppGraph : BootableGraph
  * ```
  */
