@@ -1,0 +1,20 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigestsToSemver",
+    ":disableDependencyDashboard",
+    ":semanticCommitScopeDisabled",
+    ":semanticCommitTypeAll(deps)"
+  ],
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Keep the mise JDK pin at major granularity: Renovate's Adoptium datasource offers builds that mise's own JVM index does not carry, and mise then fails to install them.",
+      "matchManagers": ["mise"],
+      "matchDepNames": ["java"],
+      "versioning": "semver-partial",
+      "rangeStrategy": "replace"
+    }
+  ]
+}
