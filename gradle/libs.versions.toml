@@ -1,5 +1,4 @@
 [versions]
-config = "1.4.3"
 dokka = "2.2.0"
 graalvm-buildtools = "0.10.6"
 hoplite = "3.0.0.RC3"
@@ -52,8 +51,6 @@ log4j-core = { module = "org.apache.logging.log4j:log4j-core", version.ref = "lo
 log4j-jul = { module = "org.apache.logging.log4j:log4j-jul", version.ref = "log4j" }
 log4j-layout-template-json = { module = "org.apache.logging.log4j:log4j-layout-template-json", version.ref = "log4j" }
 log4j-slf4j-impl = { module = "org.apache.logging.log4j:log4j-slf4j2-impl", version.ref = "log4j" }
-
-typesafe-config = { module = "com.typesafe:config", version.ref = "config" }
 
 # below here, only used for the server-ktor sample
 kotlinx-html = { module = "org.jetbrains.kotlinx:kotlinx-html", version.ref = "kotlinx-html" }
