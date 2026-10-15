@@ -6,14 +6,12 @@ import com.github.rocketraman.bootable.env.Env
 import com.github.rocketraman.bootable.env.EnvironmentConfig
 import com.github.rocketraman.bootable.env.environment
 import com.github.rocketraman.bootable.env.environmentInitializer
+import de.infix.testBalloon.framework.core.testSuite
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.server.testing.*
 import kotlin.reflect.KClass
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 /**
  * A fake [ConfigBinder] — the whole point of the vanilla approach is that tests need no DI framework, no graph,
@@ -31,49 +29,48 @@ private class FakeConfigBinder(private val env: String = "prod") : ConfigBinder 
 
 private val testServerConfig = ServerConfig(hostPort = "127.0.0.1:0", fakeSecret = "test-secret")
 
-class ExampleServerTest {
-  @Test
-  fun `constructs directly with no DI involved`() {
+val ExampleServerTest by testSuite {
+  test("constructs directly with no DI involved") {
     val server = ExampleServer(testServerConfig, HelloConfig(response = "hi"))
-    assertEquals("ExampleServer", server.name())
+    assert(server.name() == "ExampleServer")
   }
 
-  @Test
-  fun `serves hello`() = testApplication {
-    val server = ExampleServer(testServerConfig, HelloConfig(response = "hello from the test"))
-    application { with(server) { module() } }
+  test("serves hello") {
+    testApplication {
+      val server = ExampleServer(testServerConfig, HelloConfig(response = "hello from the test"))
+      application { with(server) { module() } }
 
-    val response = client.get("/hello")
+      val response = client.get("/hello")
 
-    assertEquals(HttpStatusCode.OK, response.status)
-    assertEquals("hello from the test", response.bodyAsText())
+      assert(response.status == HttpStatusCode.OK)
+      assert(response.bodyAsText() == "hello from the test")
+    }
   }
 
-  @Test
-  fun `serves the index page`() = testApplication {
-    val server = ExampleServer(testServerConfig, HelloConfig(response = "hi"))
-    application { with(server) { module() } }
+  test("serves the index page") {
+    testApplication {
+      val server = ExampleServer(testServerConfig, HelloConfig(response = "hi"))
+      application { with(server) { module() } }
 
-    assertTrue(client.get("/").bodyAsText().contains("Hello from Ktor"))
+      assert(client.get("/").bodyAsText().contains("Hello from Ktor"))
+    }
   }
 }
 
 /**
  * boot-env, tested the same way: construct the initializer with a fake binder and run its lifecycle hook.
  */
-class EnvironmentTest {
-  @Test
-  fun `environmentInitializer sets the global environment from config`() {
+val EnvironmentTest by testSuite {
+  test("environmentInitializer sets the global environment from config") {
     environmentInitializer(FakeConfigBinder(env = "prod")).appInit()
-    assertEquals(Env.Prod, environment)
+    assert(environment == Env.Prod)
   }
 }
 
-class LifecycleTest {
-  @Test
-  fun `defaultLifecycleControllers are the two built-ins`() {
+val LifecycleTest by testSuite {
+  test("defaultLifecycleControllers are the two built-ins") {
     val controllers = defaultLifecycleControllers()
-    assertTrue(controllers.any { it is AppStartStopLifecycleController })
-    assertTrue(controllers.any { it is StopSignalHandlerLifecycleController })
+    assert(controllers.any { it is AppStartStopLifecycleController })
+    assert(controllers.any { it is StopSignalHandlerLifecycleController })
   }
 }

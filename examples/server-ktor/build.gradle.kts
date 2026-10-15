@@ -1,5 +1,7 @@
 plugins {
   kotlin("jvm")
+  kotlin("plugin.power-assert")
+  id("de.infix.testBalloon")
   alias(libs.plugins.graalvm.native)
   application
 }
@@ -30,13 +32,9 @@ dependencies {
   implementation(libs.ktor.server.html.builder)
   implementation(libs.kotlinx.html)
 
-  testImplementation(platform(libs.junit.bom))
-  testImplementation(kotlin("test-junit5"))
-  testImplementation(libs.junit.jupiter.api)
+  testImplementation(libs.testBalloon.framework.core)
   testImplementation(project(":boot-env"))
   testImplementation(libs.ktor.server.test.host)
-  testRuntimeOnly(libs.junit.jupiter.engine)
-  testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 tasks.test {
@@ -45,6 +43,11 @@ tasks.test {
 
 kotlin {
   jvmToolchain(21)
+}
+
+powerAssert {
+  functions = listOf("kotlin.assert")
+  includedSourceSets = listOf("test")
 }
 
 java {
