@@ -2,7 +2,6 @@
 dokka = "2.2.0"
 graalvm-buildtools = "0.10.6"
 hoplite = "3.0.3"
-junit-jupiter = "5.12.0"
 kotlin = "2.3.21"
 kotlinx-coroutines = "1.10.1"
 kotlinx-html = "0.12.0"
@@ -10,6 +9,9 @@ ktor = "3.1.1"
 log4j = "2.24.3"
 log4j-kotlin-api = "1.5.0"
 metro = "1.3.2"
+# 1.1.0+ trips a power-assert bug on TestBalloon's generated entry point ("Unable to find source for IrFile",
+# KT-83931, fixed in Kotlin 2.4.0); stay on the 1.0.x line until Kotlin is bumped
+testBalloon = "1.0.0-K2.3.0"
 vanniktech-publish = "0.37.0"
 
 [plugins]
@@ -17,19 +19,14 @@ dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 dokka-javadoc = { id = "org.jetbrains.dokka-javadoc", version.ref = "dokka" }
 graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "graalvm-buildtools" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-power-assert = { id = "org.jetbrains.kotlin.plugin.power-assert", version.ref = "kotlin" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "vanniktech-publish" }
 metro = { id = "dev.zacsweers.metro", version.ref = "metro" }
+testBalloon = { id = "de.infix.testBalloon", version.ref = "testBalloon" }
 
 [libraries]
 hoplite-core = { module = "com.sksamuel.hoplite:hoplite-core", version.ref = "hoplite" }
 hoplite-hocon = { module = "com.sksamuel.hoplite:hoplite-hocon", version.ref = "hoplite" }
-
-# BOM aligns junit-platform-engine/launcher, which ktor-server-test-host otherwise pulls in at a
-# conflicting version ("OutputDirectoryProvider not available")
-junit-bom = { module = "org.junit:junit-bom", version.ref = "junit-jupiter" }
-junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit-jupiter" }
-junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit-jupiter" }
-junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 
 kotlin-bom = { module = "org.jetbrains.kotlin:kotlin-bom", version.ref = "kotlin" }
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
@@ -57,6 +54,8 @@ kotlinx-html = { module = "org.jetbrains.kotlinx:kotlinx-html", version.ref = "k
 
 ktor-server-html-builder = { module = "io.ktor:ktor-server-html-builder", version.ref = "ktor" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
+
+testBalloon-framework-core = { module = "de.infix.testBalloon:testBalloon-framework-core", version.ref = "testBalloon" }
 
 [bundles]
 hoplite = [

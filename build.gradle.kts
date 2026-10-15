@@ -11,12 +11,15 @@ import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.tasks.bundling.Jar
+import org.jetbrains.kotlin.powerassert.gradle.PowerAssertGradleExtension
 
 plugins {
   alias(libs.plugins.kotlin.jvm)
   alias(libs.plugins.dokka)
   alias(libs.plugins.dokka.javadoc)
   alias(libs.plugins.metro) apply false
+  alias(libs.plugins.kotlin.power.assert) apply false
+  alias(libs.plugins.testBalloon) apply false
   signing
   alias(libs.plugins.maven.publish) apply false
 }
@@ -168,6 +171,8 @@ project("boot-common") {
 }
 
 project("boot-config-hoplite") {
+  apply(plugin = "org.jetbrains.kotlin.plugin.power-assert")
+  apply(plugin = "de.infix.testBalloon")
   configureDiVariants()
   dependencies {
     api(project(":boot-config-common"))
@@ -180,11 +185,12 @@ project("boot-config-hoplite") {
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-config-common", configuration = "metroElements"))
 
-    testImplementation(platform(rootProject.libs.junit.bom))
-    testImplementation(kotlin("test-junit5"))
-    testImplementation(rootProject.libs.junit.jupiter.api)
-    testRuntimeOnly(rootProject.libs.junit.jupiter.engine)
-    testRuntimeOnly(rootProject.libs.junit.platform.launcher)
+    testImplementation(rootProject.libs.testBalloon.framework.core)
+  }
+
+  configure<PowerAssertGradleExtension> {
+    functions.set(listOf("kotlin.assert"))
+    includedSourceSets.set(listOf("test"))
   }
 
   tasks.test {
