@@ -179,6 +179,16 @@ project("boot-config-hoplite") {
     // resolve the sibling metro source sets; in the published POM they map to the -metro coordinates.
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-config-common", configuration = "metroElements"))
+
+    testImplementation(platform(rootProject.libs.junit.bom))
+    testImplementation(kotlin("test-junit5"))
+    testImplementation(rootProject.libs.junit.jupiter.api)
+    testRuntimeOnly(rootProject.libs.junit.jupiter.engine)
+    testRuntimeOnly(rootProject.libs.junit.platform.launcher)
+  }
+
+  tasks.test {
+    useJUnitPlatform()
   }
 }
 
@@ -247,6 +257,7 @@ fun Project.configureDiVariants() {
     // Metro is applied module-wide, so every compilation needs its runtime at compile time (annotations or not),
     // but it stays off the published/runtime classpath of the non-metro artifacts.
     dependencies.add("compileOnly", metroRuntime)
+    dependencies.add("testCompileOnly", metroRuntime)
     extensions.configure<KotlinJvmProjectExtension> {
       compilerOptions {
         apiVersion.set(KotlinVersion.KOTLIN_2_3)
