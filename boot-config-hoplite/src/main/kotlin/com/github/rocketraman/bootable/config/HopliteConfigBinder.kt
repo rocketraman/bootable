@@ -19,9 +19,23 @@ class HopliteConfigBinder(private val binder: UpstreamConfigBinder): ConfigBinde
 }
 
 /**
+ * Whether the environment variable [name] is set by the shell or other tooling and is never application config.
+ * These are excluded from the environment source because their values are shell code that routinely contains
+ * `${...}`, which Hoplite would otherwise fail on as an unresolved substitution.
+ *
+ * TODO remove once Hoplite excludes these itself: https://github.com/sksamuel/hoplite/issues/602
+ */
+fun isKnownNonConfigEnvVar(name: String): Boolean =
+  // exported bash functions (`export -f`, or tools like Lmod), named `BASH_FUNC_name%%`
+  name.startsWith("BASH_FUNC_") ||
+    name in shellPromptEnvVars
+
+private val shellPromptEnvVars = setOf("PS1", "PS2", "PS4", "PROMPT_COMMAND")
+
+/**
  * Builds a default Hoplite-based [ConfigBinder], reading properties in the following order, from highest priority
  * to lowest:
- * - environment variables (supports upper case, convert `_` to `.`)
+ * - environment variables (supports upper case, convert `_` to `.`; see [isKnownNonConfigEnvVar] for exclusions)
  * - system properties (with `config.override.` prefix)
  * - `application-local.conf` in resources
  * - `application.conf` in resources
@@ -70,7 +84,9 @@ fun hopliteConfigBinder(
     .addDefaultNodeTransformers()
     .addDefaultParamMappers()
     .withConfigStage1()
-    .addPropertySource(EnvironmentVariablesPropertySource(environmentVariables))
+    .addPropertySource(EnvironmentVariablesPropertySource({
+      environmentVariables().filterKeys { !isKnownNonConfigEnvVar(it) }
+    }))
     .addPropertySource(SystemPropertiesPropertySource) // requires config.override. prefix
     .addPropertySource(UserSettingsPropertySource)
     .addPropertySource(XdgConfigPropertySource)

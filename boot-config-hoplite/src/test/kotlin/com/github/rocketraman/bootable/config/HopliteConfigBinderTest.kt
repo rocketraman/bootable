@@ -13,6 +13,21 @@ class HopliteConfigBinderTest {
     hopliteConfigBinder(report = false, environmentVariables = { env })
 
   @Test
+  fun `exported bash functions in the environment are ignored`() {
+    // what `export -f` / Lmod put in the environment
+    val env = mapOf("BASH_FUNC_module%%" to "() {  if [ -z \"\${LMOD_SH_DBG_ON+x}\" ]; then :; fi\n}")
+
+    assertEquals(ServerConfig("localhost", 8080), binder(env).config<ServerConfig>("server"))
+  }
+
+  @Test
+  fun `shell prompt variables in the environment are ignored`() {
+    val env = mapOf("PS1" to "\${debian_chroot:+(\$debian_chroot)}\\u@\\h:\\w\\$ ")
+
+    assertEquals(ServerConfig("localhost", 8080), binder(env).config<ServerConfig>("server"))
+  }
+
+  @Test
   fun `unresolved substitutions in config still fail`() {
     val env = mapOf("SERVER_HOST" to "\${BOOTABLE_TEST_UNSET_VARIABLE}")
 
