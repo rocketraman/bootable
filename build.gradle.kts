@@ -34,10 +34,22 @@ dependencies {
   dokka(project(":boot-server-http-ktor"))
 }
 
+// The published version comes from a `vX.Y.Z` tag on HEAD, so a release is driven purely by tagging; any
+// other build (development, CI) falls back to the snapshot below. See docs/releasing.adoc.
+val developmentVersion = "3.0.0-SNAPSHOT"
+val bootableVersion: String = runCatching {
+  providers.exec {
+    commandLine("git", "tag", "--points-at", "HEAD")
+    isIgnoreExitValue = true
+  }.standardOutput.asText.get()
+    .lineSequence()
+    .mapNotNull { Regex("""^v(\d+\.\d+\.\d+)$""").matchEntire(it.trim())?.groupValues?.get(1) }
+    .firstOrNull()
+}.getOrNull() ?: developmentVersion
+
 allprojects {
   group = "com.github.rocketraman.bootable"
-  // 3.0: Bootable no longer embeds a DI framework; the core is vanilla Kotlin and callers wire it themselves
-  version = "3.0.0-SNAPSHOT"
+  version = bootableVersion
 }
 
 subprojects {

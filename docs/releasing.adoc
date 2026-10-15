@@ -3,9 +3,12 @@
 Releases are published to Maven Central from a maintainer's machine, not from CI.
 The GPG signing key never leaves local hardware; the GitHub Actions workflow only builds and tests.
 
+The published version is derived from the release tag — a `vX.Y.Z` tag on the commit being released.
+`build.gradle.kts` only holds `developmentVersion` (a `-SNAPSHOT`), used for every untagged build.
+
 == Steps
 
-. Set the release version in `build.gradle.kts` — drop `-SNAPSHOT` (e.g. `version = "3.0.0"`).
+. Tag the commit you want to release, e.g. `git tag v3.0.0`.
 . Publish and release to Maven Central, signing with the local gpg agent:
 +
 [source]
@@ -13,10 +16,11 @@ The GPG signing key never leaves local hardware; the GitHub Actions workflow onl
 ./gradlew publishToMavenCentral -PsigningRequired=true
 ----
 +
+The version is taken from the tag (here `3.0.0`); nothing in `build.gradle.kts` needs editing first.
 `publishToMavenCentral(automaticRelease = true)` is configured, so this uploads to the Central Portal and releases automatically once validation passes.
 Central Portal credentials (`mavenCentralUsername` / `mavenCentralPassword`) are read from `~/.gradle/gradle.properties`.
-. Tag the release and push the tag: `git tag v3.0.0 && git push origin v3.0.0`.
-. Bump the version back to the next `-SNAPSHOT` and commit.
+. Push the tag: `git push origin v3.0.0`.
+. Bump `developmentVersion` in `build.gradle.kts` to the next `-SNAPSHOT` (e.g. `3.0.1-SNAPSHOT`) and commit — the only version commit.
 
 NOTE: This publishes every module, including the per-flavor coordinates (`boot-metro`, `boot-kodein`, …).
 Confirm they all appear in the Central deployment before releasing.
