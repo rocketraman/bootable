@@ -4,10 +4,32 @@
 
 ## Usage
 
-* `import(configModule)`, OR
-* `import(configModule(...))`
+Include the default Hoplite `ConfigBinder` in your graph by naming `HopliteConfigBindings` in your
+`@DependencyGraph(bindingContainers = [...])` (or, in magic mode, it is discovered automatically). No code is
+required for the default behavior.
 
-Configuration loading can be customized with optional parameters to the `configModule()` function, providing additional stage 1, 2, or 3 config sources, as well as whether to use config reporting at startup, or to set secrets policies and obfuscators.
+Bind config sections by extending `ConfigBindings` from a contributed interface — each binding is just a type
+and a key:
+
+```kotlin
+@ContributesTo(AppScope::class)
+interface MyConfigs : ConfigBindings {
+  @Provides fun serverConfig(): ServerConfig = config("server")
+  @Provides fun helloConfig(): HelloConfig = config("hello")
+}
+```
+
+To customize config loading, do not include `HopliteConfigBindings`; instead provide your own `ConfigBinder`
+built with the `hopliteConfigBinder(...)` factory, which accepts optional parameters for additional stage 1, 2,
+or 3 config sources, config reporting, secrets policies, and obfuscators:
+
+```kotlin
+@BindingContainer
+object MyConfigBinder {
+  @Provides @SingleIn(BootScope::class)
+  fun configBinder(): ConfigBinder = hopliteConfigBinder(withConfigStage1 = { /* ... */ }, report = false)
+}
+```
 
 ## Environment Variable Mapping Rules
 
@@ -17,14 +39,14 @@ See also https://github.com/sksamuel/hoplite/issues/410[hoplite issue #410].
 
 ## Custom Types
 
-Hoplite `Decoder` instances may be registered via the Java ServiceLoader framework, or registered via the `configModule` parameters.
+Hoplite `Decoder` instances may be registered via the Java ServiceLoader framework, or passed to the `hopliteConfigBinder(...)` factory.
 
 ## Reporting
 
 By default, Hoplite will report on all config values that are loaded.
-This can be disabled by setting the `report = false` parameter of the `configModule`.
+This can be disabled by setting the `report = false` parameter of `hopliteConfigBinder(...)`.
 
-A Hoplite `SecretsPolicy` passed to the `configModule will be used by the config loader.
+A Hoplite `SecretsPolicy` passed to `hopliteConfigBinder(...)` will be used by the config loader.
 
 By default, a value is considered a secret if any of the following are true:
 
@@ -32,6 +54,6 @@ By default, a value is considered a secret if any of the following are true:
 * if a config source provides metadata that indicates the value is a secret
 * if the variable type is a Hoplite `Secret`.
 
-A Hoplite `Obfuscator` passed to the `configModule` will be used by the config loader.
+A Hoplite `Obfuscator` passed to `hopliteConfigBinder(...)` will be used by the config loader.
 
 By default, values are strictly obfuscated.

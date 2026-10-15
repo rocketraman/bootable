@@ -5,34 +5,24 @@
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="gradleHome" value="$OPTDIR$/gradle-6" />
+        <option name="gradleJvm" value="openjdk-25" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/boot" />
             <option value="$PROJECT_DIR$/boot-common" />
-            <option value="$PROJECT_DIR$/boot-config-cfg4k" />
             <option value="$PROJECT_DIR$/boot-config-common" />
             <option value="$PROJECT_DIR$/boot-config-hoplite" />
             <option value="$PROJECT_DIR$/boot-env" />
             <option value="$PROJECT_DIR$/boot-logging" />
             <option value="$PROJECT_DIR$/boot-logging-log4j2" />
             <option value="$PROJECT_DIR$/boot-server-http-ktor" />
-          </set>
-        </option>
-      </GradleProjectSettings>
-      <GradleProjectSettings>
-        <compositeConfiguration>
-          <compositeBuild compositeDefinitionSource="IDE">
-            <builds>
-              <build path="$PROJECT_DIR$" name="bootable" />
-            </builds>
-          </compositeBuild>
-        </compositeConfiguration>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/examples/server-ktor" />
-        <option name="modules">
-          <set>
+            <option value="$PROJECT_DIR$/examples" />
+            <option value="$PROJECT_DIR$/examples/di-bench" />
             <option value="$PROJECT_DIR$/examples/server-ktor" />
+            <option value="$PROJECT_DIR$/examples/wiring-kodein" />
+            <option value="$PROJECT_DIR$/examples/wiring-metro" />
+            <option value="$PROJECT_DIR$/examples/wiring-vanilla" />
           </set>
         </option>
       </GradleProjectSettings>

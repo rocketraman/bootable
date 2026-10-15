@@ -1,7 +1,8 @@
-import com.github.rocketraman.bootable.boot.bindAppService
+import com.github.rocketraman.bootable.boot.Bootable
 import com.github.rocketraman.bootable.boot.boot
-import com.github.rocketraman.bootable.config.bindConfig
-import com.github.rocketraman.bootable.config.configModule
+import com.github.rocketraman.bootable.boot.defaultLifecycleControllers
+import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.hopliteConfigBinder
 import com.github.rocketraman.bootable.server.http.ktor.KtorService
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -10,9 +11,6 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.html.*
 import org.apache.logging.log4j.kotlin.logger
-import org.kodein.di.DI
-import org.kodein.di.new
-import org.kodein.di.singleton
 
 fun HTML.index() {
   head {
@@ -37,6 +35,10 @@ fun HTML.index() {
   }
 }
 
+/**
+ * An ordinary class — no dependency-injection annotations. Its dependencies are plain constructor parameters,
+ * so it is constructed directly in `main` (and just as easily in a unit test).
+ */
 class ExampleServer(config: ServerConfig, private val hello: HelloConfig) : KtorService("test", config) {
   private val logger = logger()
 
@@ -53,26 +55,25 @@ class ExampleServer(config: ServerConfig, private val hello: HelloConfig) : Ktor
       }
 
       get("/die") {
-        call.respond(HttpStatusCode.OK,"Dying! \uD83D\uDE10")
-        logger.info { "Dying! \uD83D\uDE10" }
+        call.respond(HttpStatusCode.OK,"Dying! 😐")
+        logger.info { "Dying! 😐" }
         die()
       }
     }
   }
 }
 
-val serverModule = DI.Module("serverModule") {
-  import(configModule)
-
-  bindConfig<HelloConfig>("hello")
-
-  bindConfig<ServerConfig>("server")
-
-  bindAppService { singleton { new(::ExampleServer) } }
-}
-
-fun main() {
-  boot {
-    import(serverModule)
-  }
+/**
+ * Vanilla wiring: inside the boot lambda (which runs after logging is initialized), load config, construct
+ * services, and return the `Bootable` to run. Assembling the application is just plain Kotlin — no DI framework,
+ * no annotations, no graph. The default lifecycle controllers (start/stop + signal handling) are used here; pass
+ * your own to `Bootable(...)` to run a different lifecycle.
+ */
+fun main() = boot {
+  val binder = hopliteConfigBinder()
+  Bootable(
+    appServices = setOf(
+      ExampleServer(binder.config("server"), binder.config("hello")),
+    )
+  )
 }
