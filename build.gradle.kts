@@ -36,7 +36,7 @@ dependencies {
 
 // The published version comes from a `vX.Y.Z` tag on HEAD, so a release is driven purely by tagging; any
 // other build (development, CI) falls back to the snapshot below. See docs/releasing.adoc.
-val developmentVersion = "3.0.0-SNAPSHOT"
+val developmentVersion = "3.0.1-SNAPSHOT"
 val bootableVersion: String = runCatching {
   providers.exec {
     commandLine("git", "tag", "--points-at", "HEAD")
