@@ -7,7 +7,7 @@ package com.github.rocketraman.bootable.config
  *
  * ```
  * @ContributesTo(AppScope::class)
- * interface ServerModule : ConfigBinderProvider {
+ * interface ServerConfigBindings : ConfigBinderProvider {
  *   @Provides fun serverConfig(): ServerConfig = config("server")
  *   @Provides fun helloConfig(): HelloConfig = config("hello")
  * }

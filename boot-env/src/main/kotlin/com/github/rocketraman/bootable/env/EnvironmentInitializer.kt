@@ -12,7 +12,8 @@ import com.github.rocketraman.bootable.config.ConfigBinder
  * [appInit] runs before any service is started, at the highest priority. This is arguably a better fit — the
  * side effect now lives inside the framework's documented lifecycle instead of a DI-container callback.
  *
- * A plain class with no DI annotations; it is registered by [EnvironmentBindings] and can be constructed
+ * A plain class with no DI annotations; it is created by [environmentInitializer], registered by the DI flavors
+ * (`EnvironmentBindings` in boot-env-metro, `environmentModule` in boot-env-kodein), and can be constructed
  * directly in a unit test.
  */
 class EnvironmentInitializer(

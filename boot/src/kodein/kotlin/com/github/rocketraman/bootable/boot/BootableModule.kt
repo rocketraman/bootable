@@ -11,7 +11,7 @@ import org.kodein.di.singleton
  * A Kodein module that wires the (vanilla) [Bootable] runtime and the default lifecycle controllers, and opens
  * the `Set<AppService>` / `Set<LifecycleController>` multibindings for your own modules to contribute into.
  */
-val bootableModule = DI.Module("bootable") {
+val bootableModule by DI.Module {
   bindSet<AppService>()
   bindSet<LifecycleController>()
   inBindSet<LifecycleController> {

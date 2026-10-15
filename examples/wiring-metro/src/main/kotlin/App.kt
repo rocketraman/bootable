@@ -28,7 +28,7 @@ class GreetingService(private val cfg: GreetingConfig) : AppService {
 
 // config bindings are just a type and a key (ConfigBinderProvider supplies the binder as a graph accessor)
 @ContributesTo(AppScope::class)
-interface AppModule : ConfigBinderProvider {
+interface AppConfigBindings : ConfigBinderProvider {
   @Provides fun greetingConfig(): GreetingConfig = config("greeting")
 }
 

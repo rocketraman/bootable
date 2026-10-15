@@ -16,7 +16,7 @@ import dev.zacsweers.metro.SingleIn
  */
 @ContributesTo(BootScope::class)
 @BindingContainer
-object BootableDefaults {
+object BootableDefaultBindings {
   @Provides @IntoSet fun appStartStop(): LifecycleController = AppStartStopLifecycleController()
   @Provides @IntoSet fun stopSignalHandler(): LifecycleController = StopSignalHandlerLifecycleController()
 

@@ -14,7 +14,7 @@ import org.kodein.di.singleton
  * [EnvironmentInitializer] (which populates the global [environment]) into the lifecycle-controller set.
  * Requires a `ConfigBinder` binding (e.g. from boot-config-hoplite's `configModule`).
  */
-val environmentModule = DI.Module("environmentModule") {
+val environmentModule by DI.Module {
   bindSingleton<EnvironmentConfig> { instance<ConfigBinder>().config("env") }
   inBindSet<LifecycleController> { add { singleton { EnvironmentInitializer(instance()) } } }
 }

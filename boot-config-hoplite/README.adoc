@@ -13,7 +13,7 @@ and a key:
 
 ```kotlin
 @ContributesTo(AppScope::class)
-interface MyConfigs : ConfigBinderProvider {
+interface MyConfigBindings : ConfigBinderProvider {
   @Provides fun serverConfig(): ServerConfig = config("server")
   @Provides fun helloConfig(): HelloConfig = config("hello")
 }
