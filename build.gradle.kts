@@ -273,6 +273,17 @@ fun Project.configureDiVariants() {
       from(ss.output)
       archiveBaseName.set("${project.name}-$name")
     }
+    // Maven Central requires a sources and a javadoc jar for every coordinate. The flavor source sets are
+    // small binding layers, so the javadoc jar is empty — the base coordinate ships the real dokka output.
+    val flavorSourcesJar = tasks.register("${name}SourcesJar", Jar::class.java) {
+      from(ss.allSource)
+      archiveBaseName.set("${project.name}-$name")
+      archiveClassifier.set("sources")
+    }
+    val flavorJavadocJar = tasks.register("${name}JavadocJar", Jar::class.java) {
+      archiveBaseName.set("${project.name}-$name")
+      archiveClassifier.set("javadoc")
+    }
 
     // in-repo consumable: the flavor as a full superset — this module's main jar + flavor jar, plus both the
     // module's main deps and the flavor deps. (Externally those main deps arrive via the base coordinate; this
@@ -295,6 +306,8 @@ fun Project.configureDiVariants() {
       publications.create(name, MavenPublication::class.java) {
         artifactId = "${project.name}-$name"
         artifact(flavorJar)
+        artifact(flavorSourcesJar)
+        artifact(flavorJavadocJar)
         pom.withXml {
           val node = asNode().appendNode("dependencies")
           fun dep(g: String, a: String, v: String) {
