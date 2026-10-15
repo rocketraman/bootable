@@ -1,0 +1,22 @@
+= Releasing Bootable
+
+Releases are published to Maven Central from a maintainer's machine, not from CI.
+The GPG signing key never leaves local hardware; the GitHub Actions workflow only builds and tests.
+
+== Steps
+
+. Set the release version in `build.gradle.kts` — drop `-SNAPSHOT` (e.g. `version = "3.0.0"`).
+. Publish and release to Maven Central, signing with the local gpg agent:
++
+[source]
+----
+./gradlew publishToMavenCentral -PsigningRequired=true
+----
++
+`publishToMavenCentral(automaticRelease = true)` is configured, so this uploads to the Central Portal and releases automatically once validation passes.
+Central Portal credentials (`mavenCentralUsername` / `mavenCentralPassword`) are read from `~/.gradle/gradle.properties`.
+. Tag the release and push the tag: `git tag v3.0.0 && git push origin v3.0.0`.
+. Bump the version back to the next `-SNAPSHOT` and commit.
+
+NOTE: This publishes every module, including the per-flavor coordinates (`boot-metro`, `boot-kodein`, …).
+Confirm they all appear in the Central deployment before releasing.
