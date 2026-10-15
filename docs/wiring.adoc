@@ -1,0 +1,219 @@
+= Wiring Bootable
+
+Bootable's core embeds no dependency-injection framework. Its runtime, `Bootable`, takes two sets — your
+application services and your lifecycle controllers — and runs them:
+
+[source,kotlin]
+----
+class Bootable(appServices: Set<AppService>, lifecycleControllers: Set<LifecycleController>)
+----
+
+*How you assemble those two sets is entirely your choice.* This document covers the three wiring styles Bootable
+documents and ships helpers for — plain Kotlin, Kodein-DI, and Metro — but nothing stops you using any other
+mechanism (a service loader, Guice, Koin, …) or none at all. There is one runnable example project per style
+under `examples/` (`wiring-vanilla`, `wiring-kodein`, `wiring-metro`); copy the one that matches your choice.
+
+The entry point is the same in every style:
+
+[source,kotlin]
+----
+fun main() = boot { /* return the Bootable to run */ }
+----
+
+`boot` initializes logging first, then runs the lambda, so config loading and component construction happen with
+logging already set up. `Bootable`'s `lifecycleControllers` argument defaults to `defaultLifecycleControllers()`
+— the built-in start/stop and signal-handling controllers — so you pass it only to run a custom lifecycle (e.g.
+starting/stopping services on command from an RPC or web request rather than at boot).
+
+== Choosing a wiring style
+
+[cols="1,3", options="header"]
+|===
+| Style | When it fits
+
+| *Vanilla* (no DI)
+| Small or single-module apps, or anyone who dislikes DI frameworks. You list your services explicitly. No extra
+  dependencies, no annotations, no compiler plugin; works on any Kotlin version Bootable supports.
+
+| *Kodein-DI* (runtime)
+| You want multibinding aggregation across modules without a compiler plugin. Kodein is an ordinary jar; wiring
+  is runtime code.
+
+| *Metro* (compile-time)
+| You want the wiring validated by the compiler (missing/duplicate bindings are build errors) with no runtime
+  reflection. Metro is a Kotlin compiler plugin: it requires Kotlin 2.3+ and you apply its Gradle plugin.
+|===
+
+Vanilla needs nothing special — the plain `boot` artifact carries no DI framework. For a DI style, depend on a
+module's `-kodein` or `-metro` *artifact* instead of its plain coordinate. Each DI artifact bundles that
+module's bindings, pulls in the DI framework, and depends on the plain artifact — so one ordinary dependency per
+module gives you everything, with no attribute, capability, or Gradle plugin to configure, and it resolves
+identically from Gradle and Maven:
+
+[source,kotlin]
+----
+dependencies {
+  // Kodein style — the -kodein coordinate of each module you wire through DI:
+  implementation("com.github.rocketraman.bootable:boot-kodein:$v")
+  implementation("com.github.rocketraman.bootable:boot-config-hoplite-kodein:$v")
+
+  // ...or Metro style — the -metro coordinate of each module (also apply Metro's Gradle plugin + Kotlin 2.3+):
+  implementation("com.github.rocketraman.bootable:boot-metro:$v")
+  implementation("com.github.rocketraman.bootable:boot-config-hoplite-metro:$v")
+
+  // ...or vanilla — the plain coordinate, no DI framework:
+  implementation("com.github.rocketraman.bootable:boot:$v")
+}
+----
+
+A module ships a `-metro`/`-kodein` artifact only when it has bindings for that framework; otherwise depend on
+its plain coordinate. Modules you don't wire through DI (e.g. `boot-logging-log4j2`) are always the plain
+coordinate.
+
+== Vanilla
+
+Construct the shared dependencies and services, build the set, and return a `Bootable`:
+
+[source,kotlin]
+----
+fun main() = boot {
+  val binder = hopliteConfigBinder()
+  // lifecycleControllers defaults to defaultLifecycleControllers(); pass it only for a custom lifecycle
+  Bootable(
+    appServices = setOf(ExampleServer(binder.config("server"), binder.config("hello"))),
+  )
+}
+----
+
+Tests need no DI at all — construct services directly. The trade-off is that in a multi-module app the
+composition root lists every service by hand; if you want that list assembled for you, use a DI style below.
+
+== Kodein-DI
+
+Import Bootable's Kodein modules, contribute your services with Kodein's multibindings, and hand the resolved
+`Bootable` to `boot`:
+
+[source,kotlin]
+----
+fun main() = boot {
+  val di = DI {
+    import(bootableModule)   // Bootable + default controllers + the multibinding sets
+    import(configModule)     // binds ConfigBinder (boot-config-hoplite:kodein)
+    bindSingleton { instance<ConfigBinder>().config<ServerConfig>("server") }
+    bindAppService { singleton { ExampleServer(instance(), instance()) } }
+  }
+  di.direct.instance<Bootable>()
+}
+----
+
+`bootableModule`, `configModule`, `environmentModule` and the `bindAppService` / `bindLifecycleController`
+helpers come from the modules' `-kodein` artifacts (`boot-kodein`, `boot-config-hoplite-kodein`,
+`boot-env-kodein`).
+
+== Metro
+
+Declare a `@DependencyGraph` that extends `BootableGraph`, contribute your services with `@ContributesIntoSet`,
+and boot the graph's `bootable`:
+
+[source,kotlin]
+----
+@ContributesIntoSet(AppScope::class)
+@SingleIn(AppScope::class)
+class ExampleServer(config: ServerConfig, hello: HelloConfig) : KtorService("test", config)
+
+@ContributesTo(AppScope::class)
+interface ServerModule : ConfigBindings {          // config bindings are just a type and a key
+  @Provides fun serverConfig(): ServerConfig = config("server")
+  @Provides fun helloConfig(): HelloConfig = config("hello")
+}
+
+@DependencyGraph(AppScope::class, additionalScopes = [BootScope::class])
+interface AppGraph : BootableGraph
+
+fun main() = boot { createGraph<AppGraph>().bootable }
+----
+
+`BootableGraph`, `BootScope`, `BootableDefaults` come from `boot-metro`; `ConfigBindings` from
+`boot-config-common-metro` (re-exposed by `boot-config-hoplite-metro`). The rest of this section is the one
+concept in Metro worth understanding before you rely on it.
+
+=== The one thing to understand: discovery vs. lifetime
+
+Metro has two orthogonal concerns that are both spelled with a *scope* (a marker type like `AppScope`). Because
+the same scope type shows up in both, they are easy to conflate — but they answer different questions:
+
+[cols="1,1,3", options="header"]
+|===
+| Concern | Annotation | Question it answers
+
+| *Discovery*
+| `@DependencyGraph(Scope::class)` argument, `additionalScopes`, `@ContributesTo(Scope)`, `@ContributesIntoSet(Scope)`
+| _Which graph does this binding end up in?_
+
+| *Lifetime*
+| `@SingleIn(Scope::class)`
+| _One instance per graph, or a fresh one every time it's requested?_
+|===
+
+CAUTION: Metro's own documentation calls `@DependencyGraph(AppScope::class)` and `@SingleIn(AppScope::class)` on
+a graph "functionally equivalent". That is true *for scoping only*. Passing the scope as the `@DependencyGraph`
+**argument** additionally turns on *discovery* (aggregation of every `@ContributesTo` / `@ContributesIntoSet`
+for that scope on the compile classpath). Declaring the scope with `@SingleIn` gives the same singleton lifetime
+*without* turning discovery on.
+
+A place this bites: `@ContributesIntoSet(AppScope::class)` puts a service in the set (discovery) but does *not*
+make it a singleton. Without `@SingleIn(AppScope::class)` as well, every read of the set constructs a fresh
+instance — so the instance you inspect is not the one Bootable started. Always pair the two on a stateful
+service.
+
+=== Bootable's scope, and yours
+
+`BootScope`:: Declared by Bootable, for Bootable's own bindings (the runtime, the default controllers, the config
+binder). You never scope your own code to it.
+
+Your application scope:: You declare it (`sealed interface AppScope`), name it whatever you like, and pass it as
+the `@DependencyGraph` argument. Your own contributions therefore always apply.
+
+A graph may only host bindings whose scope it declares, and Bootable's bindings are `@SingleIn(BootScope)`.
+`BootableGraph` carries that `@SingleIn(BootScope::class)` declaration, so your graph *inherits* it by extending
+`BootableGraph` and never has to mention `BootScope` — it declares only your own scope. Bootable brings its own
+scope.
+
+=== Magic vs. explicit
+
+The magic/explicit choice is only about how *Bootable's* containers reach your graph:
+
+.Magic — discovered; your graph names nothing
+[source,kotlin]
+----
+@DependencyGraph(AppScope::class, additionalScopes = [BootScope::class])
+interface AppGraph : BootableGraph
+----
+
+.Explicit — every container is named; nothing is discovered from the classpath
+[source,kotlin]
+----
+@DependencyGraph(
+  AppScope::class,
+  bindingContainers = [BootableDefaults::class, HopliteConfigBindings::class],
+)
+interface AppGraph : BootableGraph
+----
+
+The absence of `additionalScopes = [BootScope::class]` is what keeps discovery off and the graph closed to
+classpath contributions. Mixing is harmless: naming a container that is also discovered does not produce a
+duplicate binding.
+
+=== Testing with Metro
+
+Unit tests need no DI (domain classes take plain constructor parameters). To override a binding in an
+integration test, `createDynamicGraph<AppGraph>(FakeBindings)` builds the real graph with one container
+substituted, still at compile time. See `examples/server-ktor`'s tests.
+
+== A note on performance
+
+None of these styles was chosen for speed, and you should not pick one for that reason. On a native image the
+difference between them is noise; on the JVM the DI-construction cost differs, but in a real service the rest of
+the stack (config loading, ktor, logging, JVM warmup) dominates cold start regardless. Measurements are in
+`docs/native-image-findings.md` and `docs/jvm-startup-findings.md`. Choose on ergonomics and safety, not
+startup.
