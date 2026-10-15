@@ -97,8 +97,8 @@ Import Bootable's Kodein modules, contribute your services with Kodein's multibi
 ----
 fun main() = boot {
   val di = DI {
-    import(bootableModule)   // Bootable + default controllers + the multibinding sets
-    import(configModule)     // binds ConfigBinder (boot-config-hoplite:kodein)
+    import(bootableModule)      // Bootable + default controllers + the multibinding sets
+    import(hopliteConfigModule) // binds ConfigBinder (boot-config-hoplite:kodein)
     bindSingleton { instance<ConfigBinder>().config<ServerConfig>("server") }
     bindAppService { singleton { ExampleServer(instance(), instance()) } }
   }
@@ -106,7 +106,7 @@ fun main() = boot {
 }
 ----
 
-`bootableModule`, `configModule`, `environmentModule` and the `bindAppService` / `bindLifecycleController`
+`bootableModule`, `hopliteConfigModule`, `environmentModule` and the `bindAppService` / `bindLifecycleController`
 helpers come from the modules' `-kodein` artifacts (`boot-kodein`, `boot-config-hoplite-kodein`,
 `boot-env-kodein`).
 
@@ -195,7 +195,7 @@ interface AppGraph : BootableGraph
 ----
 @DependencyGraph(
   AppScope::class,
-  bindingContainers = [BootableDefaultBindings::class, ConfigBindings::class],
+  bindingContainers = [BootableDefaultBindings::class, HopliteConfigBindings::class],
 )
 interface AppGraph : BootableGraph
 ----

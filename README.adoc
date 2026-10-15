@@ -93,7 +93,7 @@ The essentials, regardless of wiring:
 
 To use a DI framework, depend on the `-kodein` or `-metro` artifact of each module you use (e.g. `boot-kodein`, `boot-config-hoplite-kodein`, `boot-env-kodein`, or the `-metro` equivalents) and let it assemble the sets:
 
-* *Kodein* (runtime): import the provided `bootableModule` / `configModule` / `environmentModule`, contribute your services with `bindAppService { … }`, and pass the resolved sets to `boot`.
+* *Kodein* (runtime): import the provided `bootableModule` / `hopliteConfigModule` / `environmentModule`, contribute your services with `bindAppService { … }`, and pass the resolved sets to `boot`.
 * *Metro* (compile-time): declare a `@DependencyGraph` that extends `BootableGraph`, contribute your services with `@ContributesIntoSet`, and `boot { createGraph<AppGraph>().bootable }`.
 
 == Design

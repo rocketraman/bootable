@@ -12,7 +12,7 @@ import org.kodein.di.singleton
 /**
  * A Kodein module that decodes [EnvironmentConfig] from the `env` section and registers the
  * [EnvironmentInitializer] (which populates the global [environment]) into the lifecycle-controller set.
- * Requires a `ConfigBinder` binding (e.g. from boot-config-hoplite's `configModule`).
+ * Requires a `ConfigBinder` binding (e.g. from boot-config-hoplite's `hopliteConfigModule`).
  */
 val environmentModule by DI.Module {
   bindSingleton<EnvironmentConfig> { instance<ConfigBinder>().config("env") }
