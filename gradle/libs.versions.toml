@@ -1,5 +1,5 @@
 [versions]
-config = "1.4.3"
+config = "1.4.9"
 dokka = "2.2.0"
 graalvm-buildtools = "0.10.6"
 hoplite = "3.0.0.RC3"
