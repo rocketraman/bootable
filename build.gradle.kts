@@ -247,6 +247,7 @@ fun Project.configureDiVariants() {
     // Metro is applied module-wide, so every compilation needs its runtime at compile time (annotations or not),
     // but it stays off the published/runtime classpath of the non-metro artifacts.
     dependencies.add("compileOnly", metroRuntime)
+    dependencies.add("testCompileOnly", metroRuntime)
     extensions.configure<KotlinJvmProjectExtension> {
       compilerOptions {
         apiVersion.set(KotlinVersion.KOTLIN_2_3)
