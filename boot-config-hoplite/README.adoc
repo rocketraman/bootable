@@ -4,7 +4,7 @@
 
 ## Usage
 
-Include the default Hoplite `ConfigBinder` in your graph by naming `ConfigBindings` in your
+Include the default Hoplite `ConfigBinder` in your graph by naming `HopliteConfigBindings` in your
 `@DependencyGraph(bindingContainers = [...])` (or, in magic mode, it is discovered automatically). No code is
 required for the default behavior.
 
@@ -19,7 +19,7 @@ interface MyConfigBindings : ConfigBinderProvider {
 }
 ```
 
-To customize config loading, do not include `ConfigBindings`; instead provide your own `ConfigBinder`
+To customize config loading, do not include `HopliteConfigBindings`; instead provide your own `ConfigBinder`
 built with the `hopliteConfigBinder(...)` factory, which accepts optional parameters for additional stage 1, 2,
 or 3 config sources, config reporting, secrets policies, and obfuscators:
 

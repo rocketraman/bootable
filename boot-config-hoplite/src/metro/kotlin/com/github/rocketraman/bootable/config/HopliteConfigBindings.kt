@@ -9,6 +9,6 @@ import dev.zacsweers.metro.SingleIn
 /** Contributes the default Hoplite [ConfigBinder] into a Bootable graph. */
 @ContributesTo(BootScope::class)
 @BindingContainer
-object ConfigBindings {
+object HopliteConfigBindings {
   @Provides @SingleIn(BootScope::class) fun configBinder(): ConfigBinder = hopliteConfigBinder()
 }
