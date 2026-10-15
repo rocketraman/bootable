@@ -179,6 +179,16 @@ project("boot-config-hoplite") {
     // resolve the sibling metro source sets; in the published POM they map to the -metro coordinates.
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-config-common", configuration = "metroElements"))
+
+    testImplementation(platform(rootProject.libs.junit.bom))
+    testImplementation(kotlin("test-junit5"))
+    testImplementation(rootProject.libs.junit.jupiter.api)
+    testRuntimeOnly(rootProject.libs.junit.jupiter.engine)
+    testRuntimeOnly(rootProject.libs.junit.platform.launcher)
+  }
+
+  tasks.test {
+    useJUnitPlatform()
   }
 }
 

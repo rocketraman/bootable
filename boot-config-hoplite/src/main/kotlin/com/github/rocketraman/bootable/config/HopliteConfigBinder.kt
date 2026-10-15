@@ -7,6 +7,7 @@ import com.sksamuel.hoplite.secrets.Obfuscator
 import com.sksamuel.hoplite.secrets.SecretsPolicy
 import com.sksamuel.hoplite.secrets.StandardSecretsPolicy
 import com.sksamuel.hoplite.secrets.StrictObfuscator
+import com.sksamuel.hoplite.sources.EnvironmentVariablesPropertySource
 import com.sksamuel.hoplite.sources.SystemPropertiesPropertySource
 import com.sksamuel.hoplite.sources.UserSettingsPropertySource
 import com.sksamuel.hoplite.sources.XdgConfigPropertySource
@@ -41,6 +42,8 @@ class HopliteConfigBinder(private val binder: UpstreamConfigBinder): ConfigBinde
  * be of type `Secret` to avoid leaking them in the report, named with "secret", "credential", or "pass" in the
  * name, or have pre-processor metadata that identifies the value as a secret. Configure this via [secretsPolicy].
  *
+ * [environmentVariables] supplies the environment variables to read (defaults to [System.getenv]).
+ *
  * Returns a plain [ConfigBinder]; decode config sections with `binder.config<T>("key")`:
  *
  * ```
@@ -57,6 +60,7 @@ fun hopliteConfigBinder(
   obfuscator: Obfuscator = StrictObfuscator(),
   report: Boolean = true,
   strict: Boolean = false,
+  environmentVariables: () -> Map<String, String> = { System.getenv() },
 ): ConfigBinder {
   @OptIn(ExperimentalHoplite::class)
   val upstream = ConfigLoaderBuilder.empty()
@@ -66,7 +70,7 @@ fun hopliteConfigBinder(
     .addDefaultNodeTransformers()
     .addDefaultParamMappers()
     .withConfigStage1()
-    .addEnvironmentSource()
+    .addPropertySource(EnvironmentVariablesPropertySource(environmentVariables))
     .addPropertySource(SystemPropertiesPropertySource) // requires config.override. prefix
     .addPropertySource(UserSettingsPropertySource)
     .addPropertySource(XdgConfigPropertySource)
