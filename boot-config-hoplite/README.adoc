@@ -4,22 +4,22 @@
 
 ## Usage
 
-Include the default Hoplite `ConfigBinder` in your graph by naming `HopliteConfigBindings` in your
+Include the default Hoplite `ConfigBinder` in your graph by naming `ConfigBindings` in your
 `@DependencyGraph(bindingContainers = [...])` (or, in magic mode, it is discovered automatically). No code is
 required for the default behavior.
 
-Bind config sections by extending `ConfigBindings` from a contributed interface — each binding is just a type
+Bind config sections by extending `ConfigBinderProvider` from a contributed interface — each binding is just a type
 and a key:
 
 ```kotlin
 @ContributesTo(AppScope::class)
-interface MyConfigs : ConfigBindings {
+interface MyConfigs : ConfigBinderProvider {
   @Provides fun serverConfig(): ServerConfig = config("server")
   @Provides fun helloConfig(): HelloConfig = config("hello")
 }
 ```
 
-To customize config loading, do not include `HopliteConfigBindings`; instead provide your own `ConfigBinder`
+To customize config loading, do not include `ConfigBindings`; instead provide your own `ConfigBinder`
 built with the `hopliteConfigBinder(...)` factory, which accepts optional parameters for additional stage 1, 2,
 or 3 config sources, config reporting, secrets policies, and obfuscators:
 

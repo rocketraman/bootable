@@ -2,7 +2,7 @@ import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.boot
-import com.github.rocketraman.bootable.config.ConfigBindings
+import com.github.rocketraman.bootable.config.ConfigBinderProvider
 import com.github.rocketraman.bootable.config.config
 import dev.zacsweers.metro.ContributesIntoSet
 import dev.zacsweers.metro.ContributesTo
@@ -26,9 +26,9 @@ class GreetingService(private val cfg: GreetingConfig) : AppService {
   override fun start() = log.info { "greeting: ${cfg.message}" }
 }
 
-// config bindings are just a type and a key (ConfigBindings supplies the binder as a graph accessor)
+// config bindings are just a type and a key (ConfigBinderProvider supplies the binder as a graph accessor)
 @ContributesTo(AppScope::class)
-interface AppModule : ConfigBindings {
+interface AppModule : ConfigBinderProvider {
   @Provides fun greetingConfig(): GreetingConfig = config("greeting")
 }
 
