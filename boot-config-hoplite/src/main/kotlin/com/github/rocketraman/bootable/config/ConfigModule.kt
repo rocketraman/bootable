@@ -1,7 +1,6 @@
 package com.github.rocketraman.bootable.config
 
 import com.sksamuel.hoplite.*
-import com.sksamuel.hoplite.ConfigBinder as UpstreamConfigBinder
 import com.sksamuel.hoplite.decoder.Decoder
 import com.sksamuel.hoplite.secrets.Obfuscator
 import com.sksamuel.hoplite.secrets.SecretsPolicy
@@ -10,22 +9,17 @@ import com.sksamuel.hoplite.secrets.StrictObfuscator
 import com.sksamuel.hoplite.sources.SystemPropertiesPropertySource
 import com.sksamuel.hoplite.sources.UserSettingsPropertySource
 import com.sksamuel.hoplite.sources.XdgConfigPropertySource
-import com.sksamuel.hoplite.transformer.PathNormalizer
-import org.kodein.di.DI
-import org.kodein.di.bind
-import org.kodein.di.new
-import org.kodein.di.singleton
 
 /**
- * A default Hoplite-based configuration module, that reads properties in the following order, from highest priority
+ * Builds a default Hoplite-based [ConfigBinder], reading properties in the following order, from highest priority
  * to lowest:
  * - environment variables (supports upper case, convert `_` to `.`)
  * - system properties (with `config.override.` prefix)
  * - `application-local.conf` in resources
  * - `application.conf` in resources
  *
- * For more control, use the `configModule()` function which has stage 1, 2, and 3 hooks to Hoplite with
- * the following priorities:
+ * The stage 1, 2, and 3 hooks give more control over the Hoplite [ConfigLoaderBuilder] with the following
+ * priorities:
  * - stage1
  * - environment variables
  * - system properties
@@ -36,15 +30,18 @@ import org.kodein.di.singleton
  * - `application.conf` in resources
  * - stage3
  *
- * If report is set to true (which it is by default), a report of all config keys and values will be enabled. All
- * sensitive values should be of type `Secret` to avoid leaking them in the report, named with "secret", "credential",
- * or "pass" in the name, have pre-processor metadata attached that identifies the value as a secret. To configure
- * this, pass a custom [SecretsPolicy].
+ * If report is true (the default), a report of all config keys and values is enabled. All sensitive values should
+ * be of type `Secret` to avoid leaking them in the report, named with "secret", "credential", or "pass" in the
+ * name, or have pre-processor metadata that identifies the value as a secret. Configure this via [secretsPolicy].
+ *
+ * Returns a plain [ConfigBinder]; decode config sections with `binder.config<T>("key")`:
+ *
+ * ```
+ * val binder = hopliteConfigBinder(withConfigStage1 = { /* ... */ })
+ * val serverConfig = binder.config<ServerConfig>("server")
+ * ```
  */
-@Suppress("unused")
-val configModule by lazy { configModule() }
-
-fun configModule(
+fun hopliteConfigBinder(
   withConfigStage1: ConfigLoaderBuilder.() -> ConfigLoaderBuilder = { this },
   withConfigStage2: ConfigLoaderBuilder.() -> ConfigLoaderBuilder = { this },
   withConfigStage3: ConfigLoaderBuilder.() -> ConfigLoaderBuilder = { this },
@@ -53,43 +50,37 @@ fun configModule(
   obfuscator: Obfuscator = StrictObfuscator(),
   report: Boolean = true,
   strict: Boolean = false,
-) = DI.Module("configModule") {
-  bind<UpstreamConfigBinder> {
-    singleton {
-      @OptIn(ExperimentalHoplite::class)
-      ConfigLoaderBuilder.empty()
-        .addDefaultDecoders()
-        .addDecoders(decoders)
-        .addDefaultPreprocessors()
-        .addDefaultNodeTransformers()
-        .addDefaultParamMappers()
-        .withConfigStage1()
-        .addEnvironmentSource()
-        .addPropertySource(SystemPropertiesPropertySource) // requires config.override. prefix
-        .addPropertySource(UserSettingsPropertySource)
-        .addPropertySource(XdgConfigPropertySource)
-        .withConfigStage2()
-        .addDefaultParsers()
-        .addResourceSource("/application-local.conf", optional = true, allowEmpty = true)
-        .addResourceSource("/application.conf")
-        .withConfigStage3()
-        .apply {
-          if (report) {
-            withReport()
-            withSecretsPolicy(secretsPolicy)
-            withObfuscator(obfuscator)
-          }
-          if (strict) {
-            strict()
-          }
-        }
-        .withExplicitSealedTypes()
-        .build()
-        .configBinder()
+): ConfigBinder {
+  @OptIn(ExperimentalHoplite::class)
+  val upstream = ConfigLoaderBuilder.empty()
+    .addDefaultDecoders()
+    .addDecoders(decoders)
+    .addDefaultPreprocessors()
+    .addDefaultNodeTransformers()
+    .addDefaultParamMappers()
+    .withConfigStage1()
+    .addEnvironmentSource()
+    .addPropertySource(SystemPropertiesPropertySource) // requires config.override. prefix
+    .addPropertySource(UserSettingsPropertySource)
+    .addPropertySource(XdgConfigPropertySource)
+    .withConfigStage2()
+    .addDefaultParsers()
+    .addResourceSource("/application-local.conf", optional = true, allowEmpty = true)
+    .addResourceSource("/application.conf")
+    .withConfigStage3()
+    .apply {
+      if (report) {
+        withReport()
+        withSecretsPolicy(secretsPolicy)
+        withObfuscator(obfuscator)
+      }
+      if (strict) {
+        strict()
+      }
     }
-  }
+    .withExplicitSealedTypes()
+    .build()
+    .configBinder()
 
-  bind<ConfigBinder> {
-    singleton { new(::HopliteConfigBinder) }
-  }
+  return HopliteConfigBinder(upstream)
 }

@@ -4,11 +4,19 @@ import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import com.vanniktech.maven.publish.SourcesJar
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
+import dev.zacsweers.metro.gradle.MetroPluginExtension
+import org.gradle.api.artifacts.ExternalModuleDependency
+import org.gradle.api.artifacts.ProjectDependency
+import org.gradle.api.publish.PublishingExtension
+import org.gradle.api.publish.maven.MavenPublication
+import org.gradle.api.tasks.bundling.Jar
 
 plugins {
   alias(libs.plugins.kotlin.jvm)
   alias(libs.plugins.dokka)
   alias(libs.plugins.dokka.javadoc)
+  alias(libs.plugins.metro) apply false
   signing
   alias(libs.plugins.maven.publish) apply false
 }
@@ -19,7 +27,6 @@ dependencies {
   dokka(project(":boot"))
   dokka(project(":boot-common"))
   dokka(project(":boot-config-common"))
-  dokka(project(":boot-config-cfg4k"))
   dokka(project(":boot-config-hoplite"))
   dokka(project(":boot-env"))
   dokka(project(":boot-logging"))
@@ -29,22 +36,19 @@ dependencies {
 
 allprojects {
   group = "com.github.rocketraman.bootable"
-  version = "2.2.0"
+  // 3.0: Bootable no longer embeds a DI framework; the core is vanilla Kotlin and callers wire it themselves
+  version = "3.0.0-SNAPSHOT"
 }
 
 subprojects {
   apply {
     plugin("java-library")
     plugin("org.jetbrains.kotlin.jvm")
-    plugin("org.jetbrains.dokka")
-    plugin("org.jetbrains.dokka-javadoc")
-    plugin("signing")
-    plugin("com.vanniktech.maven.publish")
   }
 
   dependencies {
     implementation(platform(rootProject.libs.kotlin.bom))
-    api(rootProject.libs.kodein.di)
+    // Bootable embeds no DI framework — callers wire the components with vanilla Kotlin, Kodein, Metro, etc.
   }
 
   configurations.all {
@@ -57,19 +61,30 @@ subprojects {
   }
 
   java {
-    // target 11 for max compatibility
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    // target 17 for max compatibility
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
   }
 
   kotlin {
     jvmToolchain(21)
     compilerOptions {
-      // target 11 for max compatibility
-      jvmTarget.set(JvmTarget.JVM_11)
+      // target 17 for max compatibility
+      jvmTarget.set(JvmTarget.JVM_17)
       apiVersion.set(KotlinVersion.KOTLIN_2_1)
       languageVersion.set(KotlinVersion.KOTLIN_2_1)
     }
+  }
+}
+
+// Only the library modules are published to Maven Central; everything under :examples is a runnable sample
+// app, not an artifact, so it gets none of the publish / signing / dokka machinery.
+configure(subprojects.filter { !it.path.startsWith(":examples") }) {
+  apply {
+    plugin("org.jetbrains.dokka")
+    plugin("org.jetbrains.dokka-javadoc")
+    plugin("signing")
+    plugin("com.vanniktech.maven.publish")
   }
 
   configure<MavenPublishBaseExtension> {
@@ -86,7 +101,7 @@ subprojects {
     }
     pom {
       name.set(project.name)
-      description.set("Simple opinionated microservice runtime")
+      description.set("Simple unopinionated microservice runtime")
       url.set("https://github.com/rocketraman/bootable")
       licenses {
         license {
@@ -118,12 +133,13 @@ subprojects {
 }
 
 project("boot") {
+  configureDiVariants()
   dependencies {
     implementation(project(":boot-common"))
     // todo for now, we depend on boot-logging-log4j2, later we could use service loaders to discover implementations at runtime
     implementation(project(":boot-logging-log4j2"))
-
-    implementation(rootProject.libs.kotlin.reflect)
+    // note: no DI framework — Bootable's wiring is plain Kotlin (kotlin-reflect is still needed at runtime
+    // for log4j-api-kotlin logging, and comes transitively via boot-logging-log4j2)
   }
 
   kotlin {
@@ -139,33 +155,32 @@ project("boot-common") {
   }
 }
 
-project("boot-config-cfg4k") {
-  dependencies {
-    api(project(":boot-config-common"))
-    api(rootProject.libs.cfg4k.core)
-    api(rootProject.libs.cfg4k.hocon)
-    api(rootProject.libs.typesafe.config)
-
-    implementation(project(":boot"))
-  }
-}
-
 project("boot-config-hoplite") {
+  configureDiVariants()
   dependencies {
     api(project(":boot-config-common"))
     api(rootProject.libs.bundles.hoplite)
 
     implementation(project(":boot"))
+    // the metro flavor contributes to boot's BootScope, and re-exposes config-common's metro flavor
+    // (ConfigBindings) so consumers of boot-config-hoplite-metro get the config helper too. In-repo these
+    // resolve the sibling metro source sets; in the published POM they map to the -metro coordinates.
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-config-common", configuration = "metroElements"))
   }
 }
 
 project("boot-config-common") {
+  configureDiVariants()
 }
 
 project("boot-env") {
+  configureDiVariants()
   dependencies {
     api(project(":boot-config-common"))
     implementation(project(":boot"))
+    // the metro flavor contributes to boot's BootScope (in-repo: boot's metro source set; POM: boot-metro)
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
   }
 }
 
@@ -175,6 +190,10 @@ project("boot-logging-log4j2") {
   dependencies {
     api(project(":boot-logging"))
     api(rootProject.libs.bundles.log4j.api)
+    // log4j-api-kotlin's logger() resolves the logger name via this::class (kotlin-reflect), so every app that
+    // logs needs kotlin-reflect at runtime — independent of any DI framework. (In apps that also use ktor or
+    // hoplite it arrives transitively, which is why a bare example is the first to notice it missing.)
+    api(rootProject.libs.kotlin.reflect)
     implementation(platform(rootProject.libs.log4j.bom))
     implementation(rootProject.libs.bundles.log4j.impl)
   }
@@ -185,5 +204,116 @@ project("boot-server-http-ktor") {
     implementation(project(":boot"))
     api(project(":boot-config-common"))
     api(rootProject.libs.ktor.server.netty)
+  }
+}
+
+/**
+ * Convention for a Bootable module that ships optional DI bindings alongside its vanilla API:
+ *   src/main/ -> vanilla   src/metro/ -> Metro bindings   src/kodein/ -> Kodein bindings
+ *
+ * Each present flavor (src/metro, src/kodein) is published as its own **plain coordinate** `<module>-<flavor>`
+ * (e.g. `boot-metro`) whose POM depends on the base coordinate + the DI runtime + any sibling `-<flavor>`
+ * coordinates. A downstream consumer just adds `implementation("...:boot-metro")` — no attribute, capability,
+ * rule, or plugin — and it resolves identically from Gradle and Maven. In-repo the same flavor is exposed as a
+ * consumable configuration `<flavor>Elements` (main jar + flavor jar) that sibling modules and the examples
+ * consume with `project(path = ":<module>", configuration = "<flavor>Elements")`.
+ *
+ * The Metro compiler plugin is applied (and Kotlin bumped to 2.3) only when src/metro exists; it applies to the
+ * whole module (it can't be scoped) but its runtime is kept off the vanilla/kodein artifacts via compileOnly.
+ */
+fun Project.configureDiVariants() {
+  val hasMetro = file("src/metro/kotlin").exists()
+  val hasKodein = file("src/kodein/kotlin").exists()
+  if (!hasMetro && !hasKodein) return
+
+  val metroRuntime = "dev.zacsweers.metro:runtime:1.3.2"
+  val kodeinDi = "org.kodein.di:kodein-di:7.25.0"
+
+  if (hasMetro) {
+    apply(plugin = "dev.zacsweers.metro")
+    extensions.configure<MetroPluginExtension> { automaticallyAddRuntimeDependencies.set(false) }
+    // Metro is applied module-wide, so every compilation needs its runtime at compile time (annotations or not),
+    // but it stays off the published/runtime classpath of the non-metro artifacts.
+    dependencies.add("compileOnly", metroRuntime)
+    extensions.configure<KotlinJvmProjectExtension> {
+      compilerOptions {
+        apiVersion.set(KotlinVersion.KOTLIN_2_3)
+        languageVersion.set(KotlinVersion.KOTLIN_2_3)
+      }
+    }
+  }
+
+  val main = sourceSets["main"]
+
+  fun defineFlavor(name: String) {
+    val ss = sourceSets.create(name)
+    // compile the flavor against this module's own main classes + main's dependencies, plus whatever sibling
+    // flavor outputs the module adds to its "<name>Api" bucket (see the project(...) blocks above)
+    ss.compileClasspath += main.output + main.compileClasspath
+    ss.runtimeClasspath += main.output + main.runtimeClasspath
+
+    // "<name>Api" holds the flavor's OWN published deps (DI runtime + sibling -<flavor> coordinates). It is
+    // deliberately NOT extended with main's api/implementation — those reach the POM via the base coordinate.
+    val apiBucket = configurations.maybeCreate("${name}Api")
+    configurations["${name}Implementation"].extendsFrom(apiBucket)
+
+    val flavorJar = tasks.register("${name}Jar", Jar::class.java) {
+      from(ss.output)
+      archiveBaseName.set("${project.name}-$name")
+    }
+
+    // in-repo consumable: the flavor as a full superset — this module's main jar + flavor jar, plus both the
+    // module's main deps and the flavor deps. (Externally those main deps arrive via the base coordinate; this
+    // config is in-repo only and never feeds the POM, so it can be fat without polluting published metadata.)
+    configurations.create("${name}Elements") {
+      isCanBeResolved = false
+      isCanBeConsumed = true
+      extendsFrom(
+        configurations["${name}Implementation"],
+        configurations["api"],
+        configurations["implementation"],
+        configurations["runtimeOnly"],
+      )
+      outgoing.artifact(tasks["jar"])
+      outgoing.artifact(flavorJar)
+    }
+
+    // external coordinate: <module>-<name>, a plain POM-only artifact (no Gradle Module Metadata variants)
+    extensions.configure<PublishingExtension> {
+      publications.create(name, MavenPublication::class.java) {
+        artifactId = "${project.name}-$name"
+        artifact(flavorJar)
+        pom.withXml {
+          val node = asNode().appendNode("dependencies")
+          fun dep(g: String, a: String, v: String) {
+            node.appendNode("dependency").apply {
+              appendNode("groupId", g); appendNode("artifactId", a)
+              appendNode("version", v); appendNode("scope", "compile")
+            }
+          }
+          // the base coordinate carries this module's main (vanilla) classes + their transitive deps
+          dep(group.toString(), project.name, version.toString())
+          // the flavor's own deps: external runtimes verbatim; sibling project deps as their -<flavor> coordinate
+          configurations["${name}Api"].dependencies.forEach { d ->
+            when (d) {
+              is ProjectDependency -> dep(group.toString(), "${d.name}-$name", version.toString())
+              is ExternalModuleDependency -> dep(d.group ?: "", d.name, d.version ?: "")
+              else -> {}
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (hasMetro) {
+    defineFlavor("metro")
+    dependencies.add("metroApi", metroRuntime)
+  }
+  if (hasKodein) {
+    defineFlavor("kodein")
+    dependencies.add("kodeinApi", kodeinDi)
+    // module-wide Metro plugin also processes the kodein compilation, so it needs the runtime at compile time
+    if (hasMetro) dependencies.add("kodeinCompileOnly", metroRuntime)
   }
 }

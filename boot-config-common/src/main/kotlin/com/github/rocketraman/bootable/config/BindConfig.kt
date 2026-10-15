@@ -1,9 +1,5 @@
 package com.github.rocketraman.bootable.config
 
-import org.kodein.di.DI
-import org.kodein.di.bind
-import org.kodein.di.instance
-import org.kodein.di.singleton
 import kotlin.reflect.KClass
 
 interface ConfigBinder {
@@ -11,10 +7,11 @@ interface ConfigBinder {
 }
 
 /**
- * Convenience function for binding configuration classes in Kodein modules via hoplite. To use it, simply do
- * `bindConfig<ConfigClassToBind>()` with an optional key (config prefix) if the related configuration is in its
- * own section.
+ * Reified convenience for decoding a config section into [T] via a [ConfigBinder]:
+ *
+ * ```
+ * val binder = hopliteConfigBinder()
+ * val serverConfig = binder.config<ServerConfig>("server")
+ * ```
  */
-inline fun <reified T: Any> DI.Builder.bindConfig(key: String, tag: Any? = null) {
-  bind(tag) { singleton { instance<ConfigBinder>().configOf(key, T::class) } }
-}
+inline fun <reified T: Any> ConfigBinder.config(prefix: String): T = configOf(prefix, T::class)

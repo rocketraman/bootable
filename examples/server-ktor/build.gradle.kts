@@ -1,5 +1,5 @@
 plugins {
-  alias(libs.plugins.kotlin.jvm)
+  kotlin("jvm")
   alias(libs.plugins.graalvm.native)
   application
 }
@@ -22,17 +22,21 @@ dependencies {
   // Mix-and-match bootable modules as necessary.
   // This basic set provides the basic boot functionality configuration via hoplite, logging via log4j2, and convenience
   // methods for exposing ktor services.
-  implementation(libs.bootable.boot)
-  implementation(libs.bootable.boot.config.hoplite)
-  implementation(libs.bootable.boot.logging.log4j2)
-  implementation(libs.bootable.boot.server.http.ktor)
+  implementation(project(":boot"))
+  implementation(project(":boot-config-hoplite"))
+  implementation(project(":boot-logging-log4j2"))
+  implementation(project(":boot-server-http-ktor"))
 
   implementation(libs.ktor.server.html.builder)
   implementation(libs.kotlinx.html)
 
+  testImplementation(platform(libs.junit.bom))
   testImplementation(kotlin("test-junit5"))
   testImplementation(libs.junit.jupiter.api)
+  testImplementation(project(":boot-env"))
+  testImplementation(libs.ktor.server.test.host)
   testRuntimeOnly(libs.junit.jupiter.engine)
+  testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 tasks.test {

@@ -10,10 +10,17 @@ import kotlin.system.exitProcess
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 
+/**
+ * The runnable core of Bootable — an ordinary Kotlin class with no dependency-injection annotations. Construct it
+ * with your services and lifecycle controllers (usually via the [boot] convenience function) however you
+ * assembled them: by hand, or with whatever DI framework you prefer.
+ *
+ * [maxShutdownTime] is a [boot] argument rather than a constructor dependency, so the constructor takes only the
+ * two sets.
+ */
 class Bootable(
   private val appServices: Set<AppService>,
-  private val lifecycleControllers: Set<LifecycleController>,
-  private val maxShutdownTime: Long = 30
+  private val lifecycleControllers: Set<LifecycleController> = defaultLifecycleControllers(),
 ) {
 
   @Volatile private var running = true
@@ -28,7 +35,7 @@ class Bootable(
   /**
    * This is internal as it is intended to be used only from the [com.github.rocketraman.bootable.boot] helper function.
    */
-  internal fun boot(startupMark: TimeMark = TimeSource.Monotonic.markNow()) {
+  internal fun boot(startupMark: TimeMark = TimeSource.Monotonic.markNow(), maxShutdownTime: Long = 30) {
     log.info("=> Initializing (${startupMark.elapsedNow()})…")
     appInit()
 
@@ -45,7 +52,7 @@ class Bootable(
     log.info("=> Shutting down (${startupMark.elapsedNow()})")
 
     val shutdownMark = TimeSource.Monotonic.markNow()
-    safeExec { appShutdown() }
+    safeExec { appShutdown(maxShutdownTime) }
     safeExec { appCleanup() }
 
     log.debug { "Shut down application in ${shutdownMark.elapsedNow()}, total uptime was ${runningMark.elapsedNow()}." }
@@ -75,7 +82,7 @@ class Bootable(
     return 0
   }
 
-  private fun appShutdown() {
+  private fun appShutdown(maxShutdownTime: Long) {
     lifecycleControllers.sortedBy { it.priority() }.forEach {
       it.appShutdown(ServiceContext(appServices, ::serviceStart, ::serviceShutdown), maxShutdownTime, ::halt)
     }
