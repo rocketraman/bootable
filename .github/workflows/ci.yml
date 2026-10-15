@@ -2,10 +2,14 @@ name: CI
 
 # Build and test only. Releases to Maven Central are published from a maintainer's machine
 # (see docs/releasing.adoc) so the GPG signing key never leaves local hardware.
+#
+# PR branches are built via pull_request (against the merge with master); building them on push
+# too would just duplicate the run. Use workflow_dispatch to build a branch that has no PR.
 on:
   push:
-    branches: ['**']
+    branches: [master]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
