@@ -284,6 +284,9 @@ fun Project.configureDiVariants() {
       archiveBaseName.set("${project.name}-$name")
       archiveClassifier.set("javadoc")
     }
+    // nothing else pulls the flavor jars into `build` unless an example happens to consume them, so wire them in
+    // explicitly — this is what makes `build` compile every flavor source set
+    tasks.named("assemble") { dependsOn(flavorJar, flavorSourcesJar, flavorJavadocJar) }
 
     // in-repo consumable: the flavor as a full superset — this module's main jar + flavor jar, plus both the
     // module's main deps and the flavor deps. (Externally those main deps arrive via the base coordinate; this
