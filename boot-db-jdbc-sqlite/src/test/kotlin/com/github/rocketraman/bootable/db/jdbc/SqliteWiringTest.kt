@@ -7,6 +7,7 @@ import com.github.rocketraman.bootable.boot.bootableModule
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
 import com.github.rocketraman.bootable.config.hopliteConfigModule
+import com.zaxxer.hikari.HikariDataSource
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.createGraph
@@ -39,22 +40,20 @@ private fun JdbcDataSourceService.startAndStop() {
 val SqliteWiringTest by testSuite {
   testSuite("typed config decoded by") {
     test("hoplite") {
-      val config = hopliteConfigBinder(report = false).config<SqliteConfig>("db")
+      val config = hopliteConfigBinder(report = false).config<SqliteConfig>("db.jdbc")
       assert(
         config == SqliteConfig(
           path = "build/wiring-test.db",
           synchronous = SqliteSynchronous.NORMAL,
           busyTimeout = 2.seconds,
-          pool = PoolConfig(
-            poolName = "wiring-test",
-            connectionTimeout = 3.seconds,
-            properties = mapOf("leakDetectionThreshold" to "10000"),
-          ),
         )
       )
-      val hikari = hikariConfig(config)
-      assert(hikari.leakDetectionThreshold == 10_000L)
-      assert(hikari.connectionTimeout == 3_000L)
+    }
+
+    test("hoplite in strict mode, alongside the pool config") {
+      val binder = hopliteConfigBinder(report = false, strict = true)
+      binder.config<SqliteConfig>("db.jdbc")
+      binder.config<HikariPoolConfig>("db.pool")
     }
 
     test("kodein") {
@@ -62,12 +61,16 @@ val SqliteWiringTest by testSuite {
         import(bootableModule)
         import(hopliteConfigModule)
         import(jdbcDataSourceModule)
-        import(sqliteConfigModule())
+        import(sqliteConfigModule)
+        import(hikariPoolModule)
       }.direct
 
       assert((di.instance<JdbcConfig>() as SqliteConfig).path == "build/wiring-test.db")
+      val hikari = di.instance<DataSource>() as HikariDataSource
+      assert(hikari.poolName == "wiring-test")
+      assert(hikari.maximumPoolSize == 1)
       val service = di.instance<Set<AppService>>().filterIsInstance<JdbcDataSourceService>().single()
-      assert(service.dataSource === di.instance<DataSource>())
+      assert(service.dataSource === hikari)
       service.startAndStop()
     }
 
@@ -75,8 +78,11 @@ val SqliteWiringTest by testSuite {
       val graph = createGraph<TestGraph>()
 
       assert((graph.jdbcConfig as SqliteConfig).path == "build/wiring-test.db")
+      val hikari = graph.dataSource as HikariDataSource
+      assert(hikari.poolName == "wiring-test")
+      assert(hikari.maximumPoolSize == 1)
       val service = graph.appServices.filterIsInstance<JdbcDataSourceService>().single()
-      assert(service.dataSource === graph.dataSource)
+      assert(service.dataSource === hikari)
       service.startAndStop()
     }
   }

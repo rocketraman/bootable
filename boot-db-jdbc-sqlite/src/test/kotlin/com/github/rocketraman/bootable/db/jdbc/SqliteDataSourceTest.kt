@@ -8,13 +8,14 @@ import javax.sql.DataSource
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteRecursively
+import kotlin.io.path.exists
 import kotlin.time.Duration.Companion.milliseconds
 
 val SqliteDataSourceTest by testSuite {
   test("pool applies the SQLite pragmas to its connections") {
     withTempDir { dir ->
       val config = SqliteConfig(path = dir.resolve("test.db").toString(), synchronous = SqliteSynchronous.NORMAL)
-      JdbcDataSourceService(config).use { dataSource ->
+      JdbcDataSourceService(config, HikariConnectionPoolFactory()).use { dataSource ->
         assert(dataSource.pragma("journal_mode") == "wal")
         assert(dataSource.pragma("foreign_keys") == "1")
         assert(dataSource.pragma("busy_timeout") == "5000")
@@ -26,53 +27,51 @@ val SqliteDataSourceTest by testSuite {
 
   test("foreign keys are enforced") {
     withTempDir { dir ->
-      JdbcDataSourceService(SqliteConfig(path = dir.resolve("fk.db").toString())).use { dataSource ->
-        dataSource.connection.use { connection ->
-          connection.createStatement().use { statement ->
-            statement.execute("CREATE TABLE parent (id INTEGER PRIMARY KEY)")
-            statement.execute("CREATE TABLE child (id INTEGER PRIMARY KEY, parent_id INTEGER REFERENCES parent(id))")
-            val e = runCatching { statement.execute("INSERT INTO child (id, parent_id) VALUES (1, 42)") }
-              .exceptionOrNull()
-            assert(e is SQLException && "FOREIGN KEY" in e.message.orEmpty())
+      JdbcDataSourceService(SqliteConfig(path = dir.resolve("fk.db").toString()), HikariConnectionPoolFactory())
+        .use { dataSource ->
+          dataSource.connection.use { connection ->
+            connection.createStatement().use { statement ->
+              statement.execute("CREATE TABLE parent (id INTEGER PRIMARY KEY)")
+              statement.execute("CREATE TABLE child (id INTEGER PRIMARY KEY, parent_id INTEGER REFERENCES parent(id))")
+              val e = runCatching { statement.execute("INSERT INTO child (id, parent_id) VALUES (1, 42)") }
+                .exceptionOrNull()
+              assert(e is SQLException && "FOREIGN KEY" in e.message.orEmpty())
+            }
           }
         }
-      }
     }
   }
 
-  test("shutdown closes the pool") {
-    withTempDir { dir ->
-      val service = JdbcDataSourceService(SqliteConfig(path = dir.resolve("close.db").toString()))
-      service.use { }
-      assert((service.dataSource as HikariDataSource).isClosed)
+  test("pool defaults to a single connection") {
+    val config = SqliteConfig(path = "x.db")
+    assert(config.maxConnectionsHint == 1)
+    val pool = HikariConnectionPoolFactory().create(config)
+    try {
+      assert(pool.hikariDataSource.maximumPoolSize == 1)
+    } finally {
+      pool.close()
     }
   }
 
-  test("start fails when the database cannot be opened") {
+  test("start creates the database file's directory") {
     withTempDir { dir ->
-      val service = JdbcDataSourceService(
-        SqliteConfig(
-          path = dir.resolve("missing-dir/test.db").toString(),
-          pool = PoolConfig(connectionTimeout = 500.milliseconds),
-        )
-      )
+      val database = dir.resolve("nested/deeper/test.db")
+      JdbcDataSourceService(SqliteConfig(path = database.toString()), HikariConnectionPoolFactory()).use { }
+      assert(database.exists())
+    }
+  }
+
+  test("start fails on a missing directory when createDirectories is off") {
+    withTempDir { dir ->
+      val config = SqliteConfig(path = dir.resolve("missing/test.db").toString(), createDirectories = false)
+      val service = JdbcDataSourceService(config, HikariConnectionPoolFactory(HikariPoolConfig(connectionTimeout = 500.milliseconds)))
       try {
         assert(runCatching { service.start() }.exceptionOrNull() is SQLException)
+        assert(!dir.resolve("missing").exists())
       } finally {
         service.shutdown()
       }
     }
-  }
-
-  test("pool defaults to a single connection unless configured") {
-    assert(hikariConfig(SqliteConfig(path = "x.db")).maximumPoolSize == 1)
-    assert(hikariConfig(SqliteConfig(path = "x.db", pool = PoolConfig(maximumPoolSize = 4))).maximumPoolSize == 4)
-  }
-
-  test("properties override the typed pragmas") {
-    val config = SqliteConfig(path = "x.db", properties = mapOf("journal_mode" to "DELETE", "cache_size" to "-2000"))
-    assert(config.dataSourceProperties["journal_mode"] == "DELETE")
-    assert(config.dataSourceProperties["cache_size"] == "-2000")
   }
 }
 

@@ -7,10 +7,10 @@ import org.kodein.di.bindSingleton
 import org.kodein.di.instance
 
 /**
- * A Kodein module that decodes a [SqliteConfig] from the [configKey] section as the [JdbcConfig].
- * Import it alongside `jdbcDataSourceModule`, which builds the pool from it. Requires a `ConfigBinder` binding
+ * A Kodein module that decodes a [SqliteConfig] from the `db.jdbc` config section as the [JdbcConfig].
+ * Import it alongside `jdbcDataSourceModule`, which builds the pool from it, and a pool module. Requires a `ConfigBinder` binding
  * (e.g. from boot-config-hoplite's `hopliteConfigModule`).
  */
-fun sqliteConfigModule(configKey: String = "db") = DI.Module("sqliteConfigModule") {
-  bindSingleton<JdbcConfig> { instance<ConfigBinder>().config<SqliteConfig>(configKey) }
+val sqliteConfigModule by DI.Module {
+  bindSingleton<JdbcConfig> { instance<ConfigBinder>().config<SqliteConfig>("db.jdbc") }
 }

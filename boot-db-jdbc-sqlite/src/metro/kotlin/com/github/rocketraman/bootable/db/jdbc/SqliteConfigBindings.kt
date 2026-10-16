@@ -9,12 +9,12 @@ import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
 
 /**
- * Provides a [SqliteConfig], decoded from the `db` config section, as the [JdbcConfig] that
+ * Provides a [SqliteConfig], decoded from the `db.jdbc` config section, as the [JdbcConfig] that
  * `JdbcDataSourceBindings` (from boot-db-jdbc-metro) builds the pool from.
  */
 @ContributesTo(BootScope::class)
 @BindingContainer
 object SqliteConfigBindings {
   @Provides @SingleIn(BootScope::class)
-  fun sqliteConfig(binder: ConfigBinder): JdbcConfig = binder.config<SqliteConfig>("db")
+  fun sqliteConfig(binder: ConfigBinder): JdbcConfig = binder.config<SqliteConfig>("db.jdbc")
 }

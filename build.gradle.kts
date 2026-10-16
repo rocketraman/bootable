@@ -34,6 +34,7 @@ dependencies {
   dokka(project(":boot-config-hoplite"))
   dokka(project(":boot-db-jdbc"))
   dokka(project(":boot-db-jdbc-sqlite"))
+  dokka(project(":boot-db-pool-hikari"))
   dokka(project(":boot-env"))
   dokka(project(":boot-logging"))
   dokka(project(":boot-logging-log4j2"))
@@ -216,8 +217,39 @@ project("boot-db-jdbc") {
   dependencies {
     api(project(":boot"))
     api(project(":boot-config-common"))
-    api(rootProject.libs.hikari)
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
+
+    // a real driver, so the lifecycle tests run against a real database
+    testImplementation(rootProject.libs.sqlite.jdbc)
+  }
+}
+
+project("boot-db-pool-hikari") {
+  configureDiVariants()
+  dependencies {
+    api(project(":boot-db-jdbc"))
+    api(rootProject.libs.hikari)
+    // the logging API only: the application chooses the logging implementation (e.g. boot-logging-log4j2)
+    implementation(rootProject.libs.bundles.log4j.api)
+    // the pool is only useful with boot-db-jdbc's service, so each flavor brings boot-db-jdbc's matching flavor
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+
+    testImplementation(rootProject.libs.sqlite.jdbc)
+    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    testImplementation(project(":boot-logging-log4j2"))
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
   }
 }
 
@@ -239,6 +271,9 @@ project("boot-db-jdbc-sqlite") {
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    // the driver settings only matter through a real pool
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
     testImplementation(project(":boot-logging-log4j2"))
   }
 
