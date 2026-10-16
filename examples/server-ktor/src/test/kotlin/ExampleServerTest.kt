@@ -44,7 +44,7 @@ val ExampleServerTest by testSuite {
         val response = client.get("/hello")
 
         assert(response.status == HttpStatusCode.OK)
-        assert(response.bodyAsText() == "hello from the te1st")
+        assert(response.bodyAsText() == "hello from the test")
       }
     }
 

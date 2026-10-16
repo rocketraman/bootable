@@ -1,6 +1,5 @@
 import com.github.rocketraman.bootable.boot.Bootable
 import com.github.rocketraman.bootable.boot.boot
-import com.github.rocketraman.bootable.boot.defaultLifecycleControllers
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
 import com.github.rocketraman.bootable.server.http.ktor.KtorService
