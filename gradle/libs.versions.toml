@@ -1,6 +1,7 @@
 [versions]
 dokka = "2.2.0"
 graalvm-buildtools = "0.10.6"
+hikari = "7.1.0"
 hoplite = "3.0.3"
 kotlin = "2.3.21"
 kotlinx-coroutines = "1.10.1"
@@ -9,6 +10,7 @@ ktor = "3.1.1"
 log4j = "2.24.3"
 log4j-kotlin-api = "1.5.0"
 metro = "1.3.2"
+sqlite-jdbc = "3.53.4.0"
 # 1.1.0+ trips a power-assert bug on TestBalloon's generated entry point ("Unable to find source for IrFile",
 # KT-83931, fixed in Kotlin 2.4.0); stay on the 1.0.x line until Kotlin is bumped
 testBalloon = "1.0.0-K2.3.0"
@@ -25,6 +27,8 @@ metro = { id = "dev.zacsweers.metro", version.ref = "metro" }
 testBalloon = { id = "de.infix.testBalloon", version.ref = "testBalloon" }
 
 [libraries]
+hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
+
 hoplite-core = { module = "com.sksamuel.hoplite:hoplite-core", version.ref = "hoplite" }
 hoplite-hocon = { module = "com.sksamuel.hoplite:hoplite-hocon", version.ref = "hoplite" }
 
@@ -48,6 +52,8 @@ log4j-core = { module = "org.apache.logging.log4j:log4j-core", version.ref = "lo
 log4j-jul = { module = "org.apache.logging.log4j:log4j-jul", version.ref = "log4j" }
 log4j-layout-template-json = { module = "org.apache.logging.log4j:log4j-layout-template-json", version.ref = "log4j" }
 log4j-slf4j-impl = { module = "org.apache.logging.log4j:log4j-slf4j2-impl", version.ref = "log4j" }
+
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 
 # below here, only used for the server-ktor sample
 kotlinx-html = { module = "org.jetbrains.kotlinx:kotlinx-html", version.ref = "kotlinx-html" }

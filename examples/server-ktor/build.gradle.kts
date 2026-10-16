@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+
 plugins {
   kotlin("jvm")
   kotlin("plugin.power-assert")
@@ -37,14 +39,11 @@ dependencies {
   testImplementation(libs.ktor.server.test.host)
 }
 
-tasks.test {
-  useJUnitPlatform()
-}
-
 kotlin {
   jvmToolchain(21)
 }
 
+@OptIn(ExperimentalKotlinGradlePluginApi::class)
 powerAssert {
   functions = listOf("kotlin.assert")
   includedSourceSets = listOf("test")

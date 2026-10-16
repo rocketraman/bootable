@@ -55,6 +55,29 @@ Add this module to your project to use Hoplite for configuration.
 
 xref:./boot-config-hoplite/README.adoc[Documentation]
 
+=== Database (JDBC)
+
+`boot-db-jdbc` provides a HikariCP connection pool tied to the application lifecycle.
+`JdbcDataSourceService` validates a connection when the app starts, so an unreachable database fails the boot, and closes the pool on shutdown.
+It starts at a high priority, so services that use the database start after it and stop before it.
+
+Configure it from a `JdbcConfig`: either the generic `JdbcGenericConfig` (any database, by JDBC URL), or a driver module's typed config.
+Driver modules bring in their JDBC driver as a dependency:
+
+* `boot-db-jdbc-sqlite`: `SqliteConfig` takes a file `path`, and defaults to WAL journaling, enforced foreign keys, a busy timeout, and a single-connection pool.
+
+[source,hocon]
+----
+db {
+  path = "./app.db"
+  pool { connectionTimeout = 5s }
+}
+----
+
+With vanilla wiring, construct `JdbcDataSourceService(binder.config<SqliteConfig>("db"))`, pass it to `boot` as an app service, and hand its `dataSource` to whatever needs connections.
+With Kodein, import `jdbcDataSourceModule` and a config module (`sqliteConfigModule()` or `jdbcGenericConfigModule()`).
+With Metro, `boot-db-jdbc-sqlite-metro` contributes everything; for the generic config, add `JdbcGenericConfigBindings` to your graph's `bindingContainers`.
+
 === Environment
 
 WARNING: Over-using this abstraction is a code smell.

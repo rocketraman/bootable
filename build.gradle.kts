@@ -2,16 +2,17 @@ import com.vanniktech.maven.publish.JavaLibrary
 import com.vanniktech.maven.publish.JavadocJar
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import com.vanniktech.maven.publish.SourcesJar
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
+import org.jetbrains.kotlin.powerassert.gradle.PowerAssertGradleExtension
 import dev.zacsweers.metro.gradle.MetroPluginExtension
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.tasks.bundling.Jar
-import org.jetbrains.kotlin.powerassert.gradle.PowerAssertGradleExtension
 
 plugins {
   alias(libs.plugins.kotlin.jvm)
@@ -31,6 +32,8 @@ dependencies {
   dokka(project(":boot-common"))
   dokka(project(":boot-config-common"))
   dokka(project(":boot-config-hoplite"))
+  dokka(project(":boot-db-jdbc"))
+  dokka(project(":boot-db-jdbc-sqlite"))
   dokka(project(":boot-env"))
   dokka(project(":boot-logging"))
   dokka(project(":boot-logging-log4j2"))
@@ -46,8 +49,7 @@ val bootableVersion: String = runCatching {
     isIgnoreExitValue = true
   }.standardOutput.asText.get()
     .lineSequence()
-    .mapNotNull { Regex("""^v(\d+\.\d+\.\d+)$""").matchEntire(it.trim())?.groupValues?.get(1) }
-    .firstOrNull()
+    .firstNotNullOfOrNull { Regex("""^v(\d+\.\d+\.\d+)$""").matchEntire(it.trim())?.groupValues?.get(1) }
 }.getOrNull() ?: developmentVersion
 
 allprojects {
@@ -59,11 +61,14 @@ subprojects {
   apply {
     plugin("java-library")
     plugin("org.jetbrains.kotlin.jvm")
+    plugin("org.jetbrains.kotlin.plugin.power-assert")
+    plugin("de.infix.testBalloon")
   }
 
   dependencies {
     implementation(platform(rootProject.libs.kotlin.bom))
     // Bootable embeds no DI framework — callers wire the components with vanilla Kotlin, Kodein, Metro, etc.
+    testImplementation(rootProject.libs.testBalloon.framework.core)
   }
 
   configurations.all {
@@ -89,6 +94,23 @@ subprojects {
       apiVersion.set(KotlinVersion.KOTLIN_2_1)
       languageVersion.set(KotlinVersion.KOTLIN_2_1)
     }
+  }
+
+  @OptIn(ExperimentalKotlinGradlePluginApi::class)
+  configure<PowerAssertGradleExtension> {
+    functions.set(listOf(
+      "kotlin.assert",
+      "kotlin.test.assertTrue",
+      "kotlin.test.assertEquals",
+      "kotlin.test.assertNull",
+      "kotlin.check",
+    ))
+  }
+
+  tasks.withType<Test>().configureEach {
+    // TestBalloon generates a test entry point in every module, so Gradle sees "test sources" even in modules with
+    // no tests and fails the build when none are discovered. Keep that safety check where real tests exist.
+    failOnNoDiscoveredTests.set(file("src/test").exists())
   }
 }
 
@@ -171,8 +193,6 @@ project("boot-common") {
 }
 
 project("boot-config-hoplite") {
-  apply(plugin = "org.jetbrains.kotlin.plugin.power-assert")
-  apply(plugin = "de.infix.testBalloon")
   configureDiVariants()
   dependencies {
     api(project(":boot-config-common"))
@@ -184,22 +204,48 @@ project("boot-config-hoplite") {
     // resolve the sibling metro source sets; in the published POM they map to the -metro coordinates.
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-config-common", configuration = "metroElements"))
-
-    testImplementation(rootProject.libs.testBalloon.framework.core)
-  }
-
-  configure<PowerAssertGradleExtension> {
-    functions.set(listOf("kotlin.assert"))
-    includedSourceSets.set(listOf("test"))
-  }
-
-  tasks.test {
-    useJUnitPlatform()
   }
 }
 
 project("boot-config-common") {
   configureDiVariants()
+}
+
+project("boot-db-jdbc") {
+  configureDiVariants()
+  dependencies {
+    api(project(":boot"))
+    api(project(":boot-config-common"))
+    api(rootProject.libs.hikari)
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+  }
+}
+
+project("boot-db-jdbc-sqlite") {
+  configureDiVariants()
+  dependencies {
+    api(project(":boot-db-jdbc"))
+    // the driver is the point of this module: depending on it brings the right JDBC driver transitively
+    api(rootProject.libs.sqlite.jdbc)
+    // SQLite migrations need no extra Flyway database module — flyway-core supports SQLite directly
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+
+    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    testImplementation(project(":boot-logging-log4j2"))
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+  }
 }
 
 project("boot-env") {
@@ -342,7 +388,7 @@ fun Project.configureDiVariants() {
           configurations["${name}Api"].dependencies.forEach { d ->
             when (d) {
               is ProjectDependency -> dep(group.toString(), "${d.name}-$name", version.toString())
-              is ExternalModuleDependency -> dep(d.group ?: "", d.name, d.version ?: "")
+              is ExternalModuleDependency -> dep(d.group, d.name, d.version ?: "")
               else -> {}
             }
           }
