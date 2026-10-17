@@ -1,6 +1,6 @@
 [versions]
 dokka = "2.2.0"
-graalvm-buildtools = "0.10.6"
+graalvm-buildtools = "0.11.5"
 hikari = "7.1.0"
 hoplite = "3.0.3"
 kotlin = "2.3.21"
