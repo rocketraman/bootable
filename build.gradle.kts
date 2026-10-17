@@ -335,7 +335,7 @@ fun Project.configureDiVariants() {
   val hasKodein = file("src/kodein/kotlin").exists()
   if (!hasMetro && !hasKodein) return
 
-  val metroRuntime = "dev.zacsweers.metro:runtime:1.3.2"
+  val metroRuntime = "dev.zacsweers.metro:runtime:1.4.5"
   val kodeinDi = "org.kodein.di:kodein-di:7.25.0"
 
   if (hasMetro) {
