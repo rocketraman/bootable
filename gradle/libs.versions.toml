@@ -1,5 +1,6 @@
 [versions]
 dokka = "2.2.0"
+exposed = "1.5.1"
 flyway = "13.10.0"
 graalvm-buildtools = "0.10.6"
 hikari = "7.1.0"
@@ -28,6 +29,10 @@ metro = { id = "dev.zacsweers.metro", version.ref = "metro" }
 testBalloon = { id = "de.infix.testBalloon", version.ref = "testBalloon" }
 
 [libraries]
+exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
+exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
+exposed-migration-jdbc = { module = "org.jetbrains.exposed:exposed-migration-jdbc", version.ref = "exposed" }
+
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 
 hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
@@ -67,6 +72,11 @@ ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref 
 testBalloon-framework-core = { module = "de.infix.testBalloon:testBalloon-framework-core", version.ref = "testBalloon" }
 
 [bundles]
+exposed = [
+  "exposed-core",
+  "exposed-jdbc",
+  "exposed-migration-jdbc",
+]
 hoplite = [
   "hoplite-core",
   "hoplite-hocon",

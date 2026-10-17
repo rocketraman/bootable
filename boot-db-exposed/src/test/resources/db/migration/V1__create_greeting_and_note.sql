@@ -1,0 +1,10 @@
+CREATE TABLE greeting (
+  id INT NOT NULL PRIMARY KEY,
+  text TEXT NOT NULL
+);
+
+CREATE TABLE note (
+  id BINARY(16) NOT NULL PRIMARY KEY,
+  greeting_id INT NOT NULL REFERENCES greeting (id),
+  body TEXT NOT NULL
+);
