@@ -17,6 +17,9 @@ dependencies {
   // the two database choices: a driver (SQLite) and a pool (HikariCP)
   implementation(project(path = ":boot-db-jdbc-sqlite", configuration = "kodeinElements"))
   implementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+  // migrations, and Exposed with schema verification
+  implementation(project(path = ":boot-db-flyway", configuration = "kodeinElements"))
+  implementation(project(path = ":boot-db-exposed", configuration = "kodeinElements"))
 }
 
 application {
