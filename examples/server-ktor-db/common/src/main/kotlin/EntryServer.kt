@@ -6,8 +6,6 @@ import io.ktor.server.html.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.html.*
 import org.apache.logging.log4j.kotlin.logger
 
@@ -146,39 +144,36 @@ class EntryServer(
   override fun Application.module() {
     routing {
       get("/") {
-        val all = db { entries.all() }
+        val all = entries.all()
         call.respondHtml(HttpStatusCode.OK) { index(all, bindings) }
       }
 
       route("/entries") {
         get {
-          val all = db { entries.all() }
+          val all = entries.all()
           call.respondText(all.entries.joinToString("") { (name, value) -> "$name=$value\n" })
         }
 
         get("/{name}") {
           val name = call.parameters["name"]!!
-          val value = db { entries.get(name) }
+          val value = entries.get(name)
           if (value == null) call.respond(HttpStatusCode.NotFound) else call.respondText(value)
         }
 
         put("/{name}") {
           val name = call.parameters["name"]!!
           val value = call.receiveText()
-          db { entries.put(name, value) }
+          entries.put(name, value)
           logger.info { "Stored entry $name" }
           call.respond(HttpStatusCode.NoContent)
         }
 
         delete("/{name}") {
           val name = call.parameters["name"]!!
-          val deleted = db { entries.delete(name) }
+          val deleted = entries.delete(name)
           call.respond(if (deleted) HttpStatusCode.NoContent else HttpStatusCode.NotFound)
         }
       }
     }
   }
-
-  // JDBC blocks, so keep it off Ktor's request threads
-  private suspend fun <T> db(block: () -> T): T = withContext(Dispatchers.IO) { block() }
 }
