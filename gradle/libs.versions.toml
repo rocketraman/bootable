@@ -1,5 +1,6 @@
 [versions]
 dokka = "2.2.0"
+flyway = "13.10.0"
 graalvm-buildtools = "0.10.6"
 hikari = "7.1.0"
 hoplite = "3.0.3"
@@ -27,6 +28,8 @@ metro = { id = "dev.zacsweers.metro", version.ref = "metro" }
 testBalloon = { id = "de.infix.testBalloon", version.ref = "testBalloon" }
 
 [libraries]
+flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
+
 hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
 
 hoplite-core = { module = "com.sksamuel.hoplite:hoplite-core", version.ref = "hoplite" }
