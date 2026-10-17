@@ -87,6 +87,8 @@ With Kodein, import `jdbcDataSourceModule`, a driver config module (`sqliteConfi
 With Metro, the `-metro` driver and pool modules contribute everything; for the generic config, add `JdbcGenericConfigBindings` to your graph's `bindingContainers`.
 A graph without a driver or a pool fails to compile with a missing binding.
 
+See link:./examples/server-ktor-db[examples/server-ktor-db] for a small Ktor server that reads and writes a SQLite database through a HikariCP pool. Its server code is shared, and it is wired three ways: `vanilla`, `kodein`, and `metro`, each a runnable app, e.g. `./gradlew :examples:server-ktor-db:metro:run`.
+
 === Environment
 
 WARNING: Over-using this abstraction is a code smell.
