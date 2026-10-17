@@ -32,6 +32,7 @@ dependencies {
   dokka(project(":boot-common"))
   dokka(project(":boot-config-common"))
   dokka(project(":boot-config-hoplite"))
+  dokka(project(":boot-db-exposed"))
   dokka(project(":boot-db-flyway"))
   dokka(project(":boot-db-jdbc"))
   dokka(project(":boot-db-jdbc-sqlite"))
@@ -275,6 +276,41 @@ project("boot-db-jdbc-sqlite") {
     // the driver settings only matter through a real pool
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
+    testImplementation(project(":boot-logging-log4j2"))
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+  }
+}
+
+project("boot-db-exposed") {
+  configureDiVariants()
+  dependencies {
+    api(project(":boot-db-jdbc"))
+    api(rootProject.libs.bundles.exposed)
+    // the logging API only: the application chooses the logging implementation (e.g. boot-logging-log4j2)
+    implementation(rootProject.libs.bundles.log4j.api)
+    // Exposed needs boot-db-jdbc's DataSource, so each flavor brings boot-db-jdbc's matching flavor
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+
+    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would, against a real
+    // SQLite database, with Flyway creating the schema that is verified
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-jdbc-sqlite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc-sqlite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-flyway", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-flyway", configuration = "metroElements"))
     testImplementation(project(":boot-logging-log4j2"))
   }
 
