@@ -336,7 +336,7 @@ fun Project.configureDiVariants() {
   if (!hasMetro && !hasKodein) return
 
   val metroRuntime = "dev.zacsweers.metro:runtime:1.3.2"
-  val kodeinDi = "org.kodein.di:kodein-di:7.25.0"
+  val kodeinDi = "org.kodein.di:kodein-di:7.33.0"
 
   if (hasMetro) {
     apply(plugin = "dev.zacsweers.metro")
