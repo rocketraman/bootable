@@ -35,24 +35,26 @@ val ExampleServerTest by testSuite {
     assert(server.name() == "ExampleServer")
   }
 
-  test("serves hello") {
-    testApplication {
-      val server = ExampleServer(testServerConfig, HelloConfig(response = "hello from the test"))
-      application { with(server) { module() } }
+  testSuite("serves") {
+    test("hello") {
+      testApplication {
+        val server = ExampleServer(testServerConfig, HelloConfig(response = "hello from the test"))
+        application { with(server) { module() } }
 
-      val response = client.get("/hello")
+        val response = client.get("/hello")
 
-      assert(response.status == HttpStatusCode.OK)
-      assert(response.bodyAsText() == "hello from the test")
+        assert(response.status == HttpStatusCode.OK)
+        assert(response.bodyAsText() == "hello from the test")
+      }
     }
-  }
 
-  test("serves the index page") {
-    testApplication {
-      val server = ExampleServer(testServerConfig, HelloConfig(response = "hi"))
-      application { with(server) { module() } }
+    test("the index page") {
+      testApplication {
+        val server = ExampleServer(testServerConfig, HelloConfig(response = "hi"))
+        application { with(server) { module() } }
 
-      assert(client.get("/").bodyAsText().contains("Hello from Ktor"))
+        assert(client.get("/").bodyAsText().contains("Hello from Ktor"))
+      }
     }
   }
 }

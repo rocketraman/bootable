@@ -13,6 +13,9 @@
             <option value="$PROJECT_DIR$/boot-common" />
             <option value="$PROJECT_DIR$/boot-config-common" />
             <option value="$PROJECT_DIR$/boot-config-hoplite" />
+            <option value="$PROJECT_DIR$/boot-db-jdbc" />
+            <option value="$PROJECT_DIR$/boot-db-jdbc-sqlite" />
+            <option value="$PROJECT_DIR$/boot-db-pool-hikari" />
             <option value="$PROJECT_DIR$/boot-env" />
             <option value="$PROJECT_DIR$/boot-logging" />
             <option value="$PROJECT_DIR$/boot-logging-log4j2" />
@@ -20,6 +23,15 @@
             <option value="$PROJECT_DIR$/examples" />
             <option value="$PROJECT_DIR$/examples/di-bench" />
             <option value="$PROJECT_DIR$/examples/server-ktor" />
+            <option value="$PROJECT_DIR$/examples/server-ktor-db" />
+            <option value="$PROJECT_DIR$/examples/server-ktor-db/common" />
+            <option value="$PROJECT_DIR$/examples/server-ktor-db/kodein" />
+            <option value="$PROJECT_DIR$/examples/server-ktor-db/metro" />
+            <option value="$PROJECT_DIR$/examples/server-ktor-db/vanilla" />
+            <option value="$PROJECT_DIR$/examples/server-ktor-db/common" />
+            <option value="$PROJECT_DIR$/examples/server-ktor-db/kodein" />
+            <option value="$PROJECT_DIR$/examples/server-ktor-db/metro" />
+            <option value="$PROJECT_DIR$/examples/server-ktor-db/vanilla" />
             <option value="$PROJECT_DIR$/examples/wiring-kodein" />
             <option value="$PROJECT_DIR$/examples/wiring-metro" />
             <option value="$PROJECT_DIR$/examples/wiring-vanilla" />
