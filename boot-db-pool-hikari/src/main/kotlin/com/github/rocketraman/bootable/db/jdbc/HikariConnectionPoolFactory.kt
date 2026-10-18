@@ -74,5 +74,7 @@ internal fun hikariConfig(
   pool.validationTimeout?.let { validationTimeout = it.inWholeMilliseconds }
   pool.leakDetectionThreshold?.let { leakDetectionThreshold = it.inWholeMilliseconds }
   pool.connectionInitSql?.let { connectionInitSql = it }
+  // HikariCP takes the name of the java.sql.Connection constant
+  pool.transactionIsolation?.let { transactionIsolation = "TRANSACTION_${it.name}" }
   pool.registerMbeans?.let { isRegisterMbeans = it }
 }

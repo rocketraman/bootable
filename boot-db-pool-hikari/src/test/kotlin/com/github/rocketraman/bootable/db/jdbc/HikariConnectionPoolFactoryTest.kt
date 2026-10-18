@@ -62,6 +62,7 @@ val HikariConnectionPoolFactoryTest by testSuite {
         validationTimeout = 2.seconds,
         leakDetectionThreshold = 10.seconds,
         connectionInitSql = "SELECT 1",
+        transactionIsolation = TransactionIsolation.READ_COMMITTED,
         registerMbeans = true,
       ),
       warn = { error("unexpected warning: $it") },
@@ -77,6 +78,7 @@ val HikariConnectionPoolFactoryTest by testSuite {
     assert(hikari.validationTimeout == 2_000L)
     assert(hikari.leakDetectionThreshold == 10_000L)
     assert(hikari.connectionInitSql == "SELECT 1")
+    assert(hikari.transactionIsolation == "TRANSACTION_READ_COMMITTED")
     assert(hikari.isRegisterMbeans)
   }
 
@@ -87,6 +89,31 @@ val HikariConnectionPoolFactoryTest by testSuite {
       assert(pool.hikariDataSource.maximumPoolSize == 7)
     } finally {
       pool.close()
+    }
+  }
+
+  test("every TransactionIsolation is a level HikariCP accepts") {
+    for (isolation in TransactionIsolation.entries) {
+      val pool = HikariConnectionPoolFactory(HikariPoolConfig(transactionIsolation = isolation)).create(TestJdbcConfig())
+      try {
+        // HikariCP validates the name against the java.sql.Connection constants when the config is copied
+        assert(pool.hikariDataSource.transactionIsolation == "TRANSACTION_${isolation.name}")
+      } finally {
+        pool.close()
+      }
+    }
+  }
+
+  test("connections get the configured isolation level") {
+    withTempDir { dir ->
+      val pool = HikariConnectionPoolFactory(HikariPoolConfig(transactionIsolation = TransactionIsolation.READ_UNCOMMITTED))
+        .create(TestJdbcConfig(jdbcUrl = "jdbc:sqlite:${dir.resolve("isolation.db")}"))
+      try {
+        val level = pool.dataSource.connection.use { it.transactionIsolation }
+        assert(level == TransactionIsolation.READ_UNCOMMITTED.jdbcLevel)
+      } finally {
+        pool.close()
+      }
     }
   }
 

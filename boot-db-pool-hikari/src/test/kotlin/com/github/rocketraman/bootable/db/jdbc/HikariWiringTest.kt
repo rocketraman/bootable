@@ -63,6 +63,7 @@ val HikariWiringTest by testSuite {
           connectionTimeout = 3.seconds,
           poolName = "hikari-wiring-test",
           leakDetectionThreshold = 10.seconds,
+          transactionIsolation = TransactionIsolation.SERIALIZABLE,
         )
       )
     }
@@ -92,6 +93,7 @@ val HikariWiringTest by testSuite {
       val hikari = di.instance<DataSource>() as HikariDataSource
       assert(hikari.maximumPoolSize == 3)
       assert(hikari.poolName == "hikari-wiring-test")
+      assert(hikari.transactionIsolation == "TRANSACTION_SERIALIZABLE")
       assert(hikari.connectionInitSql == "SELECT 'kodein'")
       di.instance<Set<AppService>>().filterIsInstance<JdbcDataSourceService>().single().startAndStop()
     }
@@ -102,6 +104,7 @@ val HikariWiringTest by testSuite {
       val hikari = graph.dataSource as HikariDataSource
       assert(hikari.maximumPoolSize == 3)
       assert(hikari.poolName == "hikari-wiring-test")
+      assert(hikari.transactionIsolation == "TRANSACTION_SERIALIZABLE")
       assert(hikari.connectionInitSql == "SELECT 'metro'")
       graph.appServices.filterIsInstance<JdbcDataSourceService>().single().startAndStop()
     }
