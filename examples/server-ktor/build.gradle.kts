@@ -68,6 +68,9 @@ graalvmNative {
   }
   binaries {
     named("main") {
+      // the root build applies java-library to every subproject, and native-build-tools then
+      // defaults the main binary to a shared library (--shared); this example is an executable
+      sharedLibrary.set(false)
       // a missing reflection/resource registration must be a hard error, never a JVM fallback
       fallback.set(false)
       quickBuild.set(true)
