@@ -1,0 +1,604 @@
+= Design note: AppService start/stop ordering
+:toc: macro
+
+Status: *proposal*, not implemented. Prompted by the database modules in rocketraman/bootable#34.
+
+toc::[]
+
+== Problem
+
+Today an `AppService` has one ordering knob, a global `Int`:
+
+[source,kotlin]
+----
+interface AppService { fun priority() = 0 }  // higher starts first, stops last
+
+// AppStartStopLifecycleController
+serviceContext.appServices.sortedByDescending { it.priority() }.forEach(serviceContext.serviceStart)
+serviceContext.appServices.sortedBy { it.priority() }.forEach(serviceContext.serviceShutdown)
+----
+
+The database modules order themselves by offsets from each other:
+
+[cols="2,3,3"]
+|===
+| Service | Module | `priority()`
+
+| `JdbcDataSourceService` | `boot-db-jdbc` | `Int.MAX_VALUE - 1_000`
+| `FlywayMigrationService` | `boot-db-flyway` | `JdbcDataSourceService.PRIORITY - 100`
+| `SchemaVerificationService` | `boot-db-exposed` | `JdbcDataSourceService.PRIORITY - 200`
+| (your services) | | `0`
+| `KtorService` | `boot-server-http-ktor` | `Int.MIN_VALUE`
+|===
+
+It works, but:
+
+* *Numbers must be sane globally.* Every module picks a value that has to sit correctly against every other module,
+  including ones it has never heard of. The space between neighbours (here 100) is a guess at how many things
+  will ever need to fit in between.
+* *Hidden coupling.* `SchemaVerificationService` doesn't import Flyway, but its number (`-200`) is only correct
+  because it knows Flyway chose `-100`; its KDoc says so. A Liquibase module would have to know the same. The
+  coupling is real, just untyped.
+* *Intent is lost.* `Int.MAX_VALUE - 1_000` doesn't say "infrastructure", and nothing checks that a relationship
+  the author meant ("after the migrations") actually holds.
+* *Tests re-implement the sort* (`sortedByDescending { it.priority() }` in the Flyway/Exposed wiring tests).
+
+== Requirements
+
+. *Reduce coupling.* A module orders itself against _roles_, never against another module's classes or numbers.
+  `boot-db-exposed` must run after a migration tool if there is one, without depending on `boot-db-flyway` (the
+  app may use Liquibase, or nothing).
+. *Explicit wiring, no classpath magic*, and identical behaviour across vanilla, Kodein and Metro.
+. *Sensible default.* An application service that declares nothing starts after the infrastructure and before
+  the servers, with no ceremony.
+. *Fail at boot, clearly*, on a cycle or on a dependency nobody provides — before any service has started.
+. *Shutdown is the exact reverse* of the start order that ran.
+. *Migration path* from `priority()`, ideally source- and behaviour-compatible for existing apps.
+
+== Options
+
+=== Option 0: status quo, plus named bands
+
+Keep `priority()`, but publish named bands in `boot` (`Priority.INFRASTRUCTURE = Int.MAX_VALUE - 1_000_000`,
+…`SERVING = Int.MIN_VALUE + 1_000_000`) so modules say `Priority.INFRASTRUCTURE - 100`.
+
+Cheap, and it documents intent, but it is Option 1 encoded in arithmetic: within a band the numbers are still
+global, Flyway and Exposed still coordinate on offsets, and nothing is validated. Not recommended beyond a
+stop-gap.
+
+=== Option 1: phases (layers), then priority within a phase
+
+A small, closed set of phases, ordered; `priority()` only breaks ties inside a phase.
+
+[source,kotlin]
+----
+enum class Phase { INFRASTRUCTURE, INITIALIZATION, APPLICATION, SERVING }
+
+interface AppService {
+  fun phase(): Phase = Phase.APPLICATION
+  fun priority() = 0  // only meaningful within phase()
+}
+
+class JdbcDataSourceService(...) : AppService { override fun phase() = Phase.INFRASTRUCTURE }
+class FlywayMigrationService(...) : AppService { override fun phase() = Phase.INITIALIZATION }
+abstract class KtorService(...) : AdvancedAppService { override fun phase() = Phase.SERVING }
+----
+
+Sort key: `(phase, -priority)`. Shutdown is the reverse.
+
+[horizontal]
+Good:: Tiny API, trivially explained, deterministic. Covers almost every real case: pools before migrations
+before app services before servers. App services declare nothing. A priority only has to make sense inside one
+phase, and usually nobody sets one.
+Weak:: Two services in the _same_ phase that depend on each other fall back to numbers. The database case hits
+this immediately: Flyway (migrate) and Exposed (verify) are both `INITIALIZATION`, and verify must run second, so
+Exposed is back to "Flyway is at 100, so I'll be at 0" — local, but the same hidden coupling. The only escape is
+more phases (`MIGRATE`, `VERIFY`, …), which grows the enum for one service's sake. Nothing is validated.
+
+=== Option 2: capabilities (provides / requires), topological sort
+
+Services declare tokens they provide and need; any provider satisfies a need; the order is a topological sort.
+
+[source,kotlin]
+----
+// boot
+class Milestone(val id: String)  // equality by id
+
+interface AppService {
+  fun provides(): Set<Milestone> = emptySet()
+  fun requires(): Set<Milestone> = emptySet()
+}
+
+// boot-db-jdbc: the lowest module every database module already depends on
+object DbMilestones {
+  val DataSourceReady = milestone("db.dataSource.ready")
+  val SchemaMigrated = milestone("db.schema.migrated")
+}
+
+class JdbcDataSourceService(...) { override fun provides() = setOf(DbMilestones.DataSourceReady) }
+class FlywayMigrationService(...) {
+  override fun provides() = setOf(DbMilestones.SchemaMigrated)
+  override fun requires() = setOf(DbMilestones.DataSourceReady)
+}
+class SchemaVerificationService(...) { override fun requires() = setOf(DbMilestones.SchemaMigrated) }  // <1>
+----
+<1> Wrong as written — see below.
+
+[horizontal]
+Good:: Precise, validated (missing provider, cycles), and it decouples modules: Flyway and a future Liquibase both
+provide `SchemaMigrated`; Exposed names the role, not the module. Ordering is a partial order, so independent
+services could later start in parallel.
+Weak:: Pure capabilities break two of the requirements:
++
+--
+* *No default position.* A service that declares nothing has no edges, so it may start before the pool. To make
+  "ordinary app services start after infrastructure" work, either every service must declare
+  `requires(DataSourceReady, …)` (ceremony, and app code now names infrastructure), or the framework needs an
+  implicit rule like "undeclared services go after every provider" (magic). And "the HTTP server starts last" has
+  no expression at all short of a wildcard.
+* *A hard `requires` is the wrong default.* Exposed verification must run after migrations _if there are any_;
+  with no migration tool, `requires(SchemaMigrated)` fails the boot. Flyway is similar: it is handed a
+  `DataSource` in its constructor, which need not come from `JdbcDataSourceService` (a test's embedded database,
+  an app's own pool), so `requires(DataSourceReady)` would reject a perfectly valid wiring. Most library
+  ordering is "after X, if X is present", which needs a separate, soft relation (systemd's `After=` vs.
+  `Requires=` distinction exists for exactly this reason).
+--
+
+=== Rejected alternatives
+
+Service-to-service dependencies (`dependsOn(): Set<KClass<out AppService>>`):: Couples modules by class — exactly
+what the maintainer wants to avoid (`boot-db-exposed` would reference Flyway and Liquibase).
+Infer order from the DI graph:: Construction order is not readiness order (Flyway receives a `DataSource` object
+that exists long before the pool is started), Metro's graph isn't a runtime object, and vanilla has no graph.
+It is also the kind of implicit behaviour Bootable avoids.
+Order at the composition root (`appServices` as a `List`):: Fine for vanilla, impossible for Kodein/Metro set
+multibindings, where each module contributes its own services.
+Ordering metadata at the binding site (`bindAppService(phase = …)`, a Metro qualifier):: Three spellings of the
+same fact, one per flavor, and a service's correct position would depend on how it was wired. Ordering belongs to
+the service; where an app must override it, it does so in one place, its `StartOrder` (see _Custom start
+orders_).
+
+== Recommendation: phases, with milestones inside a phase
+
+Combine them, each doing what it is good at: *phases* give every service a sensible default and a coarse,
+global order; *milestones* express the occasional precise relationship _inside_ a phase, against a role rather
+than a module. There is no priority: services that the phases and milestones leave unordered have no guaranteed
+order (see _Unordered services_).
+
+=== API
+
+A service's part is one method on `AppService`, returning a value, so new knobs don't widen the interface. The
+phases themselves, and how a service's ordering is read, come from a `StartOrder` given to `Bootable`, with
+Bootable's defaults used when none is given:
+
+[source,kotlin]
+----
+package com.github.rocketraman.bootable.boot
+
+/** A step in the coarse start order. Any type can be one: an enum's entries are phases as they are. */
+interface Phase { val name: String }
+
+/** A named point in startup that a service reaches when it has started. Compared with equals(). */
+interface Milestone { val name: String }
+
+/** A milestone that is just a name, e.g. one read from configuration. */
+fun milestone(name: String): Milestone = NamedMilestone(name)  // a data class
+
+data class Ordering(
+  /** The phase to start in, or null for the [StartOrder]'s default phase. */
+  val phase: Phase? = null,
+  /** Milestones this service has reached once its start() returns. */
+  val provides: Set<Milestone> = emptySet(),
+  /** Start after every provider of each of these, if there are any. */
+  val after: Set<Milestone> = emptySet(),
+  /** Like [after], but at least one provider must be present, or the boot fails. */
+  val requires: Set<Milestone> = emptySet(),
+)
+
+interface AppService {
+  fun ordering(): Ordering = Ordering()
+  // name(), start(), shutdown() unchanged; priority() is deprecated, then removed (see Migration)
+}
+
+/** The phases, and how each service's ordering is read. */
+interface StartOrder {
+  /** Every phase, in start order. Services stop in the reverse order. */
+  val phases: List<Phase>
+  /** The phase of a service whose ordering names none. */
+  val defaultPhase: Phase
+  /** The ordering of [service]. By default the service's own; override to read it from anywhere else. */
+  fun orderingOf(service: AppService): Ordering = service.ordering()
+}
+
+/** Bootable's default phases. */
+enum class DefaultPhase : Phase {
+  /** Connections to things the app needs: db pools, service clients, caches, telemetry. */
+  INFRASTRUCTURE,
+  /** Bring shared state into shape before the app uses it: migrations, schema checks, seed data, cache warm-up. */
+  INITIALIZATION,
+  /** The application's own services. The default. */
+  APPLICATION,
+  /** Serves outside work — HTTP servers, queue consumers, schedulers — so it starts last and stops first. */
+  SERVING,
+}
+
+/** Bootable's default start order: the [DefaultPhase]s, with [DefaultPhase.APPLICATION] the default. */
+object DefaultStartOrder : StartOrder {
+  override val phases: List<Phase> = DefaultPhase.entries
+  override val defaultPhase: Phase = DefaultPhase.APPLICATION
+}
+
+class Bootable(
+  appServices: Set<AppService>,
+  lifecycleControllers: Set<LifecycleController> = defaultLifecycleControllers(),
+  startOrder: StartOrder = DefaultStartOrder,
+  tieOrder: TieOrder = TieOrder.ByName,
+)
+
+/** How services the start order leaves unordered are started. Either way, the order is not part of the contract. */
+sealed interface TieOrder {
+  /** By name: the same order on every run. */
+  data object ByName : TieOrder
+  /** Shuffled, to surface missing milestones. The seed is logged, so a failing order can be reproduced. */
+  data class Shuffled(val seed: Long = Random.nextLong()) : TieOrder
+}
+----
+
+Phases are a total order, so a `List` is all a `StartOrder` needs; any finer, partial ordering is what
+milestones are for. `Phase` and `Milestone` are interfaces with only a `name`, used for messages and the logged
+plan, so an `enum` (or an `object`) implements either with no code, and identity stays the type's own `equals`.
+
+`after` is the everyday relation; `requires` is for a dependency the wiring can't otherwise see. Rule of thumb
+for library modules: *if you receive the thing in your constructor, use `after`* (the wiring already guarantees
+it exists); use `requires` only for a precondition nothing else enforces — e.g. "this repository expects the
+schema to have been migrated by _something_".
+
+=== Phases
+
+Bootable's default phases are four. Bootable starts the phases in order, and stops them in the reverse order:
+
+[cols="1,3,3", options="header"]
+|===
+| Phase | Holds | Examples
+
+| `INFRASTRUCTURE`
+| Connections to the systems the app needs, and the plumbing everything else relies on.
+| `JdbcDataSourceService` (db pool), HTTP/gRPC clients for other services, Kafka producers, Redis clients,
+  metrics registries and tracing exporters, secrets loaders, feature-flag clients.
+
+| `INITIALIZATION`
+| Work that brings shared state into shape before the app uses it. Usually it runs once, and has nothing to do
+  at shutdown.
+| `FlywayMigrationService`, `SchemaVerificationService`, loading seed or reference data, warming a cache.
+
+| `APPLICATION` (the default)
+| The application's own services: what the work needs, but not what brings the work in.
+| An in-process event bus, a domain cache that is kept up to date, a registry other services look things up
+  in, a sender for outbound notifications.
+
+| `SERVING`
+| Whatever brings work into the app: requests, messages, scheduled ticks.
+| `KtorService` and other HTTP/gRPC servers, queue and topic consumers, schedulers, webhook listeners.
+|===
+
+==== Choosing a phase
+
+* *Does it bring work in?* Then it is `SERVING`, whatever the protocol. A scheduler belongs here too: a timer
+  firing is work arriving, just like a request.
+* *Is it a connection or plumbing that others use?* Then it is `INFRASTRUCTURE`. The phase holds the app's own
+  handle on a system (the pool), not the system itself (the database server).
+* *Does it change or check shared state once, before anyone uses it?* Then it is `INITIALIZATION`.
+* *Otherwise* it is `APPLICATION`, which is why that is the default: most services an app writes need not
+  declare a phase at all.
+
+==== What the order means at shutdown
+
+Stopping in reverse is what makes the phases useful when the app shuts down, not just when it starts:
+
+. `SERVING` stops first, so no new work comes in, and in-flight requests and messages can finish while
+  everything they use is still running.
+. `APPLICATION` stops next. Nothing calls into it any more.
+. `INITIALIZATION` rarely has anything to stop.
+. `INFRASTRUCTURE` stops last: pools close once nothing uses them, and telemetry exporters are the last to
+  stop, so they can flush everything the other phases recorded while shutting down.
+
+==== Edge cases
+
+* *A health or liveness endpoint* is `SERVING`, like any server. If it must answer liveness probes during a
+  long `INITIALIZATION` (a slow migration, say), put it in `INFRASTRUCTURE`, and have it report _not ready_
+  until the app has started.
+* *A client and a warm-up for the same cache* are two different jobs: the client is `INFRASTRUCTURE`, and
+  filling the cache is `INITIALIZATION`.
+* *A service that both consumes messages and is used by other services* should normally be split in two: the
+  part others use in `APPLICATION`, and the consumer in `SERVING`.
+
+==== Why these names
+
+The names are part of the API, and each was chosen against alternatives:
+
+[cols="1,4", options="header"]
+|===
+| Phase | Why this name, and not another
+
+| `INFRASTRUCTURE`
+| `RESOURCES` fits the lifecycle better, as on the JVM a resource is something you acquire and must release.
+  But it collides twice in a JVM project: classpath resources (Flyway's migrations _are_ classpath resources,
+  read in the next phase), and REST resources, which are endpoints and belong at the opposite end, in
+  `SERVING`. It also doesn't cover plumbing that isn't a connection, such as telemetry. "Infrastructure" names
+  the layer, as the foundation that everything else sits on. Note it means the app's own side (clients and
+  pools), not infrastructure in the ops sense (servers and clusters).
+
+| `INITIALIZATION`
+| `SCHEMA` is too narrow, since seed data and cache warm-up belong here too. `PREPARATION` was the other
+  candidate.
+
+| `APPLICATION`
+| The default, and the phase most of an app's own services fall into, so it is named after them.
+
+| `SERVING`
+| `SERVICE` reads as "any service", since every `AppService` is a service. `INGRESS` is HTTP-centric, and
+  doesn't fit a consumer or a scheduler. `WORLD` ("open to the world") also reads as "the outside world we
+  depend on", which is the infrastructure end. `EDGE` and `ENDPOINTS` are network-centric. `INBOUND` doesn't
+  fit a scheduler. `PUBLIC` implies facing the internet, but an internal gRPC server isn't public. `RUNNING`
+  clashes with Bootable's `=> Running` log stage. `SERVING` names the line itself: this is where the app starts
+  doing work for others. It also completes the sequence: infrastructure, initialization, application, serving.
+|===
+
+=== Custom start orders
+
+The default phases suit most apps, but nothing about them is special: they are one `StartOrder`, and an app
+can pass its own to `Bootable`.
+
+*Add a phase.* An app that must fetch its secrets before it opens any connection can put a phase of its own
+ahead of Bootable's. Library services keep the `DefaultPhase` they declare, so the list mixes the two:
+
+[source,kotlin]
+----
+enum class AppPhase : Phase { SECRETS }
+
+object AppStartOrder : StartOrder by DefaultStartOrder {
+  override val phases = listOf(AppPhase.SECRETS) + DefaultStartOrder.phases
+}
+
+class VaultSecretsService(...) : AppService {
+  override fun ordering() = Ordering(AppPhase.SECRETS)
+}
+
+fun main() = boot { Bootable(appServices(...), startOrder = AppStartOrder) }
+----
+
+*Replace the phases.* An app can use only phases of its own. The services it gets from libraries still declare
+`DefaultPhase`s, so it maps those onto its own in `orderingOf`; any phase left unmapped and missing from
+`phases` fails the boot (see below), so nothing is silently misplaced:
+
+[source,kotlin]
+----
+enum class OurPhase : Phase { PLATFORM, DATA, CORE, TRAFFIC }
+
+object OurStartOrder : StartOrder {
+  override val phases = OurPhase.entries
+  override val defaultPhase = OurPhase.CORE
+
+  private val fromDefaults = mapOf(
+    DefaultPhase.INFRASTRUCTURE to OurPhase.PLATFORM,
+    DefaultPhase.INITIALIZATION to OurPhase.DATA,
+    DefaultPhase.APPLICATION to OurPhase.CORE,
+    DefaultPhase.SERVING to OurPhase.TRAFFIC,
+  )
+
+  override fun orderingOf(service: AppService) =
+    service.ordering().let { it.copy(phase = fromDefaults[it.phase] ?: it.phase) }
+}
+----
+
+*Read the ordering from somewhere else.* Because `orderingOf` sees every service, the composition root can place
+or constrain a service it didn't write, without subclassing it. For example, from a map, which could as well
+have been read from configuration with `milestone(name)`:
+
+[source,kotlin]
+----
+object AppStartOrder : StartOrder by DefaultStartOrder {
+  private val overrides = mapOf(
+    "LegacyCacheService" to Ordering(DefaultPhase.INITIALIZATION, after = setOf(DbMilestones.SchemaMigrated)),
+  )
+
+  override fun orderingOf(service: AppService) = overrides[service.name()] ?: service.ordering()
+}
+----
+
+This is the one place ordering is decided outside the service, and it is deliberate and explicit: one object,
+passed to `Bootable` the same way in every wiring style, rather than metadata spread across bindings.
+
+=== Unordered services
+
+Two services in the same phase with no milestone between them are unordered: Bootable may start them in any
+order, and that order is *not* part of the contract. If the order matters, a milestone is missing.
+
+There is deliberately no priority to break ties. A priority within a phase is the global-number problem again,
+in a smaller space, and it would compete with milestones: "make mine 10 so it runs before theirs" is always
+easier to write than a milestone, so the numbers would come back. Its legitimate uses are covered already: "this
+is foundational" is a phase, and "after that one" is a milestone, which for an app's own services is one line,
+`private val CacheLoaded = milestone("app.cacheLoaded")`, that states the intent a number only encodes.
+
+How ties are actually broken is a `TieOrder`, given to `Bootable`:
+
+* `ByName` (the default) orders them by `name()`, so the start plan, and the logs, are the same on every run and
+  every machine. That matters when debugging production.
+* `Shuffled` orders them randomly. A deterministic order can hide a missing milestone, as an app can work by
+  alphabetical accident; shuffling flushes that out, as JUnit's random test order does for tests. The seed is
+  logged with the plan, and `Shuffled(seed)` replays it.
+
+The natural choice depends on the environment: shuffled in development and tests, where a surprise is cheap,
+and by name in production, where it isn't. `boot` can't read the environment itself (`boot-env` depends on
+`boot`, not the other way round, and the environment is only set during `appInit`, after the plan is made), so
+`boot-env` offers the mapping, from its `EnvironmentConfig`, which is available while wiring:
+
+[source,kotlin]
+----
+// boot-env
+fun tieOrder(config: EnvironmentConfig): TieOrder = when (Env.fromString(config.environment)) {
+  Env.Dev, Env.Test -> TieOrder.Shuffled()
+  Env.Prod, is Env.Custom -> TieOrder.ByName
+}
+
+// vanilla
+Bootable(appServices, tieOrder = tieOrder(environmentConfig(binder)))
+----
+
+`boot-env`'s Kodein and Metro flavors bind the `TieOrder` this way, so an app that wires `boot-env` gets it by
+including that module, and one that doesn't gets `ByName`. Keeping `TieOrder` apart from `StartOrder` lets the
+two be chosen independently: an app's custom `StartOrder` needn't know about environments.
+
+Because unordered services have no guaranteed order, a later version could also start them *concurrently*
+without breaking the contract. The start plan is already a graph, so the scheduling is easy; what isn't is
+everything around it: a service failing while others are half-started, `start()` implementations that assume
+nothing else is starting, and interleaved logs. It is not proposed now; if it is ever worth it, it would be one
+more `TieOrder`, or an opt-in on the `StartOrder`.
+
+=== The database modules
+
+[source,kotlin]
+----
+// boot-db-jdbc (flyway and exposed already depend on it, so no new edges)
+object DbMilestones {
+  val DataSourceReady = Milestone("db.dataSource.ready")
+  val SchemaMigrated = Milestone("db.schema.migrated")
+}
+
+class JdbcDataSourceService(...) : AppService {
+  override fun ordering() = Ordering(DefaultPhase.INFRASTRUCTURE, provides = setOf(DbMilestones.DataSourceReady))
+}
+
+// boot-db-flyway (and, identically, a future boot-db-liquibase)
+class FlywayMigrationService(...) : AppService {
+  override fun ordering() = Ordering(DefaultPhase.INITIALIZATION, provides = setOf(DbMilestones.SchemaMigrated))
+}
+
+// boot-db-exposed — knows nothing about Flyway or Liquibase
+class SchemaVerificationService(...) : AppService {
+  override fun ordering() = Ordering(DefaultPhase.INITIALIZATION, after = setOf(DbMilestones.SchemaMigrated))
+}
+
+// boot-server-http-ktor
+abstract class KtorService(...) : AdvancedAppService {
+  override fun ordering() = Ordering(DefaultPhase.SERVING)
+}
+----
+
+Flyway needs no `after(DataSourceReady)`: the pool is in an earlier phase. The application's own
+`EntryRepository`/`EntryServer` declare nothing. Every `PRIORITY` constant goes away. With no migration tool in
+the set, `SchemaVerificationService`'s `after` has no providers and is simply satisfied; with Liquibase instead
+of Flyway, nothing in `boot-db-exposed` changes.
+
+=== Algorithm and validation
+
+Bootable computes a *start plan* once, in `boot()`, before `appInit` — so a bad plan fails the process before any
+service or controller has done anything:
+
+. Read each service's ordering with `startOrder.orderingOf(service)`, taking `defaultPhase` when it names no
+  phase.
+. Check the start order itself: `phases` must not repeat a phase, and must contain `defaultPhase` and every
+  phase a service is in. A service in a phase the start order doesn't know fails the boot, rather than being
+  started somewhere arbitrary: +
+  `VaultSecretsService is in phase SECRETS, which is not one of this start order's phases: [INFRASTRUCTURE, INITIALIZATION, APPLICATION, SERVING]`.
+. Group services by phase, in the order of `phases`.
+. Within each phase, build edges `provider -> dependent` for every `after`/`requires` milestone whose providers
+  are in the same phase. Providers in an *earlier* phase are already satisfied. Providers in a *later* phase are
+  an error (the constraint can't be met): +
+  `SchemaVerificationService (INITIALIZATION) must start after 'cache.warm', but its provider CacheWarmer is in APPLICATION, which starts later`.
+. `requires` with no provider anywhere is an error: +
+  `SchemaVerificationService requires milestone 'db.schema.migrated', but no service provides it. Add a service that provides it, or use 'after' if it is optional.`
+. Topologically sort each phase (Kahn's algorithm), picking among ready services by the `TieOrder`. A leftover
+  node means a cycle, reported with its path: +
+  `Start-order cycle in phase INITIALIZATION: A (after 'x') -> B (after 'y') -> A`.
+. Log the plan at `info`, which doubles as documentation of the running app, with the seed if ties were
+  shuffled: +
+  `Start plan: INFRASTRUCTURE[JdbcDataSourceService] INITIALIZATION[FlywayMigrationService, SchemaVerificationService] APPLICATION[...] SERVING[EntryServer]`
+
+The algorithm is a public pure function,
+`startPlan(services: Collection<AppService>, startOrder: StartOrder = DefaultStartOrder, tieOrder: TieOrder =
+TieOrder.ByName): List<AppService>`, so the module tests that today re-sort by `priority()` call the real thing,
+and can shuffle ties to check that their own services declare every milestone they need.
+
+Shutdown is `plan.asReversed()`. (Bootable already skips services that never started, via `disabledServices`.)
+
+=== Where it lives: `Bootable`, `ServiceContext`, controllers
+
+* `ServiceContext` gains `val startPlan: List<AppService>` next to the existing `appServices` set.
+  `AppStartStopLifecycleController` iterates `startPlan` to start and `startPlan.asReversed()` to stop. A
+  custom controller that starts services on command (the reason controllers exist) gets the same order for free
+  instead of re-deriving it from `priority()`.
+* `LifecycleController.priority()` is unchanged. Controllers are few, framework-level, and mostly ordered against
+  the built-ins (`Int.MAX_VALUE` for `AppStartStopLifecycleController` and `EnvironmentInitializer`); this note
+  doesn't touch them.
+* `AdvancedAppService` is unaffected: it is an `AppService`, so it has `ordering()`. A `die()` runs the normal
+  shutdown, which uses the reversed plan.
+* `serviceStartVote` is unchanged: a vote skips one service, as today. (Whether a `NO` on a provider should also
+  skip its `requires` dependents is a reasonable follow-up, not part of this.)
+
+=== Vanilla, Kodein, Metro
+
+Nothing changes in any wiring style, which is the main reason ordering is a property of the service instance:
+the same object carries the same `ordering()` whether it was built by hand, by Kodein, or by Metro, and the
+order is computed from the `Set<AppService>` that `Bootable` already receives. No annotations, no discovery, no
+per-flavor API. Milestones are ordinary values imported from the module that defines them, so any coupling is a
+visible, typed `import` of a shared lower module — never of a peer.
+
+A custom `StartOrder` is one more constructor argument to `Bootable`, supplied the way each style supplies the
+others, and optional in each, so an app that doesn't customize the order writes nothing:
+
+[source,kotlin]
+----
+// Vanilla
+Bootable(appServices, startOrder = AppStartOrder)
+
+// Kodein: bootableModule builds Bootable(instance(), instance(), instanceOrNull() ?: DefaultStartOrder)
+bindSingleton<StartOrder> { AppStartOrder }
+
+// Metro: BootableDefaultBindings takes `startOrder: StartOrder = DefaultStartOrder`, an optional binding
+@Provides fun startOrder(): StartOrder = AppStartOrder
+----
+
+`TieOrder` is supplied the same way, and is usually bound by `boot-env`'s flavors rather than by the app (see
+_Unordered services_).
+
+=== Migration from `priority()`
+
+Over two releases, so existing apps keep their behaviour while they move:
+
+. *The release with phases* keeps `AppService.priority()`, deprecated with a message pointing to phases and
+  milestones, and still honours it: services the ordering leaves unordered are taken by priority first, then by
+  the `TieOrder`. Removing it at once would break every `override fun priority()` ("overrides nothing"), and
+  ignoring it silently would reorder existing apps.
+** The default `ordering()` puts every service in the default phase, `APPLICATION`, with no constraints, so an
+   app whose services only override `priority()` sorts exactly as today.
+** Bootable's own modules move to phases: `JdbcDataSourceService` -> `INFRASTRUCTURE`, Flyway/Exposed ->
+   `INITIALIZATION`, `KtorService` -> `SERVING`, and stop overriding `priority()`. The relative order of
+   everything is unchanged, with one edge case worth a release note: an app service that used a priority above
+   `JdbcDataSourceService.PRIORITY` to start _before_ the pool now starts after it, and should declare
+   `DefaultPhase.INFRASTRUCTURE`. Likewise, an app service that tied with `KtorService` at `Int.MIN_VALUE` now
+   starts before it, and should declare `SERVING` if it serves outside work too.
+** The `PRIORITY` constants in `boot-db-*` are removed, or deprecated with `priority()` if #34 is released first.
+. *The next release* removes `AppService.priority()`. Ties are then broken only by the `TieOrder`.
+
+`LifecycleController.priority()` is a separate question and stays: controllers are few, all framework-level, and
+ordered against the built-ins.
+
+=== Why not stop at phases?
+
+Phases alone are the 80% solution and could ship first. But the very case that started this — migrate, then
+verify, both in `INITIALIZATION`, owned by modules that must not know each other — is exactly the one phases can't
+express without either numbers or a phase-per-service. Milestones close that gap with a small, validated
+addition, and they are the piece that makes "Liquibase instead of Flyway" or "no migration tool" a no-op for
+`boot-db-exposed`.
+
+=== Open questions
+
+* `INITIALIZATION` and `LifecycleController.appInit` (logged as `=> Initializing`) are different things: `appInit`
+  runs before _any_ service starts, while the `INITIALIZATION` phase runs after `INFRASTRUCTURE`. The docs must
+  keep them apart. Otherwise `PREPARATION` avoids the overlap.
+* Concurrent start of unordered services: the contract allows it, and the note defers it (see _Unordered
+  services_).
+* Separately from ordering: if a service's `start()` throws, `boot` currently logs and calls `exitProcess(-1)`
+  without shutting down the services that already started (e.g. the pool is never closed). The start plan makes a
+  clean partial shutdown easy (reverse of the started prefix) and is worth fixing alongside.
