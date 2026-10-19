@@ -1,3 +1,6 @@
+import com.github.rocketraman.bootable.db.exposed.ExposedDatabaseService
+import com.github.rocketraman.bootable.db.exposed.SchemaVerificationService
+import com.github.rocketraman.bootable.db.flyway.FlywayMigrationService
 import com.github.rocketraman.bootable.db.jdbc.HikariConnectionPoolFactory
 import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
 import com.github.rocketraman.bootable.db.jdbc.SqliteConfig
@@ -19,16 +22,19 @@ import kotlin.io.path.deleteRecursively
 private fun withServer(block: suspend HttpClient.() -> Unit) {
   val dir = createTempDirectory("server-ktor-db")
   val database = JdbcDataSourceService(SqliteConfig(path = dir.resolve("test.db").toString()), HikariConnectionPoolFactory())
-  val schema = EntrySchema(database.dataSource)
+  val exposed = ExposedDatabaseService(database.dataSource)
+  val db = exposed.database
   try {
     database.start()
-    schema.start()
+    FlywayMigrationService(database.dataSource).start()
+    SchemaVerificationService(db, setOf(EntryTable)).start()
     testApplication {
-      val server = EntryServer(ServerConfig("127.0.0.1:0"), EntryRepository(database.dataSource), "test")
+      val server = EntryServer(ServerConfig("127.0.0.1:0"), EntryRepository(db), "test")
       application { with(server) { module() } }
       client.block()
     }
   } finally {
+    exposed.shutdown()
     database.shutdown()
     dir.deleteRecursively()
   }

@@ -42,6 +42,11 @@ data class HikariPoolConfig(
   val leakDetectionThreshold: Duration? = null,
   /** SQL run on every new connection before it enters the pool. */
   val connectionInitSql: String? = null,
+  /**
+   * The transaction isolation level of every connection the pool opens. Defaults to the driver's own default. A
+   * library such as Exposed may still set its own level per transaction.
+   */
+  val transactionIsolation: TransactionIsolation? = null,
   /** Whether to register the pool's JMX management beans. */
   val registerMbeans: Boolean? = null,
 )

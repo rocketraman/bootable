@@ -68,6 +68,18 @@ An application makes two choices, each its own dependency:
 * A *pool*, which supplies the `ConnectionPoolFactory`, configured with its own typed settings.
 ** `boot-db-pool-hikari`: HikariCP, configured by `HikariPoolConfig`. For HikariCP settings it doesn't cover, add a `HikariConfigCustomizer` to its set binding (Kodein `inBindSet`, Metro `@IntoSet`).
 
+On top of the pool, two optional modules use its `DataSource`:
+
+* `boot-db-flyway`: `FlywayMigrationService` runs Flyway's `migrate` when the app starts, just after the pool, so a failed migration fails the boot and nothing uses an unmigrated schema.
+Migrations come from `classpath:db/migration` unless `FlywayConfig.locations` says otherwise.
+For Flyway settings `FlywayConfig` doesn't cover, add a `FlywayConfigurationCustomizer` to its set binding.
+flyway-core supports SQLite itself; other databases need their Flyway database module, which their driver modules will bring.
+* `boot-db-exposed`: `ExposedDatabaseService` owns an Exposed `Database` over the pool, configured by `ExposedConfig` (default isolation level, read-only, retries, query timeout, and so on), which applies to that `Database` only. On shutdown, before the pool closes, it unregisters the `Database` from Exposed's process-wide registry.
+`db.withTransaction { … }` runs a suspending transaction on the `Database`'s dispatcher (`Dispatchers.IO` by default); called inside another, it joins it, so several calls make one unit of work.
+`SchemaVerificationService` checks, after the migrations, that the schema matches the Exposed tables registered in its `Set<Table>` binding, and fails the boot listing the SQL the schema needs (or only warns, with `schemaVerification = WARN`).
+For Exposed settings `ExposedConfig` doesn't cover, add an `ExposedConfigCustomizer` to its set binding.
+Exposed logs SQL statements at DEBUG on its `Exposed` logger.
+
 Each module reads its own subsection of `db`:
 
 [source,hocon]
@@ -79,15 +91,22 @@ db {
   pool {
     connectionTimeout = 5s
   }
+  flyway {
+    locations = ["classpath:db/migration"]
+  }
+  exposed {
+    defaultMaxAttempts = 1
+    schemaVerification = FAIL
+  }
 }
 ----
 
-With vanilla wiring, construct `JdbcDataSourceService(binder.config<SqliteConfig>("db.jdbc"), HikariConnectionPoolFactory(binder.config("db.pool")))`, pass it to `boot` as an app service, and hand its `dataSource` to whatever needs connections.
-With Kodein, import `jdbcDataSourceModule`, a driver config module (`sqliteConfigModule` or `jdbcGenericConfigModule`), and a pool module (`hikariPoolModule`).
-With Metro, the `-metro` driver and pool modules contribute everything; for the generic config, add `JdbcGenericConfigBindings` to your graph's `bindingContainers`.
+With vanilla wiring, construct `JdbcDataSourceService(binder.config<SqliteConfig>("db.jdbc"), HikariConnectionPoolFactory(binder.config("db.pool")))`, pass it to `boot` as an app service, and hand its `dataSource` to whatever needs connections: e.g. `FlywayMigrationService(dataSource, binder.config("db.flyway"))`, and an `ExposedDatabaseService(dataSource, exposedConfig)`, as a service too, whose `database` goes to a `SchemaVerificationService` for its tables and to your repositories.
+With Kodein, import `jdbcDataSourceModule`, a driver config module (`sqliteConfigModule` or `jdbcGenericConfigModule`), and a pool module (`hikariPoolModule`), plus `flywayMigrationModule` and `exposedDatabaseModule` as needed; register tables with `inBindSet<Table> { add { singleton { MyTable } } }`.
+With Metro, the `-metro` driver, pool, Flyway, and Exposed modules contribute everything; for the generic config, add `JdbcGenericConfigBindings` to your graph's `bindingContainers`; register tables with `@Provides @IntoSet fun myTable(): Table = MyTable`.
 A graph without a driver or a pool fails to compile with a missing binding.
 
-See link:./examples/server-ktor-db[examples/server-ktor-db] for a small Ktor server that reads and writes a SQLite database through a HikariCP pool. Its server code is shared, and it is wired three ways: `vanilla`, `kodein`, and `metro`, each a runnable app, e.g. `./gradlew :examples:server-ktor-db:metro:run`.
+See link:./examples/server-ktor-db[examples/server-ktor-db] for a small Ktor server that keeps entries in a SQLite database, through a HikariCP pool, with its schema created by a Flyway migration and its queries written with Exposed. Its server code is shared, and it is wired three ways: `vanilla`, `kodein`, and `metro`, each a runnable app, e.g. `./gradlew :examples:server-ktor-db:metro:run`.
 
 === Environment
 
@@ -157,7 +176,7 @@ See these three wiring options:
 * [ ] Create a boot-server-http-ktor-cohort module using https://github.com/sksamuel/cohort[Cohort]
 * [ ] Update the ktor example to integrate https://github.com/sksamuel/hoplite[Kompendium] — this is outside the scope of Bootable, but it would be a good example of how to integrate Bootable with other libraries
 * [ ] Make multiplatform — some modules are backend only e.g. Hoplite, Log4j2, but others could easily be adapted for multiplatform usage
-* [ ] Integrate more useful modules e.g. JetBrains Expose, postgresql, and so on
+* [ ] Integrate more useful modules e.g. postgresql, and so on
 
 == Author
 
