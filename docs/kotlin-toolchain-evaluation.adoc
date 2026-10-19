@@ -1,0 +1,648 @@
+= Evaluation: migrating from Gradle to the Kotlin Toolchain
+:toc:
+
+Evaluated 2026-10-16 against https://github.com/JetBrains/kotlin-toolchain[Kotlin Toolchain] 0.13.0 (the project formerly known as Amper), by converting a scratch copy of this repository end to end.
+Updated 2026-10-19 with feedback from the Kotlin Toolchain maintainers (see <<upstream>>) and prototype plugins for signing with gpg-agent (see <<signing>>) and building GraalVM native images (see <<native>>).
+
+== Verdict
+
+*Feasible, with two project-local plugins.*
+Building, testing and running all work today, and the build definition gets much simpler.
+Two things the Gradle build does have no built-in equivalent, and each needed a small plugin:
+
+* *Signing.*
+The toolchain signs only with an exported private key, while our key lives on a YubiKey behind gpg-agent.
+A plugin that signs a staged publication with `gpg` works around it (see <<signing>>).
+* *GraalVM native image.*
+There is no native-image support, so the `server-ktor` smoke test needs a plugin that runs `native-image` and applies the GraalVM reachability metadata repository the way the Gradle plugin does (see <<native>>).
+
+The other release gaps are not blockers: the tag-derived version needs only a one-line YAML rewrite, and the placeholder javadoc jar is an upstream design choice that Maven Central accepts.
+The Kotlin Toolchain is still 0.x, with breaking changes in every release (0.13 renamed env vars and the module layout name), and both publishing and plugins are in preview.
+
+A migration would also change how the DI flavors are structured.
+The Kotlin Toolchain has no way for one module to produce several artifacts, so each flavor (`boot-metro`, `boot-kodein`, …) would become its own module.
+We prefer the current one-module-per-feature structure while we stay on Gradle (see <<flavors>>).
+
+== What the spike covered
+
+All 15 library modules (with the DI flavors split out as modules), the 5 examples, and both TestBalloon test suites.
+The spike kept `layout: maven-like` to avoid moving files.
+A real migration would use the toolchain's default layout (`src/`, `test/`, `resources/`).
+
+[cols="1,1,3"]
+|===
+| Area | Result | Notes
+
+| Compile all modules
+| ✅
+| `kotlin build`: all 20 modules, ~11 s cold.
+
+| Tests (TestBalloon + power-assert)
+| ✅ with workaround
+| 9/9 pass.
+Needs `TESTBALLOON_INCLUDE_PATTERNS: "*"` in `settings.jvm.test.extraEnvironment`: the toolchain launches JUnit with explicit class selectors, and TestBalloon ignores selector-driven runs unless that variable is set (its Gradle plugin normally sets it).
+TestBalloon doesn't officially support the toolchain yet.
+The TestBalloon compiler plugin goes in `test-settings` so it only applies to tests.
+
+| Examples
+| ✅
+| `kotlin run -m wiring-{vanilla,kodein,metro}` all print the greeting.
+`server-ktor` compiles and its tests pass.
+
+| Metro compiler plugin
+| ✅
+| Configured as a third-party `compilerPlugins` entry.
+As with Gradle, the Metro version has to support the Kotlin version: 1.3.2 predates Kotlin 2.4 and crashes with `NoSuchMethodError`, 1.4.5 works.
+IDE support for third-party compiler plugins is best-effort (needs the KEFS IDE plugin).
+
+| Publishing (POM shape)
+| ✅
+| POMs and Gradle module metadata look right.
+Each flavor coordinate depends on its base plus sibling `-metro` / `-kodein` coordinates, with no hand-written `pom.withXml`.
+Bytecode targets Java 17 and the native-image `reachability-metadata.json` files are bundled.
+Only published locally; no Maven Central upload was attempted.
+
+| GraalVM native (`server-ktor`)
+| ⚠️ workaround
+| No built-in support.
+A prototype plugin builds the native executable (see <<native>>).
+The binary serves requests and shuts down cleanly on SIGTERM using only the bundled metadata.
+
+| Release to Maven Central
+| ⚠️ workaround
+| Built-in signing can't use gpg-agent.
+A prototype plugin signs a staged publication with `gpg` instead (see <<signing>>).
+Signatures and checksums verified locally; nothing was uploaded.
+|===
+
+== Gaps
+
+. *Signing (the one blocker; workaround in <<signing>>).*
+Signing works only through `KOTLIN_TOOLCHAIN_SIGNING_KEY`, an ASCII-armored private key in an environment variable.
+There is no gpg-agent / `useGpgCmd()` equivalent or external-signer hook.
+That contradicts `docs/releasing.adoc` ("the GPG signing key never leaves local hardware"), and a key on a YubiKey can't be exported at all.
+. *GraalVM native image (workaround in <<native>>).*
+The toolchain has no equivalent of the `org.graalvm.buildtools.native` Gradle plugin, which the `server-ktor` native smoke test relies on.
+. *Version from git tag (not a blocker).*
+`settings.publishing.version` is a static YAML string with no interpolation or CLI override.
+Upstream is designing a way to inject values from outside the build (properties, env vars), tracked as KTC-3854.
+Until then the maintainers' own CI rewrites the YAML before publishing.
+For us that means a release script that reads the `vX.Y.Z` tag on HEAD and rewrites the single `version:` line in `publish.module-template.yaml`, the same logic `build.gradle.kts` uses today.
+. *Javadoc jars (not a blocker).*
+The toolchain publishes a placeholder javadoc jar (a manifest and a short README).
+That satisfies Maven Central, which requires the jar but not real content; our flavor coordinates already ship empty javadoc jars the same way.
+But the base modules would lose the Dokka output they ship today, which is what javadoc.io serves.
+IDEs read KDoc from the sources jar, which the toolchain does publish, so IDE doc lookups are unaffected.
+Plugins can't add files to a publication yet (listed as "planned").
++
+The maintainers deliberately held off on Dokka integration (see <<upstream>>).
+Dokka HTML is a poor fit for a javadoc jar: in KMP libraries it would be repeated on every target artifact, bloating publications at a time when Sonatype is introducing Maven Central quotas.
+Dokka's Javadoc-format output may still make sense for pure JVM libraries like ours (https://youtrack.jetbrains.com/issue/KTC-472[KTC-472]).
+Note that our javadoc jars currently contain Dokka *HTML*: the `dokka-javadoc` plugin is applied, but `JavadocJar.Dokka("dokkaGeneratePublicationHtml")` packages the HTML output.
+. *Signing is all-or-nothing.*
+With `mavenCentral` enabled, signing is required for every publish, including `kotlin publish mavenLocal`.
+Gradle's `-PsigningRequired=false` has no equivalent (KTC-6058).
+. *Kotlin 2.4 required for power-assert.*
+The built-in power-assert adds `kotlin-power-assert-runtime`, which exists only for 2.4+, so dependency resolution fails with Kotlin pinned to 2.3.x (KTC-6057).
+The spike moved to Kotlin 2.4.21 and TestBalloon 1.1.0.
+That's the direction we want anyway, since the TestBalloon pin was waiting on KT-83931, fixed in 2.4.0.
+. *Smaller rough edges:*
+** `kotlin publish <repo>` without `-m` fails if any module lacks that repo, including unpublished examples (KTC-6059).
+** `file://` repositories are unsupported, which would help when checking a publication (KTC-5759).
+** Catalog `[bundles]` are unsupported (inline the entries).
+** Plugins can't be published yet, so the signing and native-image plugins would live in this repository.
+
+[[signing]]
+== Signing with gpg-agent through a custom plugin
+
+The built-in signer is hard-wired: `PrepareMavenPublishablesTask` builds a BouncyCastle `PgpSigner` from `KOTLIN_TOOLCHAIN_SIGNING_KEY`, and `PgpSigner` has no other implementation.
+A source comment says a mechanism for custom properties and env vars will come later.
+Plugins can't hook into `kotlin publish` or add files to a publication, so a plugin can't replace that signer.
+
+What a plugin can do is sign a publication after it has been staged.
+The prototype (see <<appendix-plugin>>) is a project-local `jvm/amper-plugin` module named `central-signing`, enabled for every published module through `publish.module-template.yaml`.
+It registers a `signForCentral` command that, for each module:
+
+* finds the module's staged directory from `${module.settings.publishing.group}`, `.artifactId` and `.version`;
+* deletes the local-install bookkeeping files (`_remote.repositories`, `maven-metadata-local.xml`);
+* runs `gpg --armor --detach-sign` on every artifact, so signing goes through gpg-agent and works with a YubiKey;
+* writes the `.md5` and `.sha1` checksums Maven Central requires.
+
+The release flow then becomes:
+
+. Rewrite `version:` in `publish.module-template.yaml` from the release tag.
+. Stage an unsigned publication outside the real `~/.m2`:
++
+[source,shell]
+----
+KOTLIN_CLI_JAVA_OPTIONS="-Dmaven.repo.local=$PWD/build/central-staging" kotlin publish -m boot -m boot-metro ... mavenLocal
+----
++
+The toolchain resolves `mavenLocal` the same way Gradle does, so the `maven.repo.local` system property redirects it, and `KOTLIN_CLI_JAVA_OPTIONS` passes JVM options to the CLI.
+KTC-5759 (publishing to a custom local directory) would make this cleaner.
+. Sign: `kotlin do signForCentral`.
+. Zip the staged `com/` tree into a Central Portal bundle, excluding the per-artifact `maven-metadata-local.xml`, and upload it with one call to the Central Portal publisher API (`POST /api/v1/publisher/upload`).
+
+Tested with Kotlin Toolchain 0.13.0 and a throwaway ed25519 key in a scratch `GNUPGHOME`: all 15 modules staged, 75 signatures (5 files per module) verify with `gpg --verify`, every checksum matches, and the bundle has the expected layout.
+The upload step was not exercised.
+
+Trade-offs:
+
+* Maven Central publishing is configured as a plain `mavenLocal` publication, so `mavenCentral` and `signArtifacts` stay off.
+That gives up the toolchain's built-in Maven Central requirements checks and its upload; Central's own validation still runs on upload.
+* Staging, signing and upload are separate steps, wrapped in a release script.
+A plugin task can't depend on `kotlin publish`, and an upload per module would create 15 separate Central deployments, so the bundle and upload belong in the script.
+* The plugin relies on plugin APIs that are still in preview.
+* A plain shell script (or JReleaser, which supports signing through the `gpg` command and Central Portal uploads) could do the signing step too.
+The plugin's advantage is that it reads each module's coordinates from the build instead of repeating them.
+
+[[native]]
+== GraalVM native image through a custom plugin
+
+The Gradle build uses `org.graalvm.buildtools.native` for the `server-ktor` smoke test, which checks that the reachability metadata bundled in our jars is enough for a native image.
+The Kotlin Toolchain has nothing equivalent.
+`native-maven-plugin` through `mavenPlugins` is an option on paper, but its goals depend heavily on the Maven project model, which the toolchain only emulates on a best-effort basis.
+
+The prototype (see <<appendix-native>>) is a project-local `jvm/amper-plugin` module named `graalvm-native`, enabled in `server-ktor`.
+It registers a `nativeCompile` command (`kotlin do nativeCompile -m server-ktor`) that:
+
+* takes the module's runtime classpath (`${module.runtimeClasspath}`, which includes the module's own jar) and main class (`${module.settings.jvm.mainClass}`);
+* resolves the GraalVM reachability metadata repository as an ad-hoc dependency (`org.graalvm.buildtools:graalvm-reachability-metadata:0.10.6:repository@zip`) and unzips it;
+* maps each classpath jar to its repository entry the way native-build-tools does: `<group>/<artifact>/index.json`, picking the entry whose `tested-versions` contains the jar's version, else the `latest` one;
+* adds the matching config directories with `-H:ConfigurationFileDirectories`, and passes `--exclude-config` for libraries whose entry is marked `override`, so the repository's config replaces the library's bundled one;
+* runs `native-image --no-fallback -Ob`, using GraalVM from `GRAALVM_HOME`.
+
+Tested with Kotlin Toolchain 0.13.0 and GraalVM CE 24.0.2.
+The plugin applies the same 8 metadata entries as the Gradle build (Kotlin stdlib and reflect, six Netty modules) and builds the executable in about 45 s.
+The binary serves `/` and `/hello`, and SIGTERM shuts it down cleanly (exit code 0) with no `KotlinReflectionInternalError`.
+
+Gotchas found along the way:
+
+* *Netty needs the metadata repository.*
+Without it, Netty's own bundled `native-image.properties` initializes `PooledByteBufAllocator` at build time, which captures an slf4j logger in the image heap and fails the build.
+The repository marks Netty's entries `override`, and excluding Netty's bundled config fixes it.
+* *Symlinked caches break `--exclude-config`.*
+`native-image` matches `--exclude-config` patterns against canonical paths.
+The toolchain reported jars under `~/.cache`, a symlink on this machine, so the exclusions silently didn't match until the plugin resolved real paths.
+* *The plugin works out coordinates from file paths.*
+`Classpath` only exposes resolved files, not Maven coordinates, so the plugin relies on the toolchain's Maven-layout dependency cache (`.../<group>/<artifact>/<version>/<artifact>-<version>.jar`).
+
+Separately, the Gradle smoke test on master currently builds a *shared library*, not an executable.
+`./gradlew :examples:server-ktor:nativeCompile` reports "Generating 'server-ktor' (shared library)" and passes `--shared` to `native-image`, producing `server-ktor.so`.
+That is a Gradle build problem, independent of this evaluation.
+
+[[flavors]]
+== DI flavors: source sets vs modules
+
+Today each feature module carries its optional DI bindings as extra source sets (`boot/src/metro`, `boot/src/kodein`), and `configureDiVariants()` publishes each one as its own coordinate.
+The Kotlin Toolchain needs one module per artifact, so a migration would turn them into separate modules.
+
+The source-set approach has real advantages:
+
+* *Locality.* The bindings sit next to the code they bind, so the source tree is easy to follow.
+* *No module multiplication.* Each feature with both DI flavors stays one module instead of three.
+The spike's 8 library modules became 15.
+Since then the `boot-db-*` modules have landed: master has 13 library modules carrying 17 flavor source sets, so a split would mean 30 modules, and every new feature with both flavors adds three.
+
+Separate modules have advantages too:
+
+* *No custom build code.* The ~110 lines of `configureDiVariants()`, the `<flavor>Elements` configurations and the hand-built flavor POMs all go away.
+* *Correct plugin scoping.* Today the Metro compiler plugin also runs on the vanilla and Kodein compilations, which then need the Metro runtime as `compileOnly`.
+As a separate module, Metro only touches Metro code.
+* *Ordinary dependencies.* In-repo consumers write `project(":boot-metro")` instead of `project(path = ":boot", configuration = "metroElements")`.
+
+Nesting the flavor modules inside their base module (`boot/boot-metro/`) keeps most of the locality.
+The Kotlin Toolchain accepts this (checked with 0.13.0: the base module's jar doesn't pick up the nested module's classes), and Gradle supports nested projects the same way.
+The toolchain names a module after its directory and requires unique names, so the directories must be `boot-metro`, `boot-env-metro`, and so on rather than `metro`.
+Nesting fixes where the code lives, not how many modules there are.
+
+*Decision:* keep the source sets while we stay on Gradle.
+If we migrate, or the variant machinery becomes a maintenance problem, split into nested modules then.
+
+== What we would gain
+
+* *Simpler flavor publishing*, at the cost of more modules (see <<flavors>>).
+* *Layered configuration through nested templates.*
+The Metro modules need `languageVersion: 2.3` while everything else uses 2.1.
+Two sibling templates setting different values is a conflict error, but a template that `apply`s another one overrides it.
+So `metro.module-template.yaml` applies `common.module-template.yaml` and sets 2.3, and the Metro modules apply only the Metro template.
+`kotlin show settings -m <module>` shows which file each effective value came from.
+* *A declarative build.*
+The spike's build is ~350 lines of YAML (one `project.yaml`, four small templates, one `module.yaml` per module, much of it repeated `apply:` boilerplate), compared with ~570 lines of Gradle Kotlin DSL and properties.
+None of it is imperative code.
+* *Built-in JDK provisioning* (`settings.jvm.jdk.version: 21` + `release: 17`), replacing `.mise.toml` / `setup-java` for builds.
+* *Good diagnostics*: precise file/line errors, e.g. "Maven Central requires artifact signatures" pointing at both conflicting lines.
+
+== Build speed
+
+Not a concern.
+A clean `kotlin build` took 11.8 s and `kotlin test` 2.1 s, against about 5 s for `./gradlew build` with an already-warm Gradle daemon (and its Kotlin compiler daemon).
+These are single rough samples.
+The build logs and OpenTelemetry traces were shared with the maintainers, and the traces explain the gap:
+
+* *Cold compiler.*
+The toolchain doesn't use the Kotlin compiler daemon (yet), so it compiles in-process, and the first compilation in each invocation pays for loading the compiler.
+Small first-wave modules spend about 1.5 s in the compiler, while modules of similar size later in the same build take 0.3–0.8 s.
+* *JDK list re-check on clean builds.*
+The JDK cache itself is shared, but the record of whether the JDK list is up to date lives in the project's build directory.
+After `kotlin clean`, one task re-downloads and decompresses the list (1.3 s), and every other task waits on it.
+With warm caches the check takes about 20 ms, and with `JAVA_HOME` set (as in a normal shell with mise) the build took 10.3 s instead of 11.8 s.
+* *`di-bench` sets the wall time.*
+It depends on no other module, so it compiles in parallel with the whole bootable dependency chain, and finishes last.
+Built on its own, its compiler time is about 6.4 s: roughly 2 s for the Kodein DSL bindings, 2 s for the three Metro graphs, and 2.3 s even with both removed.
+
+On a project this small, fixed startup costs are a large share of the total, so the gap says little about larger builds.
+The maintainers are exploring AOT caching for the CLI, with speedups of over 1.3x on clean builds and 2.5x with a hot cache in their tests.
+Not needing a resident daemon is itself a plus.
+
+[[upstream]]
+== Upstream feedback
+
+The findings were posted in the Kotlin Slack `#kotlin-toolchain` channel.
+The maintainers confirmed most of them and linked these issues (all open as of 2026-10-19):
+
+[cols="1,3,2"]
+|===
+| Issue | Title | Covers
+
+| https://youtrack.jetbrains.com/issue/KTC-3854[KTC-3854]
+| Possibility to define different configs for different environments
+| Version from the git tag
+
+| https://youtrack.jetbrains.com/issue/KTC-6057[KTC-6057]
+| Implicit kotlin-power-assert-runtime fails DR with Kotlin < 2.4
+| Power-assert on Kotlin 2.3
+
+| https://youtrack.jetbrains.com/issue/KTC-4080[KTC-4080]
+| Simplify test filtering options
+| TestBalloon discovering 0 tests
+
+| https://youtrack.jetbrains.com/issue/KTC-6058[KTC-6058]
+| `kotlin publish mavenLocal` fails on missing signature when signing is enabled
+| Signing required for local publishing
+
+| https://youtrack.jetbrains.com/issue/KTC-6059[KTC-6059]
+| `kotlin publish <repo>` without `-m` incorrectly requires <repo> in non-published modules
+| `publish` without `-m`
+
+| https://youtrack.jetbrains.com/issue/KTC-5759[KTC-5759]
+| Allow publishing to a custom local directory
+| `file://` repositories
+
+| https://youtrack.jetbrains.com/issue/KTC-472[KTC-472]
+| Support javadoc jar generation (for publication)
+| Dokka Javadoc-format output for JVM libraries
+|===
+
+No issue was linked for gpg-agent / external signing.
+
+On Dokka, the maintainers explained why the toolchain ships a placeholder javadoc jar rather than Dokka HTML (summarized under the javadoc gap above).
+
+On compiler plugin versions (the Metro 1.3.2 vs 1.4.5 mismatch), the maintainers said work is under way in Kotlin to make it easier for compiler plugin authors to support multiple Kotlin versions.
+On the toolchain side, they floated letting compiler plugin coordinates reference the Kotlin version, so authors could publish versions like `1.2.3-kotlin-2.4.21` (as KSP used to).
+They may not pursue it if the Kotlin-side solution lands.
+
+The template-conflict point was a misreading on our side: nested templates resolve it, as described above.
+
+== Recommended next steps
+
+. *Now, in Gradle:* bump to Kotlin 2.4.x, TestBalloon 1.1.x and Metro 1.4.x.
+The spike shows they work together.
+. *Now, in Gradle:* fix the `server-ktor` native smoke test, which builds a shared library instead of an executable (see <<native>>).
+. *If we migrate:* release through the staged-publication flow and signing plugin in <<signing>>, until the toolchain supports external or agent-based signing.
+Ask upstream for that, since no issue tracks it yet.
+. *If we migrate:* build the native smoke test with the `graalvm-native` plugin in <<native>>, and ask upstream about native-image support.
+. *If we migrate:* split the DI flavors into modules nested inside their base module (see <<flavors>>), and move to the toolchain's default layout.
+
+[[appendix]]
+== Appendix: spike configuration
+
+.`project.yaml` (abridged)
+[source,yaml]
+----
+modules:
+  - boot
+  - boot-metro
+  - boot-kodein
+  # ... one entry per module, including examples/*
+----
+
+.`common.module-template.yaml`
+[source,yaml]
+----
+layout: maven-like
+
+dependencies:
+  - bom: org.jetbrains.kotlin:kotlin-bom:2.4.21
+
+settings:
+  jvm:
+    jdk:
+      version: 21
+    release: 17
+  kotlin:
+    version: 2.4.21
+    languageVersion: 2.1
+    apiVersion: 2.1
+----
+
+.`metro.module-template.yaml`
+[source,yaml]
+----
+apply:
+  - //common.module-template.yaml
+
+dependencies:
+  - dev.zacsweers.metro:runtime:1.4.5: exported
+
+settings:
+  kotlin:
+    # Metro requires Kotlin 2.3 (overrides the 2.1 from the common template)
+    languageVersion: 2.3
+    apiVersion: 2.3
+    compilerPlugins:
+      - id: dev.zacsweers.metro.compiler
+        dependency: dev.zacsweers.metro:compiler:1.4.5
+        options:
+          enabled: true
+----
+
+.`boot-config-hoplite/module.yaml`
+[source,yaml]
+----
+product: jvm/lib
+
+apply:
+  - //common.module-template.yaml
+  - //publish.module-template.yaml
+
+dependencies:
+  - //boot-config-common: exported
+  - $libs.hoplite.core: exported
+  - $libs.hoplite.hocon: exported
+  - //boot
+
+test-dependencies:
+  - $libs.testBalloon.framework.core
+
+test-settings:
+  jvm:
+    test:
+      extraEnvironment:
+        TESTBALLOON_INCLUDE_PATTERNS: "*"
+  kotlin:
+    powerAssert: enabled
+    compilerPlugins:
+      - id: de.infix.testBalloon
+        dependency: de.infix.testBalloon:testBalloon-compiler-plugin:1.1.0
+----
+
+.`boot-metro/module.yaml` (was `boot/src/metro`)
+[source,yaml]
+----
+product: jvm/lib
+
+apply:
+  - //publish.module-template.yaml
+  - //metro.module-template.yaml
+
+dependencies:
+  - //boot: exported
+  - //boot-common
+  - //boot-logging-log4j2
+
+settings:
+  kotlin:
+    optIns: [ kotlin.time.ExperimentalTime ]
+----
+
+[[appendix-plugin]]
+=== Signing plugin
+
+.`project.yaml` (additions)
+[source,yaml]
+----
+modules:
+  - build-sources/central-signing
+  # ...
+
+plugins:
+  - //build-sources/central-signing
+----
+
+.`publish.module-template.yaml` (addition)
+[source,yaml]
+----
+plugins:
+  central-signing: enabled
+----
+
+.`build-sources/central-signing/module.yaml`
+[source,yaml]
+----
+product: jvm/amper-plugin
+----
+
+.`build-sources/central-signing/plugin.yaml`
+[source,yaml]
+----
+tasks:
+  sign:
+    action: !bootable.release.signStagedArtifacts
+      stagingRepo: ${project.rootDir}/build/central-staging
+      group: ${module.settings.publishing.group}
+      artifactId: ${module.settings.publishing.artifactId}
+      version: ${module.settings.publishing.version}
+      moduleName: ${module.name}
+
+commands:
+  - name: signForCentral
+    performedBy: sign
+----
+
+.`build-sources/central-signing/src/signStagedArtifacts.kt`
+[source,kotlin]
+----
+package bootable.release
+
+import org.jetbrains.amper.plugins.*
+import java.nio.file.Path
+import java.security.MessageDigest
+import kotlin.io.path.*
+
+/**
+ * Signs a module's staged Maven publication with the local `gpg` (and so gpg-agent, which is what makes a
+ * hardware key work), and writes the md5/sha1 checksums Maven Central requires.
+ */
+@TaskAction
+fun signStagedArtifacts(
+    @Input(inferTaskDependency = false) stagingRepo: Path,
+    group: String?,
+    artifactId: String?,
+    version: String?,
+    moduleName: String,
+) {
+    checkNotNull(group) { "settings.publishing.group is not set for module $moduleName" }
+    checkNotNull(version) { "settings.publishing.version is not set for module $moduleName" }
+    val dir = stagingRepo.resolve(group.replace('.', '/')).resolve(artifactId ?: moduleName).resolve(version)
+    check(dir.isDirectory()) { "No staged publication at $dir; run `kotlin publish mavenLocal` with -Dmaven.repo.local first" }
+
+    // local-install bookkeeping files must not go to Central
+    dir.listDirectoryEntries("_remote.repositories").forEach { it.deleteExisting() }
+    dir.listDirectoryEntries("maven-metadata-local.xml*").forEach { it.deleteExisting() }
+
+    val artifacts = dir.listDirectoryEntries().filter { f ->
+        f.isRegularFile() && listOf(".asc", ".md5", ".sha1", ".sha256", ".sha512").none { f.name.endsWith(it) }
+    }
+    for (file in artifacts) {
+        val asc = file.resolveSibling("${file.name}.asc")
+        asc.deleteIfExists()
+        val process = ProcessBuilder("gpg", "--batch", "--yes", "--armor", "--detach-sign", "--output", asc.toString(), file.toString())
+            .inheritIO()
+            .start()
+        check(process.waitFor() == 0) { "gpg failed to sign $file" }
+        for ((algorithm, ext) in listOf("MD5" to "md5", "SHA-1" to "sha1")) {
+            val digest = MessageDigest.getInstance(algorithm).digest(file.readBytes())
+            file.resolveSibling("${file.name}.$ext").writeText(digest.joinToString("") { "%02x".format(it) })
+        }
+        println("signed ${file.name}")
+    }
+}
+----
+
+[[appendix-native]]
+=== Native-image plugin
+
+.`project.yaml` (additions)
+[source,yaml]
+----
+modules:
+  - build-sources/graalvm-native
+  # ...
+
+plugins:
+  - //build-sources/graalvm-native
+----
+
+.`examples/server-ktor/module.yaml` (addition)
+[source,yaml]
+----
+plugins:
+  graalvm-native: enabled
+----
+
+.`build-sources/graalvm-native/module.yaml`
+[source,yaml]
+----
+product: jvm/amper-plugin
+
+dependencies:
+  - org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0
+----
+
+.`build-sources/graalvm-native/plugin.yaml`
+[source,yaml]
+----
+tasks:
+  compile:
+    action: !bootable.native.nativeCompile
+      classpath: ${module.runtimeClasspath}
+      metadataRepository:
+        dependencies:
+          - org.graalvm.buildtools:graalvm-reachability-metadata:0.10.6:repository@zip
+      mainClass: ${module.settings.jvm.mainClass}
+      imageName: ${module.name}
+      outputDir: ${taskOutputDir}
+
+commands:
+  - name: nativeCompile
+    performedBy: compile
+----
+
+.`build-sources/graalvm-native/src/nativeCompile.kt`
+[source,kotlin]
+----
+package bootable.native
+
+import kotlinx.serialization.json.*
+import org.jetbrains.amper.plugins.*
+import java.io.File
+import java.nio.file.Path
+import java.util.zip.ZipFile
+import kotlin.io.path.*
+
+/**
+ * Builds a GraalVM native image of the module, mirroring the Gradle `graalvmNative` config: no JVM fallback (a
+ * missing reflection/resource registration must fail), quick build, and the GraalVM reachability metadata
+ * repository applied the way native-build-tools applies it. GraalVM is taken from GRAALVM_HOME.
+ */
+@TaskAction
+@OptIn(ExperimentalPathApi::class)
+fun nativeCompile(
+    @Input classpath: Classpath,
+    @Input metadataRepository: Classpath,
+    mainClass: String?,
+    imageName: String,
+    @Output outputDir: Path,
+) {
+    checkNotNull(mainClass) { "settings.jvm.mainClass must be set to build a native image" }
+    val graalvmHome = System.getenv("GRAALVM_HOME") ?: error("GRAALVM_HOME must point to a GraalVM for JDK 23+")
+    val nativeImage = Path(graalvmHome, "bin", "native-image")
+    check(nativeImage.isExecutable()) { "$nativeImage not found" }
+
+    outputDir.deleteRecursively()
+    val repoDir = (outputDir / "metadata-repository").createDirectories()
+    val repoZip = metadataRepository.resolvedFiles.singleOrNull { it.name.endsWith("-repository.zip") }
+        ?: error("no repository zip in ${metadataRepository.resolvedFiles}")
+    ZipFile(repoZip.toFile()).use { zip ->
+        for (entry in zip.entries()) {
+            val target = repoDir.resolve(entry.name).normalize()
+            check(target.startsWith(repoDir)) { "bad zip entry ${entry.name}" }
+            if (entry.isDirectory) target.createDirectories()
+            else zip.getInputStream(entry).use { input -> target.createParentDirectories().outputStream().use(input::copyTo) }
+        }
+    }
+
+    // native-image matches --exclude-config against canonical paths, so resolve symlinks (e.g. a symlinked ~/.cache)
+    val jars = classpath.resolvedFiles.map { it.toRealPath() }
+    val configDirs = mutableListOf<Path>()
+    val excludeConfigArgs = mutableListOf<String>()
+    // modules whose metadata lives in a directory other than <group>/<artifact>
+    val redirects = Json.parseToJsonElement((repoDir / "index.json").readText()).jsonArray
+        .map { it.jsonObject }
+        .associate { it.getValue("module").jsonPrimitive.content to it["directory"]?.jsonPrimitive?.content }
+    for (jar in jars) {
+        // jars live in a Maven-layout cache: .../<group path>/<artifact>/<version>/<artifact>-<version>.jar
+        val version = jar.parent?.name ?: continue
+        val artifact = jar.parent.parent?.name ?: continue
+        val groupSegments = generateSequence(jar.parent.parent.parent) { it.parent }.map { it.name }.take(8).toList()
+        val (group, moduleDir) = (1..groupSegments.size).asSequence()
+            .map { k -> groupSegments.take(k).reversed().joinToString(".") }
+            .map { g -> g to repoDir / (redirects["$g:$artifact"] ?: "$g/$artifact") }
+            .firstOrNull { (_, dir) -> (dir / "index.json").isRegularFile() }
+            ?: continue
+        val entries = Json.parseToJsonElement((moduleDir / "index.json").readText()).jsonArray.map { it.jsonObject }
+        val entry = entries.firstOrNull { e -> e["tested-versions"]?.jsonArray?.any { it.jsonPrimitive.content == version } == true }
+            ?: entries.firstOrNull { it["latest"]?.jsonPrimitive?.boolean == true }
+            ?: continue
+        configDirs.add(moduleDir / entry.getValue("metadata-version").jsonPrimitive.content)
+        // the repository's config replaces the library's own bundled config
+        if (entry["override"]?.jsonPrimitive?.boolean == true) {
+            excludeConfigArgs += listOf("--exclude-config", "\\Q$jar\\E", "^/META-INF/native-image/.*")
+        }
+        println("metadata repository: $group:$artifact:$version -> ${entry.getValue("metadata-version").jsonPrimitive.content}")
+    }
+
+    val command = buildList {
+        add(nativeImage.toString())
+        addAll(excludeConfigArgs)
+        addAll(listOf("--no-fallback", "-Ob", "-cp", jars.joinToString(File.pathSeparator)))
+        if (configDirs.isNotEmpty()) add("-H:ConfigurationFileDirectories=" + configDirs.joinToString(","))
+        addAll(listOf("-o", outputDir.resolve(imageName).toString(), mainClass))
+    }
+    (outputDir / "native-image.args").writeLines(command.drop(1))
+    val process = ProcessBuilder(command).inheritIO().start()
+    check(process.waitFor() == 0) { "native-image failed" }
+    println("native image: ${outputDir.resolve(imageName)}")
+}
+----
