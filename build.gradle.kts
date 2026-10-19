@@ -35,6 +35,8 @@ dependencies {
   dokka(project(":boot-db-exposed"))
   dokka(project(":boot-db-flyway"))
   dokka(project(":boot-db-jdbc"))
+  dokka(project(":boot-db-jdbc-mysql"))
+  dokka(project(":boot-db-jdbc-postgresql"))
   dokka(project(":boot-db-jdbc-sqlite"))
   dokka(project(":boot-db-pool-hikari"))
   dokka(project(":boot-env"))
@@ -285,6 +287,74 @@ project("boot-db-jdbc-sqlite") {
   }
 }
 
+project("boot-db-jdbc-mysql") {
+  configureDiVariants()
+  dependencies {
+    api(project(":boot-db-jdbc"))
+    // the driver is the point of this module: depending on it brings the right JDBC driver transitively
+    api(rootProject.libs.mysql.connector.j)
+    // Flyway needs its MySQL database module for MySQL migrations; harmless without boot-db-flyway
+    runtimeOnly(rootProject.libs.flyway.mysql)
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+
+    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    // the driver settings only matter through a real pool, and Flyway proves its database module is there
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
+    testImplementation(project(":boot-db-flyway"))
+    testImplementation(project(":boot-logging-log4j2"))
+    // a real MySQL in a container; those tests are skipped where Docker is unavailable, outside CI
+    testImplementation(rootProject.libs.testcontainers.mysql)
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+  }
+}
+
+project("boot-db-jdbc-postgresql") {
+  configureDiVariants()
+  dependencies {
+    api(project(":boot-db-jdbc"))
+    // the driver is the point of this module: depending on it brings the right JDBC driver transitively
+    api(rootProject.libs.postgresql)
+    // Flyway needs its PostgreSQL database module for PostgreSQL migrations; harmless without boot-db-flyway
+    runtimeOnly(rootProject.libs.flyway.database.postgresql)
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+
+    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    // the driver settings only matter through a real pool, and Flyway proves its database module is there
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
+    testImplementation(project(":boot-db-flyway"))
+    testImplementation(project(":boot-logging-log4j2"))
+    // a real PostgreSQL in a container; those tests are skipped where Docker is unavailable, outside CI
+    testImplementation(rootProject.libs.testcontainers.postgresql)
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+  }
+}
+
 project("boot-db-exposed") {
   configureDiVariants()
   dependencies {
@@ -325,6 +395,7 @@ project("boot-db-flyway") {
   dependencies {
     api(project(":boot-db-jdbc"))
     // flyway-core supports SQLite itself; other databases' Flyway modules come with their driver modules
+    // (boot-db-jdbc-postgresql, boot-db-jdbc-mysql)
     api(rootProject.libs.flyway.core)
     // the logging API only: the application chooses the logging implementation (e.g. boot-logging-log4j2)
     implementation(rootProject.libs.bundles.log4j.api)

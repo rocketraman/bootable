@@ -12,7 +12,10 @@ ktor = "3.1.1"
 log4j = "2.24.3"
 log4j-kotlin-api = "1.5.0"
 metro = "1.3.2"
+mysql-connector-j = "26.7.0"
+postgresql = "42.7.14"
 sqlite-jdbc = "3.53.4.0"
+testcontainers = "2.0.5"
 # 1.1.0+ trips a power-assert bug on TestBalloon's generated entry point ("Unable to find source for IrFile",
 # KT-83931, fixed in Kotlin 2.4.0); stay on the 1.0.x line until Kotlin is bumped
 testBalloon = "1.0.0-K2.3.0"
@@ -34,6 +37,8 @@ exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "e
 exposed-migration-jdbc = { module = "org.jetbrains.exposed:exposed-migration-jdbc", version.ref = "exposed" }
 
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
+flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
+flyway-mysql = { module = "org.flywaydb:flyway-mysql", version.ref = "flyway" }
 
 hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
 
@@ -61,6 +66,8 @@ log4j-jul = { module = "org.apache.logging.log4j:log4j-jul", version.ref = "log4
 log4j-layout-template-json = { module = "org.apache.logging.log4j:log4j-layout-template-json", version.ref = "log4j" }
 log4j-slf4j-impl = { module = "org.apache.logging.log4j:log4j-slf4j2-impl", version.ref = "log4j" }
 
+mysql-connector-j = { module = "com.mysql:mysql-connector-j", version.ref = "mysql-connector-j" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 
 # below here, only used for the server-ktor sample
@@ -70,6 +77,9 @@ ktor-server-html-builder = { module = "io.ktor:ktor-server-html-builder", versio
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
 
 testBalloon-framework-core = { module = "de.infix.testBalloon:testBalloon-framework-core", version.ref = "testBalloon" }
+
+testcontainers-mysql = { module = "org.testcontainers:testcontainers-mysql", version.ref = "testcontainers" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version.ref = "testcontainers" }
 
 [bundles]
 exposed = [
