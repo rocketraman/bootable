@@ -214,6 +214,5 @@ substituted, still at compile time. See `examples/server-ktor`'s tests.
 
 None of these styles was chosen for speed, and you should not pick one for that reason. On a native image the
 difference between them is noise; on the JVM the DI-construction cost differs, but in a real service the rest of
-the stack (config loading, ktor, logging, JVM warmup) dominates cold start regardless. Measurements are in
-`docs/native-image-findings.md` and `docs/jvm-startup-findings.md`. Choose on ergonomics and safety, not
-startup.
+the stack (config loading, ktor, logging, JVM warmup) dominates cold start regardless.
+Choose on ergonomics and safety, not startup.
