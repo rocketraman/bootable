@@ -1,0 +1,20 @@
+package com.github.rocketraman.bootable.db.jdbc
+
+import com.github.rocketraman.bootable.boot.BootScope
+import com.github.rocketraman.bootable.config.ConfigBinder
+import com.github.rocketraman.bootable.config.config
+import dev.zacsweers.metro.BindingContainer
+import dev.zacsweers.metro.ContributesTo
+import dev.zacsweers.metro.Provides
+import dev.zacsweers.metro.SingleIn
+
+/**
+ * Provides a [PostgresqlConfig], decoded from the `db.jdbc` config section, as the [JdbcConfig] that
+ * `JdbcDataSourceBindings` (from boot-db-jdbc-metro) builds the pool from.
+ */
+@ContributesTo(BootScope::class)
+@BindingContainer
+object PostgresqlConfigBindings {
+  @Provides @SingleIn(BootScope::class)
+  fun postgresqlConfig(binder: ConfigBinder): JdbcConfig = binder.config<PostgresqlConfig>("db.jdbc")
+}
