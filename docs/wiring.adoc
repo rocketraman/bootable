@@ -119,7 +119,7 @@ and boot the graph's `bootable`:
 ----
 @ContributesIntoSet(AppScope::class)
 @SingleIn(AppScope::class)
-class ExampleServer(config: ServerConfig, hello: HelloConfig) : KtorService("test", config)
+class ExampleServer(config: ServerConfig, hello: HelloConfig) : NettyKtorService("test", config)
 
 @ContributesTo(AppScope::class)
 interface ServerConfigBindings : ConfigBinderProvider {  // config bindings are just a type and a key

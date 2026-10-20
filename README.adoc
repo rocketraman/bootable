@@ -136,6 +136,43 @@ Provides a basic Ktor service abstraction with Bootable lifecycle integration i.
 Does not attempt to configure Ktor in any significant way — this is left to the user.
 See https://github.com/rocketraman/bootable/blob/HEAD/boot-server-http-ktor/src/main/kotlin/com/github/rocketraman/bootable/server/http/ktor/KtorService.kt[KtorService].
 
+The Ktor engine is your choice.
+`boot-server-http-ktor` itself depends on no engine; depend on the module for the engine you want, which brings that engine with it, and extend its service class:
+
+[cols="1,1,2"]
+|===
+| Module | Extend | Engine
+
+| `boot-server-http-ktor-cio` | `CioKtorService` | CIO: pure Kotlin, and the engine to use for a GraalVM native image
+| `boot-server-http-ktor-netty` | `NettyKtorService` | Netty
+| `boot-server-http-ktor-jetty` | `JettyKtorService` | Jetty 12 (`ktor-server-jetty-jakarta`)
+|===
+
+[source,kotlin]
+----
+class MyServer(config: ServerConfig) : CioKtorService("my-server", config) {
+  override fun Application.module() {
+    routing { get("/") { call.respondText("hello") } }
+  }
+}
+----
+
+Any other engine works too: depend on `boot-server-http-ktor` and that engine, and extend `KtorService` with the engine's factory, e.g. `KtorService<MyEngine, MyEngine.Configuration>("my-server", config, MyEngine)`.
+
+Every engine is configured the same way: one connector at the service's `HostPort` (port 8080 if it has none), a 50 ms shutdown grace period, and a 1 s shutdown timeout.
+To change those, add connectors, or set the engine's own options, override `configureEngine`, whose receiver is the engine's configuration type:
+
+[source,kotlin]
+----
+override fun NettyApplicationEngine.Configuration.configureEngine() {
+  shutdownTimeout = 5_000
+  responseWriteTimeoutSeconds = 30
+}
+----
+
+NOTE: Before 3.1, `KtorService` always ran on Netty, and `boot-server-http-ktor` brought Netty with it.
+To upgrade, depend on `boot-server-http-ktor-netty` instead of `boot-server-http-ktor`, and extend `NettyKtorService` instead of `KtorService`; nothing else changes.
+
 See link:./examples/compose-html[examples/compose-html] for a Kotlin web application end to end: a todo list whose browser client is written with https://github.com/JetBrains/compose-multiplatform#compose-html[Compose HTML], served by a Ktor server run by Bootable.
 The API's models and validation rule live in a multiplatform `shared` module, compiled to JavaScript for the `client` and to the JVM for the `server`, so both sides agree on the JSON and on what makes a todo valid.
 The server's build bundles the client's production JavaScript onto its classpath, so `./gradlew :examples:compose-html:server:run` serves the whole app at http://localhost:8002.

@@ -1,5 +1,5 @@
 import com.github.rocketraman.bootable.config.common.HostPort
-import com.github.rocketraman.bootable.server.http.ktor.KtorService
+import com.github.rocketraman.bootable.server.http.ktor.CioKtorService
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.html.*
@@ -138,7 +138,7 @@ class EntryServer(
   config: ServerConfig,
   private val entries: EntryRepository,
   private val bindings: String,
-) : KtorService("entries", config) {
+) : CioKtorService("entries", config) {
   private val logger = logger()
 
   override fun Application.module() {

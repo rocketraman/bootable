@@ -2,7 +2,7 @@ import com.github.rocketraman.bootable.boot.Bootable
 import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
-import com.github.rocketraman.bootable.server.http.ktor.KtorService
+import com.github.rocketraman.bootable.server.http.ktor.NettyKtorService
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.html.*
@@ -38,7 +38,7 @@ fun HTML.index() {
  * An ordinary class — no dependency-injection annotations. Its dependencies are plain constructor parameters,
  * so it is constructed directly in `main` (and just as easily in a unit test).
  */
-class ExampleServer(config: ServerConfig, private val hello: HelloConfig) : KtorService("test", config) {
+class ExampleServer(config: ServerConfig, private val hello: HelloConfig) : NettyKtorService("test", config) {
   private val logger = logger()
 
   override fun Application.module() {
