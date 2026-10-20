@@ -71,7 +71,7 @@ Compose HTML renders in the browser only: the server sends an empty page and the
 That suits apps behind a login or used interactively, but not pages that should arrive already rendered, for search engines, landing pages, or more generally any page requiring a fast first paint.
 
 For these use cases, a technology with support for server-side rendering is recommended.
-A good fit is https://htmx.org/[HTMX], optionally with server-side https://github.com/kotlin/kotlinx.html[kotlinx.html] (see link:../server-ktor-db[server-ktor-db] for a simple example of `kotlinx.html`).
+A good fit is https://htmx.org/[HTMX], optionally with server-side https://github.com/kotlin/kotlinx.html[kotlinx.html] (see link:../htmx[htmx] for this same app built that way).
 That being said, SSR or pre-rendering for Compose HTML is possible using community libraries like https://kobweb.varabyte.com[Kobweb], and https://blog.jetbrains.com/kotlin/2026/08/exploring-compose-html-for-server-side-rendering/[is being worked] on by JetBrains as well.
 
 == Styling

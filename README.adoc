@@ -141,6 +141,9 @@ The API's models and validation rule live in a multiplatform `shared` module, co
 The server's build bundles the client's production JavaScript onto its classpath, so `./gradlew :examples:compose-html:server:run` serves the whole app at http://localhost:8002.
 To work on the client with live reload, run the server too, and `./gradlew :examples:compose-html:client:jsBrowserDevelopmentRun`, whose development server forwards API calls to it.
 
+See link:./examples/htmx[examples/htmx] for the same todo list rendered on the server instead: pages built with https://github.com/kotlin/kotlinx.html[kotlinx.html], and made interactive with https://htmx.org/[htmx], using Ktor's HTMX support.
+It runs with `./gradlew :examples:htmx:run`, at http://localhost:8003.
+
 == How to Use
 
 See xref:./docs/wiring.adoc[Wiring Bootable] for the full guide, and the projects in the `examples` directory — there is one per wiring style, so you can copy the one that matches your choice of DI (or no DI).
