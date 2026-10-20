@@ -7,7 +7,7 @@ plugins {
 }
 
 kotlin {
-  jvmToolchain(21)
+  jvmToolchain(25)
   compilerOptions {
     // Metro requires Kotlin 2.3; the shared subprojects config targets 2.1
     apiVersion.set(KotlinVersion.KOTLIN_2_3)

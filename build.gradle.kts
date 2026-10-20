@@ -103,10 +103,13 @@ configure(subprojects.filter { it.path !in multiplatformProjects }) {
   }
 
   kotlin {
-    jvmToolchain(21)
+    // compile with JDK 25, but for Java 17: the bytecode, and the JDK APIs it may use, which -Xjdk-release restricts to
+    // those of the target, following jvmTarget wherever a module changes it
+    jvmToolchain(25)
     compilerOptions {
       // target 17 for max compatibility
       jvmTarget.set(JvmTarget.JVM_17)
+      freeCompilerArgs.addAll(jvmTarget.map { listOf("-Xjdk-release=${it.target}") })
       apiVersion.set(KotlinVersion.KOTLIN_2_1)
       languageVersion.set(KotlinVersion.KOTLIN_2_1)
     }

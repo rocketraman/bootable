@@ -4,7 +4,7 @@ plugins {
 }
 
 kotlin {
-  jvmToolchain(21)
+  jvmToolchain(25)
 }
 
 // htmx's webjar, from which the build takes only the script.
