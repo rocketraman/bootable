@@ -6,6 +6,8 @@ flyway = "13.10.0"
 graalvm-buildtools = "0.10.6"
 hikari = "7.1.0"
 hoplite = "3.0.3"
+# 4.0.0 is out, but npm tags it next rather than latest, and Ktor's HTMX attributes follow htmx 2
+htmx = "2.0.11"
 kotlin = "2.3.21"
 kotlinx-coroutines = "1.10.1"
 kotlinx-html = "0.12.0"
@@ -78,13 +80,18 @@ sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 compose-html-core = { module = "org.jetbrains.compose.html:html-core", version.ref = "compose-multiplatform" }
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
 
+htmx = { module = "org.webjars.npm:htmx.org", version.ref = "htmx" }
+
 kotlinx-html = { module = "org.jetbrains.kotlinx:kotlinx-html", version.ref = "kotlinx-html" }
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinx-serialization" }
 
 ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
 
+ktor-htmx-html = { module = "io.ktor:ktor-htmx-html", version.ref = "ktor" }
+
 ktor-server-html-builder = { module = "io.ktor:ktor-server-html-builder", version.ref = "ktor" }
+ktor-server-htmx = { module = "io.ktor:ktor-server-htmx", version.ref = "ktor" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
 
 testBalloon-framework-core = { module = "de.infix.testBalloon:testBalloon-framework-core", version.ref = "testBalloon" }

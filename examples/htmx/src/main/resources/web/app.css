@@ -1,0 +1,10 @@
+.container { max-width: 36em; margin: 2em auto; padding: 0 1em; font-family: system-ui, sans-serif; }
+.muted { color: gray; }
+.error { color: firebrick; }
+.add { display: flex; gap: 0.5em; }
+.add input { flex: 1; padding: 0.4em; }
+.list { list-style: none; padding: 0; }
+.item { display: flex; align-items: center; justify-content: space-between; padding: 0.4em 0; border-bottom: 1px solid #ddd; }
+.label { display: flex; align-items: center; gap: 0.5em; }
+.done { text-decoration: line-through; color: gray; }
+.delete { border: none; background-color: transparent; color: gray; cursor: pointer; }

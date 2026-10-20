@@ -1,0 +1,60 @@
+= HTMX example
+
+The same todo list as the link:../compose-html[compose-html] example, but rendered on the server with https://github.com/kotlin/kotlinx.html[kotlinx.html], and made interactive with https://htmx.org/[htmx], by a Ktor server run by Bootable.
+
+== How it works
+
+A plain `GET /` returns the whole page, already rendered, so the browser shows the todos before any script runs.
+
+The page's elements carry htmx attributes, such as `hx-post`, `hx-patch`, and `hx-delete`, which htmx turns into requests to the server.
+The server answers each with a fragment of HTML, which htmx swaps into the page:
+
+* Adding a todo returns its item, which is appended to the list.
+* Marking a todo done, or not, returns its item, which replaces the old one.
+* Deleting a todo returns nothing for the item, which removes itself.
+
+Each response also carries the parts of the page it changes elsewhere, such as the count of todos done and a fresh form, marked with `hx-swap-oob`, which htmx swaps in by id.
+A title that isn't valid is refused with a 422 and the form, showing the title and the reason, which replaces the form instead of being appended to the list.
+
+The page and the fragments are rendered by the same functions, in `Views.kt`, so the first render and later updates can't disagree.
+Ktor's `ktor-htmx-html` module provides typed `hx-*` attributes for kotlinx.html, and its `ktor-server-htmx` module provides the `hx { }` route scope, which only matches requests made by htmx, and the `HX-*` header names.
+
+The server serves htmx itself, at `/assets/htmx.min.js`: the build takes the script from htmx's webjar, `org.webjars.npm:htmx.org`, and copies it onto the classpath, so the app needs no CDN.
+It uses htmx 2, since Ktor's HTMX attributes follow htmx 2, and npm still tags htmx 4 as `next` rather than `latest`.
+
+Todos are kept in memory; see link:../server-ktor-db[server-ktor-db] for storing data in a database with Bootable.
+
+== Running it
+
+From the repository root:
+
+[source,shell]
+----
+./gradlew :examples:htmx:run
+----
+
+Then open http://localhost:8003.
+
+The port is set in `src/main/resources/application.conf`.
+
+== Compared with compose-html
+
+Both examples are the same app, served by a Ktor server run by Bootable, so they can be compared side by side.
+
+This one renders on the server.
+The page arrives with its content, so it shows quickly, and is readable without running the app's code, which suits public pages, landing pages, and anything else that needs a fast first paint.
+The client is htmx's script, about 50 KB minified, and the app has no client-side code, build, or state of its own.
+Every interaction is a request to the server, though, and the validation rule runs only there, so a title is checked when it is submitted, not as it is typed.
+
+compose-html runs in the browser.
+The server sends an empty page and the client's script, which then builds it, so the first paint waits for the script to load and run.
+In return, the client holds the app's state, its interactions don't each need a round trip to the server, and it shares its models and its validation rule with the server through a multiplatform module, so it can check a title as it is typed.
+
+== Tests
+
+[source,shell]
+----
+./gradlew :examples:htmx:test
+----
+
+The tests run the server's routes in Ktor's test host, making requests as htmx does, and check the full page, the fragments each change returns, that invalid titles are refused with their reason, that missing todos are not found, and that htmx's script is served.
