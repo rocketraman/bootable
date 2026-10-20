@@ -4,7 +4,7 @@ plugins {
 }
 
 kotlin {
-  jvmToolchain(21)
+  jvmToolchain(25)
 }
 
 // The client's production bundle: its index.html, JavaScript, and source maps.

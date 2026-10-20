@@ -1,0 +1,185 @@
+= Kilua example
+
+The same todo list as the link:../compose-html[compose-html] and link:../htmx[htmx] examples, written with https://kilua.dev[Kilua], and served by a Ktor server run by Bootable.
+The client runs in the browser, as in compose-html, but with server-side rendering (SSR), so each page arrives with its content, as in htmx.
+
+Kilua is a web framework by https://github.com/rjaros[Robert Jaros], a successor to his KVision.
+Like Compose HTML, it builds the DOM with JetBrains' Compose runtime, but with its own components (`dev.kilua.html.*`, form inputs, and more), and it compiles to Kotlin/Wasm as well as Kotlin/JS.
+
+== Modules
+
+`shared`::
+The API's models (`Todo`, `NewTodo`, `TodoUpdate`), its path, and the rule for a valid title (`titleProblem`), as in compose-html.
+It is a Kotlin Multiplatform module, compiled to JavaScript for the client and to the JVM for the server.
+
+`client`::
+The Kilua UI, compiled to JavaScript, and a small API wrapper that calls the server with Ktor's client.
+It checks a title with the shared rule as the user types.
+The Kilua Gradle plugin bundles it twice: for the browser, and, configured by `webpack.config.ssr.d`, for Node.js, zipped as `ssr.zip`.
+
+`server`::
+A Ktor server, wired with plain Kotlin and run by Bootable, that serves the page at `/`, rendered with the current todos, the client's files, and the JSON API under `/api/todos`, which is the same as compose-html's.
+It checks every title with the same shared rule.
+Todos are kept in memory; see link:../server-ktor-db[server-ktor-db] for storing data in a database with Bootable.
+
+== How server-side rendering works
+
+Kilua renders on the server by running the client itself, in Node.js.
+The client bundled for Node.js starts a small HTTP server, which renders the page for each path it's asked for, and answers with the root element's HTML.
+
+In this example:
+
+. The server's build copies the client's browser bundle onto its classpath under `web/`, and `ssr.zip` at its root.
+. When Bootable starts the app, it starts the renderer, from `ssr.zip`, in Node.js (see <<_how_bootable_runs_the_renderer>>).
+. On `GET /`, `TodoServer` asks the renderer for the page.
+In Node.js, the client's route action loads the todos from the server's own API, at the URL the renderer was given with `--rpc-url-prefix`, and once it has, Kilua renders the page, and adds the todos to it as serialized state.
+. The server puts the rendered HTML into the client's `index.html`, and sends it.
+The browser shows the todos before any script runs.
+. The client's script then starts in the browser.
+Kilua replaces the rendered content with the live app, rather than hydrating it, but the app starts from the serialized todos, so it renders the same page without loading them again.
+
+The renderer is stateful: it is one instance of the client, which only reruns a route, and so reloads the todos, when the path it's asked for changes.
+So the server asks for `/?revision=N`, where `N` counts the changes to the todos, and each change gets a fresh render; the client's router ignores the query.
+
+== How Bootable runs the renderer
+
+The renderer is a Node.js process, which Kilua's `SsrEngine`, from its `kilua-ssr-server` module, starts and calls.
+The app needs it running before it can serve a page, so Bootable starts it as one of the app's services, before the Ktor server.
+
+`server/src/main/kotlin/App.kt` wires the two services, which `main` hands to Bootable:
+
+[source,kotlin]
+----
+fun appServices(binder: ConfigBinder): Set<AppService> {
+  val serverConfig = binder.config<ServerConfig>("server")
+  val renderer = SsrRenderer(binder.config("ssr"), serverConfig.localUrl())
+  return setOf(
+    renderer,
+    TodoServer(serverConfig, TodoRepository(), renderer),
+  )
+}
+----
+
+`SsrRenderer`, in `server/src/main/kotlin/SsrRenderer.kt`, is an `AppService` that wraps an `SsrEngine`:
+
+* `start()` constructs the `SsrEngine`, which extracts `ssr.zip` from the classpath into a temporary directory, and starts `node main.bundle.js` there, on a free port, with the server's URL for the client's API calls.
+It returns once the renderer has rendered a first page, and fails if it hasn't within 30 seconds.
+* `render(path)` calls the engine's `getSsrContent(path)`, which asks the renderer for the page at `path`, over HTTP on localhost, and returns `index.html` with the page in it.
+* There is no `shutdown()`: `SsrEngine` has no way to stop Node.js, and stops it only from a JVM shutdown hook, which runs when the app's JVM exits, after Bootable has stopped the server.
+
+`TodoServer`, in `server/src/main/kotlin/TodoServer.kt`, is a `NettyKtorService`, which calls `renderer.render(...)` for `GET /`.
+
+Bootable starts services in priority order, highest first, and stops them in reverse (see link:../../docs/service-ordering.adoc[Service ordering]).
+`SsrRenderer` has the default priority, 0, and `TodoServer`, as a `KtorService`, has `Int.MIN_VALUE`, so the renderer starts before the server: the server never takes a request it can't render.
+The log shows the order (trimmed):
+
+----
+==> Starting SsrRenderer…
+NodeJS SSR process is starting ... done.
+Renderer listening on port 42061
+==> Starting TodoServer…
+Responding at http://0.0.0.0:8004
+...
+==> Stopping TodoServer…
+==> Stopping SsrRenderer…
+=> Stopped
+----
+
+Kilua's Ktor integration, `kilua-ssr-server-ktor`, isn't used.
+Its `initSsr()` creates the `SsrEngine` inside the Ktor application, so Node.js would start with the server, rather than before it, and it renders each page at the request's own path, where this server adds the todos' revision.
+
+=== Java 25
+
+Kilua's `kilua-ssr-server`, which has `SsrEngine`, is built for Java 25, so the server targets Java 25 and needs it to run, where the rest of the repository, which also builds with JDK 25, targets Java 17.
+
+=== Node.js
+
+The renderer needs Node.js at run time, as well as to build.
+`run` and the tests use the Node.js that the Kotlin Gradle plugin downloads for Kotlin/JS builds, by setting `SSR_NODE`, which Bootable's config reads as `ssr.node`.
+Otherwise, as from the server's jar or distribution, it runs `node` from the `PATH`; set `SSR_NODE` to use another.
+
+== Running it
+
+From the repository root:
+
+[source,shell]
+----
+./gradlew :examples:kilua:server:run
+----
+
+Then open http://localhost:8004.
+
+To see what server-side rendering adds, look at the first response, before any script runs:
+
+[source,shell]
+----
+curl http://localhost:8004/
+----
+
+The port is set in `server/src/main/resources/application.conf`.
+
+== Live reload
+
+As in compose-html, run the client from Kotlin/JS's webpack development server, which reloads the page whenever the client is rebuilt.
+
+In one terminal, run the server, which the client still needs for its API:
+
+[source,shell]
+----
+./gradlew :examples:kilua:server:run
+----
+
+In another, run the development server in continuous mode:
+
+[source,shell]
+----
+./gradlew --continuous :examples:kilua:client:jsBrowserDevelopmentRun
+----
+
+Then open http://localhost:8080.
+The development server serves the client itself, and forwards requests under `/api` to the server on port 8004; see `client/webpack.config.d/dev-server.js`.
+Pages aren't rendered on the server this way: the client loads the todos and renders them in the browser.
+Changes to `server` still need it restarted, as does the renderer, which the server runs with the client as built when it started.
+
+== Tests
+
+[source,shell]
+----
+./gradlew :examples:kilua:server:test
+----
+
+`TodoServerTest` runs the API in Ktor's test host, as compose-html's tests do.
+`ServerRenderingTest` starts the renderer and the server in Bootable's order, on a free port, and checks that the first response is the rendered page, and that each page has the latest todos.
+Each test starts its own renderer, whose Node.js runs until the tests' JVM exits, since `SsrEngine` only stops it then.
+It needs Node.js, which Gradle provides; run elsewhere, without Node.js, it is skipped, except on CI.
+
+== Compared with compose-html and htmx
+
+All three examples are the same app, with a Ktor server run by Bootable.
+
+compose-html renders in the browser only.
+The server sends an empty page and the client's script, so the first paint waits for the script to load and run.
+
+htmx renders on the server only, with kotlinx.html, and has no client-side code of its own.
+The page arrives with its content, but every interaction is a round trip to the server, and titles are only checked when they're submitted.
+
+This example does both: the page arrives rendered, as with htmx, and then the client takes over, as in compose-html, sharing its models and its validation rule with the server, so a title is checked as it's typed, and interactions only call the API.
+The cost is a second runtime: the server runs Node.js beside the JVM, and each page is rendered by a call from the JVM to Node.js, and from there back to the server's API.
+
+The client's code is close to compose-html's, since both are Compose, with Kilua's functions in place of Compose HTML's: `div("container") { }` rather than `Div({ classes(...) }) { }`, for example.
+The differences that showed up here:
+
+* Kilua's inputs keep their own value, as the DOM's do, rather than taking it from state, so the form reads its input as it changes, and clears it directly after an add.
+* The page is styled by a plain stylesheet, `client/src/jsMain/resources/app.css`.
+Kilua has styles in Kotlin, but the client adds them to the page's `<head>` at runtime, and only the root element is rendered on the server, so the first paint would be unstyled.
+* The API is plain REST, called with Ktor's client, as compose-html's is, which keeps the API the same across the examples.
+Kilua's own REST client has no `PATCH`.
+Kilua's idiomatic choice for a full-stack app is https://github.com/rjaros/kilua-rpc[Kilua RPC], which generates the client and server sides of a service interface from the shared module, and whose calls also work from the renderer; it would replace the REST API, and needs KSP and its own Gradle plugin.
+* Kilua's Gradle plugin configures the whole build's Kotlin/JS tooling, not just the client's: it sets the root project's Node.js version, which runs the build's npm install, and adds yarn resolutions for the npm packages its modules use, such as Bootstrap and Tabulator, which therefore appear in the shared `kotlin-js-store/yarn.lock`, though nothing here installs them.
+
+The client here targets Kotlin/JS only; Kilua can target Kotlin/Wasm as well, including for rendering on the server.
+
+== Status
+
+Kilua is at 0.0.x (this example uses 0.0.36), and is developed essentially by one maintainer.
+Its own README lists the limits of server-side rendering, among them that the URL and the browser's preferred locale must be the only sources of a page's state, and that it can't render pages behind a login.

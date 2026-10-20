@@ -3,7 +3,7 @@ plugins {
 }
 
 kotlin {
-  jvmToolchain(21)
+  jvmToolchain(25)
 }
 
 // The server, repository, table, migrations, config and resources shared by the vanilla, kodein, and metro apps. Only the

@@ -7,7 +7,7 @@ plugins {
 
 // The API's models and rules, compiled for both sides: the JVM for the server, JavaScript for the browser client.
 kotlin {
-  jvmToolchain(21)
+  jvmToolchain(25)
 
   jvm {
     compilerOptions {
