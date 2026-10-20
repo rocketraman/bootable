@@ -19,6 +19,7 @@ import com.github.rocketraman.bootable.db.jdbc.jdbcDataSourceModule
 import com.github.rocketraman.bootable.db.jdbc.sqliteConfigModule
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
+import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.IntoSet
 import dev.zacsweers.metro.Provides
@@ -44,15 +45,13 @@ sealed interface TestScope
 @DependencyGraph(
   TestScope::class,
   additionalScopes = [BootScope::class],
-  // named rather than contributed: a @ContributesTo in test code trips the power-assert bug KT-83931 on the hint
-  // file Metro generates for it
-  bindingContainers = [TestTableBindings::class],
 )
 interface TestGraph : BootableGraph {
   val database: Database
 }
 
 @BindingContainer
+@ContributesTo(TestScope::class)
 object TestTableBindings {
   @Provides @IntoSet fun greetingTable(): Table = GreetingTable
 

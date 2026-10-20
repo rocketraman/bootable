@@ -8,21 +8,19 @@ hikari = "7.1.0"
 hoplite = "3.0.3"
 # 4.0.0 is out, but npm tags it next rather than latest, and Ktor's HTMX attributes follow htmx 2
 htmx = "2.0.11"
-kotlin = "2.3.21"
+kotlin = "2.4.21"
 kotlinx-coroutines = "1.10.1"
 kotlinx-html = "0.12.0"
 kotlinx-serialization = "1.9.0"
 ktor = "3.6.0"
 log4j = "2.24.3"
 log4j-kotlin-api = "1.5.0"
-metro = "1.3.2"
+metro = "1.4.5"
 mysql-connector-j = "26.7.0"
 postgresql = "42.7.14"
 sqlite-jdbc = "3.53.4.0"
 testcontainers = "2.0.5"
-# 1.1.0+ trips a power-assert bug on TestBalloon's generated entry point ("Unable to find source for IrFile",
-# KT-83931, fixed in Kotlin 2.4.0); stay on the 1.0.x line until Kotlin is bumped
-testBalloon = "1.0.0-K2.3.0"
+testBalloon = "1.1.0"
 vanniktech-publish = "0.37.0"
 
 [plugins]
