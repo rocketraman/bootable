@@ -45,6 +45,9 @@ dependencies {
   dokka(project(":boot-logging"))
   dokka(project(":boot-logging-log4j2"))
   dokka(project(":boot-server-http-ktor"))
+  dokka(project(":boot-server-http-ktor-cio"))
+  dokka(project(":boot-server-http-ktor-jetty"))
+  dokka(project(":boot-server-http-ktor-netty"))
 }
 
 // The published version comes from a `vX.Y.Z` tag on HEAD, so a release is driven purely by tagging; any
@@ -460,9 +463,33 @@ project("boot-logging-log4j2") {
 
 project("boot-server-http-ktor") {
   dependencies {
-    implementation(project(":boot"))
+    // KtorService is an AdvancedAppService, so boot is part of this module's API
+    api(project(":boot"))
     api(project(":boot-config-common"))
-    api(rootProject.libs.ktor.server.netty)
+    // engine-agnostic: the engine comes from one of the boot-server-http-ktor-<engine> modules, or the application
+    api(rootProject.libs.ktor.server.core)
+
+    // the lifecycle tests run a real server on each engine
+    testImplementation(rootProject.libs.ktor.server.cio)
+    testImplementation(rootProject.libs.ktor.server.jetty.jakarta)
+    testImplementation(rootProject.libs.ktor.server.netty)
+    testImplementation(project(":boot-logging-log4j2"))
+  }
+}
+
+// Each engine module is a thin, non-generic KtorService for its engine, and brings that engine transitively
+listOf(
+  "cio" to rootProject.libs.ktor.server.cio,
+  "jetty" to rootProject.libs.ktor.server.jetty.jakarta,
+  "netty" to rootProject.libs.ktor.server.netty,
+).forEach { (engine, engineLibrary) ->
+  project("boot-server-http-ktor-$engine") {
+    dependencies {
+      api(project(":boot-server-http-ktor"))
+      api(engineLibrary)
+
+      testImplementation(project(":boot-logging-log4j2"))
+    }
   }
 }
 

@@ -1,5 +1,5 @@
 import com.github.rocketraman.bootable.config.common.HostPort
-import com.github.rocketraman.bootable.server.http.ktor.KtorService
+import com.github.rocketraman.bootable.server.http.ktor.NettyKtorService
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
@@ -25,7 +25,7 @@ data class ServerConfig(override val hostPort: String) : HostPort
 class TodoServer(
   config: ServerConfig,
   private val todos: TodoRepository,
-) : KtorService("todos", config) {
+) : NettyKtorService("todos", config) {
   private val logger = logger()
 
   override fun Application.module() {
