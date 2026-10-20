@@ -1,7 +1,8 @@
 = Releasing Bootable
 
 Releases are published to Maven Central from a maintainer's machine, not from CI.
-The GPG signing key never leaves local hardware; the GitHub Actions workflow only builds and tests.
+They are signed with the maintainer's YubiKey-held primary key; the GitHub Actions workflow only builds and tests.
+A separate signing subkey is set up for signing in CI (see <<signing>>), but no workflow uses it yet.
 
 The published version is derived from the release tag — a `vX.Y.Z` tag on the commit being released.
 `build.gradle.kts` only holds `developmentVersion` (a `-SNAPSHOT`), used for every untagged build.
@@ -24,3 +25,74 @@ Central Portal credentials (`mavenCentralUsername` / `mavenCentralPassword`) are
 
 NOTE: This publishes every module, including the per-flavor coordinates (`boot-metro`, `boot-kodein`, …).
 Confirm they all appear in the Central deployment before releasing.
+
+[[signing]]
+== Signing keys
+
+Artifacts are signed with OpenPGP key `1F3C E06C 51CE 20F7 C440  5181 943F 2875 3338 2C9D`.
+Its primary key is on a YubiKey, and local releases sign with it through gpg-agent (`useGpgCmd()`).
+It can both certify and sign (`[SC]`).
+
+The primary keeps its signing capability on purpose.
+gpg checks a key's current usage flags when it verifies, so a certify-only primary would make gpg reject every signature the primary has already made ("No public key").
+
+=== CI signing subkey
+
+A dedicated ed25519 signing subkey, `2B2E CF97 500A BAB4 E08C  E247 008A FAD1 792E A3BB`, exists so that CI can sign releases.
+The card primary certifies it, so its signatures verify as the same identity, but its secret is in software and it can be revoked on its own.
+
+Its secret is on no maintainer's machine.
+It was exported with `gpg --armor --export-secret-subkeys '<subkey fingerprint>!'`, which yields a stub primary (`gnu-dummy`, no secret material) plus only this subkey, protected by a passphrase.
+It was then removed from the local keyring with `gpg --delete-secret-keys '<subkey fingerprint>!'`, so local signing stays on the card.
+The `!` limits both commands to exactly that subkey.
+
+It is stored as secrets in the `release` GitHub environment:
+
+`SIGNING_KEY`:: The ASCII-armored export.
+`SIGNING_KEY_PASSPHRASE`:: Its passphrase.
+
+A CI job should import `SIGNING_KEY` into gpg and sign with gpg.
+Don't hand it to the Kotlin Toolchain as `KOTLIN_TOOLCHAIN_SIGNING_KEY`.
+Its BouncyCastle signer picks the signing-capable stub primary instead of the subkey and fails (see link:kotlin-toolchain-evaluation.adoc#ci-subkey[the Kotlin Toolchain evaluation]).
+
+=== Expiry
+
+The primary and its card subkeys expire on 2028-07-08, and the CI subkey on 2028-10-18.
+A subkey stops working when its primary expires, so extend them together a few months ahead, with the card plugged in:
+
+[source]
+----
+gpg --quick-set-expire 1F3CE06C51CE20F7C4405181943F287533382C9D 2y
+gpg --quick-set-expire 1F3CE06C51CE20F7C4405181943F287533382C9D 2y '*'
+----
+
+Then publish the key again (see <<publishing-the-key>>).
+`SIGNING_KEY` still carries the old expiry, and gpg in CI refuses to sign with an expired subkey.
+Either have the job import the current public key after `SIGNING_KEY`, or rebuild the export: import the old export and the updated public key into a temporary `GNUPGHOME`, run the export command above again, and replace the secret.
+
+=== Rotation and revocation
+
+To rotate, create a new subkey with `gpg --quick-add-key 1F3CE06C51CE20F7C4405181943F287533382C9D ed25519 sign 2y`.
+Export it, remove it locally, publish the key, and replace `SIGNING_KEY` and `SIGNING_KEY_PASSPHRASE`, as for the current subkey.
+Never move it to the card with `keytocard`, or it can't be exported.
+Then revoke the old subkey.
+
+To revoke a subkey, run `gpg --edit-key 1F3CE06C51CE20F7C4405181943F287533382C9D`, select it with `key N` (check that the `*` marks the right subkey), then `revkey` and `save`.
+Choose the reason "Key is compromised" only if the secret leaked, because verifiers then distrust everything it ever signed.
+For a planned rotation choose "Key is superseded", which keeps past signatures valid.
+Publish the key again afterwards.
+
+[[publishing-the-key]]
+=== Publishing the key
+
+Maven Central looks signing keys up on public keyservers, so publish the key after any change to it:
+
+[source]
+----
+gpg --armor --export --export-options export-clean 1F3CE06C51CE20F7C4405181943F287533382C9D > pub.asc
+curl --data-urlencode keytext@pub.asc https://keyserver.ubuntu.com/pks/add
+curl -T - https://keys.openpgp.org < pub.asc
+----
+
+keyserver.ubuntu.com never deletes data, so export only the user IDs that should be public, with `--export-filter 'keep-uid=mbox = … || mbox = …'`.
+keys.openpgp.org shows only user IDs whose email address was verified, but it always serves the subkeys.

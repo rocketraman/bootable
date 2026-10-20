@@ -2,7 +2,7 @@
 :toc:
 
 Evaluated 2026-10-16 against https://github.com/JetBrains/kotlin-toolchain[Kotlin Toolchain] 0.13.0 (the project formerly known as Amper), by converting a scratch copy of this repository end to end.
-Updated 2026-10-19 with feedback from the Kotlin Toolchain maintainers (see <<upstream>>) and prototype plugins for signing with gpg-agent (see <<signing>>) and building GraalVM native images (see <<native>>).
+Updated 2026-10-19 with feedback from the Kotlin Toolchain maintainers (see <<upstream>>) and prototype plugins for signing with gpg-agent (see <<signing>>) and building GraalVM native images (see <<native>>), and with a test of the built-in signer against our CI signing subkey (see <<ci-subkey>>).
 
 == Verdict
 
@@ -11,8 +11,9 @@ Building, testing and running all work today, and the build definition gets much
 Two things the Gradle build does have no built-in equivalent, and each needed a small plugin:
 
 * *Signing.*
-The toolchain signs only with an exported private key, while our key lives on a YubiKey behind gpg-agent.
-A plugin that signs a staged publication with `gpg` works around it (see <<signing>>).
+The toolchain signs only with an exported private key, while our primary key lives on a YubiKey behind gpg-agent.
+Our exportable CI signing subkey doesn't help, because the built-in signer picks the export's stub primary instead of the subkey (see <<ci-subkey>>).
+A plugin that signs a staged publication with `gpg` works around both, locally and in CI (see <<signing>>).
 * *GraalVM native image.*
 There is no native-image support, so the `server-ktor` smoke test needs a plugin that runs `native-image` and applies the GraalVM reachability metadata repository the way the Gradle plugin does (see <<native>>).
 
@@ -80,7 +81,8 @@ Signatures and checksums verified locally; nothing was uploaded.
 . *Signing (the one blocker; workaround in <<signing>>).*
 Signing works only through `KOTLIN_TOOLCHAIN_SIGNING_KEY`, an ASCII-armored private key in an environment variable.
 There is no gpg-agent / `useGpgCmd()` equivalent or external-signer hook.
-That contradicts `docs/releasing.adoc` ("the GPG signing key never leaves local hardware"), and a key on a YubiKey can't be exported at all.
+Our primary key is on a YubiKey and can't be exported at all.
+The dedicated CI signing subkey (see link:releasing.adoc#signing[Releasing]) can be exported, but the built-in signer fails with it too (see <<ci-subkey>>).
 . *GraalVM native image (workaround in <<native>>).*
 The toolchain has no equivalent of the `org.graalvm.buildtools.native` Gradle plugin, which the `server-ktor` native smoke test relies on.
 . *Version from git tag (not a blocker).*
@@ -125,7 +127,7 @@ It registers a `signForCentral` command that, for each module:
 
 * finds the module's staged directory from `${module.settings.publishing.group}`, `.artifactId` and `.version`;
 * deletes the local-install bookkeeping files (`_remote.repositories`, `maven-metadata-local.xml`);
-* runs `gpg --armor --detach-sign` on every artifact, so signing goes through gpg-agent and works with a YubiKey;
+* runs `gpg --armor --detach-sign` on every artifact, so signing goes through gpg-agent and works with a YubiKey, or in CI with the imported signing subkey;
 * writes the `.md5` and `.sha1` checksums Maven Central requires.
 
 The release flow then becomes:
@@ -155,6 +157,24 @@ A plugin task can't depend on `kotlin publish`, and an upload per module would c
 * The plugin relies on plugin APIs that are still in preview.
 * A plain shell script (or JReleaser, which supports signing through the `gpg` command and Central Portal uploads) could do the signing step too.
 The plugin's advantage is that it reads each module's coordinates from the build instead of repeating them.
+
+[[ci-subkey]]
+=== The built-in signer and the CI signing subkey
+
+To sign in CI, we created a dedicated ed25519 signing subkey, certified by the YubiKey primary, whose secret stays in software (see link:releasing.adoc#signing[Releasing]).
+It is exported with `gpg --export-secret-subkeys '<subkey fingerprint>!'`, which yields a stub primary with no secret material (`gnu-dummy`) plus only that subkey.
+
+The built-in signer can't use that export.
+BouncyCastle's `addSigningKey` picks the first signing-capable key, and our primary is `[SC]`, so it picks the stub primary and can't unlock it.
+`kotlin publish` fails with "PGP signing failed", caused by a `NullPointerException` because `OpenPGPSecretKey.unlock(char[])` returns null.
+The same export signs fine with `gpg`, which picks the subkey because it is the only key with a secret, and the signatures verify as the primary's identity.
+
+An earlier throwaway test passed only because its primary was certify-only (`[C]`).
+Making our primary certify-only isn't an option: gpg checks a key's current usage flags when it verifies, so gpg would then reject every signature the primary has already made.
+
+So in CI, too, signing has to go through the `signForCentral` plugin, with the export imported into gpg.
+https://youtrack.jetbrains.com/issue/KTC-6065[KTC-6065] (allow configuring a signing subkey) tracks support for subkeys in the built-in signer.
+Once it is fixed, CI can pass the export as `KOTLIN_TOOLCHAIN_SIGNING_KEY`, and if releases move to CI, we can drop the staged-publication flow and the `signForCentral` plugin.
 
 [[native]]
 == GraalVM native image through a custom plugin
@@ -292,9 +312,14 @@ The maintainers confirmed most of them and linked these issues (all open as of 2
 | https://youtrack.jetbrains.com/issue/KTC-472[KTC-472]
 | Support javadoc jar generation (for publication)
 | Dokka Javadoc-format output for JVM libraries
+
+| https://youtrack.jetbrains.com/issue/KTC-6065[KTC-6065]
+| Allow configuring a signing subkey
+| Built-in signer can't use our CI signing subkey (see <<ci-subkey>>)
 |===
 
 No issue was linked for gpg-agent / external signing.
+KTC-6065 was filed from our report on the signing subkey.
 
 On Dokka, the maintainers explained why the toolchain ships a placeholder javadoc jar rather than Dokka HTML (summarized under the javadoc gap above).
 
@@ -310,7 +335,9 @@ The template-conflict point was a misreading on our side: nested templates resol
 The spike shows they work together.
 . *Now, in Gradle:* fix the `server-ktor` native smoke test, which builds a shared library instead of an executable (see <<native>>).
 . *If we migrate:* release through the staged-publication flow and signing plugin in <<signing>>, until the toolchain supports external or agent-based signing.
-Ask upstream for that, since no issue tracks it yet.
+This applies in CI too, where the built-in signer can't use our signing subkey (see <<ci-subkey>>).
+Once https://youtrack.jetbrains.com/issue/KTC-6065[KTC-6065] lets the built-in signer use the subkey, CI releases can drop the workaround.
+Local releases with the YubiKey would still need it, so ask upstream for agent-based signing, which no issue tracks yet.
 . *If we migrate:* build the native smoke test with the `graalvm-native` plugin in <<native>>, and ask upstream about native-image support.
 . *If we migrate:* split the DI flavors into modules nested inside their base module (see <<flavors>>), and move to the toolchain's default layout.
 
