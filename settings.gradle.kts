@@ -19,6 +19,12 @@ dependencyResolutionManagement {
     }
 */
     mavenCentral()
+    // Compose's runtime, which the compose-html example's client depends on
+    google {
+      mavenContent {
+        includeGroupByRegex("""androidx\..*""")
+      }
+    }
   }
 }
 
@@ -38,6 +44,9 @@ include("boot-logging")
 include("boot-logging-log4j2")
 include("boot-server-http-ktor")
 
+include(":examples:compose-html:client")
+include(":examples:compose-html:server")
+include(":examples:compose-html:shared")
 include(":examples:di-bench")
 include(":examples:server-ktor")
 include(":examples:server-ktor-db:common")

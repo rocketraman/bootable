@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Demonstrates a sane base logging configuration loads from log4j2-base.xml in boot-logging-log4j2, and can just add/override entries here... -->
+<Configuration status="error">
+  <Loggers>
+    <Logger name="com.github.rocketraman" level="debug" additivity="false">
+      <AppenderRef ref="Console"/>
+    </Logger>
+  </Loggers>
+</Configuration>
