@@ -53,7 +53,7 @@ It is stored as secrets in the `release` GitHub environment:
 
 A CI job should import `SIGNING_KEY` into gpg and sign with gpg.
 Don't hand it to the Kotlin Toolchain as `KOTLIN_TOOLCHAIN_SIGNING_KEY`.
-Its BouncyCastle signer picks the signing-capable stub primary instead of the subkey and fails (see link:kotlin-toolchain-evaluation.adoc[the Kotlin Toolchain evaluation]).
+Its BouncyCastle signer picks the signing-capable stub primary instead of the subkey and fails (see link:kotlin-toolchain-evaluation.adoc#ci-subkey[the Kotlin Toolchain evaluation]).
 
 === Expiry
 
