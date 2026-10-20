@@ -8,6 +8,13 @@
       <module name="compose-html-shared" target="25" />
       <module name="compose-html-shared_jvmMain" target="25" />
       <module name="compose-html-shared_jvmTest" target="25" />
+      <module name="kilua-client" target="21" />
+      <module name="kilua-server" target="25" />
+      <module name="kilua-server_main" target="25" />
+      <module name="kilua-server_test" target="25" />
+      <module name="kilua-shared" target="21" />
+      <module name="kilua-shared_jvmMain" target="21" />
+      <module name="kilua-shared_jvmTest" target="21" />
     </bytecodeTargetLevel>
   </component>
 </project>

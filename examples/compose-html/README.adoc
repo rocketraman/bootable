@@ -73,6 +73,8 @@ That suits apps behind a login or used interactively, but not pages that should 
 For these use cases, a technology with support for server-side rendering is recommended.
 A good fit is https://htmx.org/[HTMX], optionally with server-side https://github.com/kotlin/kotlinx.html[kotlinx.html] (see link:../htmx[htmx] for this same app built that way).
 That being said, SSR or pre-rendering for Compose HTML is possible using community libraries like https://kobweb.varabyte.com[Kobweb], and https://blog.jetbrains.com/kotlin/2026/08/exploring-compose-html-for-server-side-rendering/[is being worked] on by JetBrains as well.
+https://kilua.dev[Kilua] is an alternative to Compose HTML, built on the same Compose runtime with its own components, that can render on the server and compile to Wasm.
+Its server-side rendering uses Node.js (running the same client ), and it is still at 0.0.x (see link:../kilua[kilua] for this same app built that way).
 
 == Styling
 

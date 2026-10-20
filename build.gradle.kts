@@ -18,6 +18,7 @@ plugins {
   alias(libs.plugins.kotlin.jvm)
   alias(libs.plugins.dokka)
   alias(libs.plugins.dokka.javadoc)
+  alias(libs.plugins.kilua) apply false
   alias(libs.plugins.metro) apply false
   alias(libs.plugins.kotlin.compose) apply false
   alias(libs.plugins.kotlin.power.assert) apply false
@@ -71,6 +72,8 @@ allprojects {
 val multiplatformProjects = setOf(
   ":examples:compose-html:client",
   ":examples:compose-html:shared",
+  ":examples:kilua:client",
+  ":examples:kilua:shared",
 )
 
 configure(subprojects.filter { it.path !in multiplatformProjects }) {

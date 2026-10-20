@@ -181,6 +181,9 @@ To work on the client with live reload, run the server too, and `./gradlew :exam
 See link:./examples/htmx[examples/htmx] for the same todo list rendered on the server instead: pages built with https://github.com/kotlin/kotlinx.html[kotlinx.html], and made interactive with https://htmx.org/[htmx], using Ktor's HTMX support.
 It runs with `./gradlew :examples:htmx:run`, at http://localhost:8003.
 
+See link:./examples/kilua[examples/kilua] for the same todo list written with https://kilua.dev[Kilua], a Compose-based alternative to Compose HTML, and also rendered on the server, by running the client in Node.js, in a process that Bootable starts before the server.
+It runs with `./gradlew :examples:kilua:server:run`, at http://localhost:8004, with the Node.js that Gradle downloads.
+
 == How to Use
 
 See xref:./docs/wiring.adoc[Wiring Bootable] for the full guide, and the projects in the `examples` directory — there is one per wiring style, so you can copy the one that matches your choice of DI (or no DI).
