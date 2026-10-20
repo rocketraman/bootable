@@ -136,6 +136,11 @@ Provides a basic Ktor service abstraction with Bootable lifecycle integration i.
 Does not attempt to configure Ktor in any significant way — this is left to the user.
 See https://github.com/rocketraman/bootable/blob/HEAD/boot-server-http-ktor/src/main/kotlin/com/github/rocketraman/bootable/server/http/ktor/KtorService.kt[KtorService].
 
+See link:./examples/compose-html[examples/compose-html] for a Kotlin web application end to end: a todo list whose browser client is written with https://github.com/JetBrains/compose-multiplatform#compose-html[Compose HTML], served by a Ktor server run by Bootable.
+The API's models and validation rule live in a multiplatform `shared` module, compiled to JavaScript for the `client` and to the JVM for the `server`, so both sides agree on the JSON and on what makes a todo valid.
+The server's build bundles the client's production JavaScript onto its classpath, so `./gradlew :examples:compose-html:server:run` serves the whole app at http://localhost:8002.
+To work on the client with live reload, run the server too, and `./gradlew :examples:compose-html:client:jsBrowserDevelopmentRun`, whose development server forwards API calls to it.
+
 == How to Use
 
 See xref:./docs/wiring.adoc[Wiring Bootable] for the full guide, and the projects in the `examples` directory — there is one per wiring style, so you can copy the one that matches your choice of DI (or no DI).

@@ -1,4 +1,5 @@
 [versions]
+compose-multiplatform = "1.12.2"
 dokka = "2.2.0"
 exposed = "1.5.1"
 flyway = "13.10.0"
@@ -8,6 +9,7 @@ hoplite = "3.0.3"
 kotlin = "2.3.21"
 kotlinx-coroutines = "1.10.1"
 kotlinx-html = "0.12.0"
+kotlinx-serialization = "1.9.0"
 ktor = "3.1.1"
 log4j = "2.24.3"
 log4j-kotlin-api = "1.5.0"
@@ -25,8 +27,10 @@ vanniktech-publish = "0.37.0"
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 dokka-javadoc = { id = "org.jetbrains.dokka-javadoc", version.ref = "dokka" }
 graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "graalvm-buildtools" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-power-assert = { id = "org.jetbrains.kotlin.plugin.power-assert", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "vanniktech-publish" }
 metro = { id = "dev.zacsweers.metro", version.ref = "metro" }
 testBalloon = { id = "de.infix.testBalloon", version.ref = "testBalloon" }
@@ -70,8 +74,15 @@ mysql-connector-j = { module = "com.mysql:mysql-connector-j", version.ref = "mys
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 
-# below here, only used for the server-ktor sample
+# below here, only used for the samples
+compose-html-core = { module = "org.jetbrains.compose.html:html-core", version.ref = "compose-multiplatform" }
+compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
+
 kotlinx-html = { module = "org.jetbrains.kotlinx:kotlinx-html", version.ref = "kotlinx-html" }
+kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinx-serialization" }
+
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
 
 ktor-server-html-builder = { module = "io.ktor:ktor-server-html-builder", version.ref = "ktor" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }

@@ -19,7 +19,9 @@ plugins {
   alias(libs.plugins.dokka)
   alias(libs.plugins.dokka.javadoc)
   alias(libs.plugins.metro) apply false
+  alias(libs.plugins.kotlin.compose) apply false
   alias(libs.plugins.kotlin.power.assert) apply false
+  alias(libs.plugins.kotlin.serialization) apply false
   alias(libs.plugins.testBalloon) apply false
   signing
   alias(libs.plugins.maven.publish) apply false
@@ -62,7 +64,13 @@ allprojects {
   version = bootableVersion
 }
 
-subprojects {
+// Kotlin Multiplatform projects, which configure their own Kotlin plugin; the JVM conventions below would clash with it.
+val multiplatformProjects = setOf(
+  ":examples:compose-html:client",
+  ":examples:compose-html:shared",
+)
+
+configure(subprojects.filter { it.path !in multiplatformProjects }) {
   apply {
     plugin("java-library")
     plugin("org.jetbrains.kotlin.jvm")

@@ -1,0 +1,263 @@
+= Compose HTML example
+
+A todo list written in Kotlin end to end: a browser client written with https://github.com/JetBrains/compose-multiplatform#compose-html[Compose HTML], and a Ktor server run by Bootable.
+
+== Modules
+
+`shared`::
+The API's models (`Todo`, `NewTodo`, `TodoUpdate`), its path, and the rule for a valid title (`titleProblem`).
+It is a Kotlin Multiplatform module, compiled to JavaScript for the client and to the JVM for the server, so both sides agree on the JSON and on what makes a todo valid.
+
+`client`::
+The Compose HTML UI, compiled to JavaScript, and a small API wrapper that calls the server with Ktor's client.
+It checks a title with the shared rule as the user types.
+
+`server`::
+A Ktor server, wired with plain Kotlin and run by Bootable, that serves the JSON API under `/api/todos` and the client's files at `/`.
+It checks every title with the same shared rule, since a server can't trust its clients.
+Todos are kept in memory; see link:../server-ktor-db[server-ktor-db] for storing data in a database with Bootable.
+
+== Running it
+
+From the repository root:
+
+[source,shell]
+----
+./gradlew :examples:compose-html:server:run
+----
+
+Then open http://localhost:8002.
+
+The server's build depends on the client's production bundle, which it copies onto its own classpath under `web/`, so this one command builds the client, and the server serves the whole app as a single process.
+The same is true of the server's jar and distribution (`installDist`, `distZip`): they contain the client, and need nothing else to run.
+
+The port is set in `server/src/main/resources/application.conf`.
+
+== Live reload
+
+Rebuilding the server for every change to the UI is slow.
+Instead, run the client from Kotlin/JS's webpack development server, which reloads the page whenever the client is rebuilt.
+
+In one terminal, run the server, which the client still needs for its API:
+
+[source,shell]
+----
+./gradlew :examples:compose-html:server:run
+----
+
+In another, run the development server in continuous mode, so Gradle recompiles the client whenever its sources change:
+
+[source,shell]
+----
+./gradlew --continuous :examples:compose-html:client:jsBrowserDevelopmentRun
+----
+
+Then open http://localhost:8080, webpack's default port, rather than the server's.
+The development server serves the client itself, and forwards requests under `/api` to the server on port 8002; see `client/webpack.config.d/dev-server.js`.
+Changes to `client` or `shared` are picked up without restarting anything; changes to `server` still need it restarted.
+
+== Tests
+
+[source,shell]
+----
+./gradlew :examples:compose-html:server:test
+----
+
+The server's tests run its routes in Ktor's test host, with a client that sends and receives the shared models, and check that it serves the client's bundle.
+
+== Limitations
+
+Compose HTML renders in the browser only: the server sends an empty page and the client's script, which then builds the page.
+That suits apps behind a login or used interactively, but not pages that should arrive already rendered, for search engines, landing pages, or more generally any page requiring a fast first paint.
+
+For these use cases, a technology with support for server-side rendering is recommended.
+A good fit is https://htmx.org/[HTMX], optionally with server-side https://github.com/kotlin/kotlinx.html[kotlinx.html] (see link:../server-ktor-db[server-ktor-db] for a simple example of `kotlinx.html`).
+That being said, SSR or pre-rendering for Compose HTML is possible using community libraries like https://kobweb.varabyte.com[Kobweb], and https://blog.jetbrains.com/kotlin/2026/08/exploring-compose-html-for-server-side-rendering/[is being worked] on by JetBrains as well.
+
+== Styling
+
+=== CSS-in-Kotlin
+
+We recommend styling a Compose HTML app with CSS written in Kotlin, using Compose HTML's `StyleSheet`, for apps of any size.
+The example does this: `AppStyles`, in `Client.kt`, declares each style as a property, and the UI applies it with `classes(AppStyles.done)`.
+Compose HTML generates a class name for each style, and the CSS for it, at runtime.
+
+What makes this hold up as an app grows:
+
+* Class names can't drift out of sync with the styles.
+A style is referenced as a Kotlin property, so a misspelled or deleted one is a compile error, where a misspelled class name in plain CSS, or in Tailwind, silently does nothing.
+* Properties and values are typed: `padding(0.5.em)`, `color(Color.gray)`, `display(DisplayStyle.Flex)`.
+* Styles are ordinary Kotlin declarations, so the IDE can rename them, find their usages, and show which are unused.
+* Design tokens, such as colors and spacing, can be shared Kotlin values, or CSS variables for theming that changes at runtime.
+* Styles split up the way the code does: a `StyleSheet` per feature or component, next to the composables it styles.
+* Styles can be broken up into smaller pieces and reused.
+A function on `StyleScope`, such as `fun StyleScope.rounded() { borderRadius(0.25.em) }`, is a mixin that any style can call.
+* Pseudo-classes and media queries are covered too, so responsive and interactive styles stay in Kotlin.
+
+For example, tokens and a feature's own stylesheet, with a hover color from a CSS variable and a narrower layout on small screens:
+
+[source,kotlin]
+----
+object Tokens {
+  val space = 0.5.em
+  val accent = Color("#2563eb")
+}
+
+object ThemeVars {
+  val accent by variable<CSSColorValue>()
+}
+
+// nested in AppStyles, so `Style(AppStyles)` includes it
+object TodoListStyles : StyleSheet(AppStyles) {
+  val item by style {
+    padding(Tokens.space, 0.px)
+    ThemeVars.accent(Tokens.accent)
+    (self + hover) style {
+      color(ThemeVars.accent.value())
+    }
+    media(mediaMaxWidth(30.em)) {
+      self style {
+        padding(Tokens.space / 2, 0.px)
+      }
+    }
+  }
+}
+----
+
+The approach is similar in spirit to the typed CSS-in-JS libraries of the JavaScript ecosystem.
+
+Its main limit is that the typing has gaps.
+Not every CSS property has a typed function, and `property("name", value)` is the untyped fallback; the example itself needs it for `margin`, `border`, and `list-style`.
+
+=== Alternatives
+
+Since Compose HTML renders real DOM elements, anything that styles HTML works with it, so an app can still reach for plain CSS, a CSS framework, or a component library.
+
+We expect styling frameworks to matter less and less.
+Given a design, AI tools can now produce and maintain the plain CSS for it, which removes much of the reason to accept a framework as a middleman, and the limits it puts on what a design can do.
+Component libraries are a different case: the complex ones also provide behavior and accessibility, such as focus handling in dialogs, keyboard navigation in menus, and ARIA roles for comboboxes, which are harder to get right than the styling, and which a design doesn't specify.
+
+WARNING: The approaches below are not heavily tested; consider them a starting point for experimentation.
+
+==== Plain CSS
+
+The simplest alternative is an ordinary stylesheet.
+Put it in `client/src/jsMain/resources`, next to `index.html`, link it from there, and refer to its classes by name:
+
+[source,kotlin]
+----
+Div({ classes("card") }) { ... }
+----
+
+Files in that directory are copied into the bundle as they are, so the server and the development server both serve them.
+
+Plain CSS is well understood, and needs no build step.
+But its class names are strings that nothing checks, which gives up the main benefit Kotlin brings to the client, so we recommend CSS-in-Kotlin instead.
+
+==== kotlin-css
+
+https://github.com/JetBrains/kotlin-wrappers/tree/master/kotlin-css[kotlin-css], from JetBrains' Kotlin wrappers, is another way to write CSS in Kotlin.
+Where a Compose HTML `StyleSheet` generates class names and injects its CSS at runtime, kotlin-css only builds a CSS string, and leaves the rest to you.
+
+What it offers over a `StyleSheet`:
+
+* Its typing has fewer gaps: margins, borders, list styles, transforms, animations, gradients, and most other common properties are typed.
+* It is multiplatform, JVM included, so the CSS can be built on the server, and served as an ordinary stylesheet, which the browser caches separately from the client's script, and which any pages the server renders itself can share.
+
+For example, a stylesheet in the `shared` module, with its class names as constants, so the stylesheet and the client refer to the same names:
+
+[source,kotlin]
+----
+import kotlinx.css.*
+
+object Css {
+  const val item = "todo-item"
+}
+
+val appCss: String = CssBuilder().apply {
+  rule(".${Css.item}") {
+    padding = Padding(0.5.em, 0.px)
+    borderBottom = Border(1.px, BorderStyle.solid, Color("#ddd"))
+  }
+  media("(max-width: 30em)") {
+    rule(".${Css.item}") {
+      padding = Padding(0.25.em, 0.px)
+    }
+  }
+}.toString()
+----
+
+The server serves it, inside its `routing` block:
+
+[source,kotlin]
+----
+get("/app.css") {
+  call.respondText(appCss, ContentType.Text.CSS)
+}
+----
+
+`index.html` links it with `<link rel="stylesheet" href="/app.css">`, and the client applies its classes with `classes(Css.item)`.
+For live reload, add `/app.css` to the paths the development server forwards to the server, in `client/webpack.config.d/dev-server.js`.
+
+Its costs:
+
+* Class names are strings again.
+The constants keep the stylesheet and the client in step, but only as long as every use goes through them; the compiler doesn't require it, as it does for a `StyleSheet`.
+* Nothing is scoped: class names aren't generated, so features must avoid each other's names by convention.
+* Its nested rules, such as `hover { }` inside a rule, are written as native CSS nesting (`&:hover`), which needs a browser from 2023 or later.
+* Its style is property assignment (`padding = Padding(...)`), unlike a `StyleSheet`'s function calls (`padding(...)`), so an app that uses both has two CSS vocabularies.
+* Its releases follow Kotlin closely: those from 2026.6.2 on need Kotlin 2.4, so pick a release built for the app's Kotlin version.
+
+Consider kotlin-css where full typing, or a stylesheet served from the server, matters more than checked class names; otherwise, we recommend a `StyleSheet`.
+
+==== Tailwind CSS
+
+https://tailwindcss.com[Tailwind] works with Compose HTML, because its utility classes are applied by name, just as above:
+
+[source,kotlin]
+----
+Button({
+  classes("rounded", "bg-blue-600", "px-4", "py-2", "text-white", "hover:bg-blue-700")
+  type(ButtonType.Submit)
+}) {
+  Text("Add")
+}
+----
+
+Tailwind generates only the CSS for the classes it finds in your sources, so it needs to scan the Kotlin files, which it doesn't do by default.
+With Tailwind 4, name them with `@source` in the input CSS file:
+
+[source,css]
+----
+@import "tailwindcss";
+@source "../kotlin";
+----
+
+The path is relative to the CSS file; this one assumes it is in `src/jsMain/resources`.
+
+There are two ways to run Tailwind:
+
+* As its own step, with the https://tailwindcss.com/docs/installation/tailwind-cli[Tailwind CLI] (or its standalone executable, which needs no Node.js setup), writing the generated CSS into `src/jsMain/resources` for `index.html` to link.
+Run it with `--watch` alongside the development server during development, and from a Gradle task that `jsProcessResources` depends on for builds.
+This keeps Tailwind out of the Kotlin/JS build.
+* Inside webpack, through PostCSS: add `npm` dependencies on `tailwindcss`, `@tailwindcss/postcss`, and `postcss-loader` to the client's `jsMain` source set, enable `cssSupport` in its `commonWebpackConfig`, and add the PostCSS loader in a file in `webpack.config.d`.
+This needs more configuration, but webpack then rebuilds the CSS as part of live reload.
+
+Either way, write each class name in full, as a single string literal.
+Tailwind finds class names by scanning the source text, so a name built at runtime, like `"bg-$color-600"`, is never generated.
+
+Tailwind's class names are unchecked strings too, so for the same reason as plain CSS, we recommend CSS-in-Kotlin instead.
+
+==== Component libraries
+
+Compose HTML has no component library of its own, but some exist, with varying levels of support:
+
+* https://github.com/huanshankeji/compose-html-material[Compose HTML Material] wraps Google's https://github.com/material-components/material-web[Material Web] components (Material 3) as composables, and is actively maintained.
+Note, though, that Material Web itself is in maintenance mode, pending new maintainers.
+* https://kobweb.varabyte.com[Kobweb] is a framework built on Compose HTML, whose Silk layer provides components, theming, and light and dark modes.
+It is actively developed, but it is a framework, with its own Gradle plugin, routing, and project layout, rather than a library to add to an app like this one.
+* https://github.com/hfhbd/bootstrap-compose[bootstrap-compose], from the author of routing-compose, wraps https://getbootstrap.com[Bootstrap] as composables.
+* Any Web Components library, such as https://webawesome.com[Web Awesome] (formerly Shoelace), can be used as it is: add it as an `npm` dependency, import it once, and render its custom elements with Compose HTML's `TagElement`, setting their attributes with `attr(...)`.
+Wrapping each element in a small composable of your own gives it a typed Kotlin API.
+
+A component library's behavior and accessibility can be worth having even in an app styled with CSS-in-Kotlin, restyling its components through whatever hooks it offers, such as CSS variables, or `::part` for Web Components.
