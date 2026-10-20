@@ -172,7 +172,9 @@ The same export signs fine with `gpg`, which picks the subkey because it is the 
 An earlier throwaway test passed only because its primary was certify-only (`[C]`).
 Making our primary certify-only isn't an option: gpg checks a key's current usage flags when it verifies, so gpg would then reject every signature the primary has already made.
 
-So in CI, too, signing has to go through the `signForCentral` plugin, with the export imported into gpg, until the toolchain either skips keys without secret material or lets us pick the signing key, as Gradle's `signing.keyId` does.
+So in CI, too, signing has to go through the `signForCentral` plugin, with the export imported into gpg.
+https://youtrack.jetbrains.com/issue/KTC-6065[KTC-6065] (allow configuring a signing subkey) tracks support for subkeys in the built-in signer.
+Once it is fixed, CI can pass the export as `KOTLIN_TOOLCHAIN_SIGNING_KEY`, and if releases move to CI, we can drop the staged-publication flow and the `signForCentral` plugin.
 
 [[native]]
 == GraalVM native image through a custom plugin
@@ -310,9 +312,14 @@ The maintainers confirmed most of them and linked these issues (all open as of 2
 | https://youtrack.jetbrains.com/issue/KTC-472[KTC-472]
 | Support javadoc jar generation (for publication)
 | Dokka Javadoc-format output for JVM libraries
+
+| https://youtrack.jetbrains.com/issue/KTC-6065[KTC-6065]
+| Allow configuring a signing subkey
+| Built-in signer can't use our CI signing subkey (see <<ci-subkey>>)
 |===
 
-No issue was linked for gpg-agent / external signing, or for choosing which key in an export signs (see <<ci-subkey>>).
+No issue was linked for gpg-agent / external signing.
+KTC-6065 was filed from our report on the signing subkey.
 
 On Dokka, the maintainers explained why the toolchain ships a placeholder javadoc jar rather than Dokka HTML (summarized under the javadoc gap above).
 
@@ -329,7 +336,8 @@ The spike shows they work together.
 . *Now, in Gradle:* fix the `server-ktor` native smoke test, which builds a shared library instead of an executable (see <<native>>).
 . *If we migrate:* release through the staged-publication flow and signing plugin in <<signing>>, until the toolchain supports external or agent-based signing.
 This applies in CI too, where the built-in signer can't use our signing subkey (see <<ci-subkey>>).
-Ask upstream for agent-based signing and for a way to choose the signing key, since no issue tracks either yet.
+Once https://youtrack.jetbrains.com/issue/KTC-6065[KTC-6065] lets the built-in signer use the subkey, CI releases can drop the workaround.
+Local releases with the YubiKey would still need it, so ask upstream for agent-based signing, which no issue tracks yet.
 . *If we migrate:* build the native smoke test with the `graalvm-native` plugin in <<native>>, and ask upstream about native-image support.
 . *If we migrate:* split the DI flavors into modules nested inside their base module (see <<flavors>>), and move to the toolchain's default layout.
 
