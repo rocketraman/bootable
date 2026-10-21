@@ -12,6 +12,8 @@ dependencies {
   api(project(":boot"))
   // the server runs on Ktor's CIO engine; boot-server-http-ktor-netty and -jetty are the other choices
   api(project(":boot-server-http-ktor-cio"))
+  // the server traces and measures its requests, and serves the metrics scrape
+  api(project(":boot-server-http-ktor-otel"))
   implementation(project(":boot-db-exposed"))
   implementation(project(":boot-logging-log4j2"))
 
@@ -22,5 +24,6 @@ dependencies {
   testImplementation(project(":boot-db-jdbc-sqlite"))
   testImplementation(project(":boot-db-pool-hikari"))
   testImplementation(project(":boot-db-flyway"))
+  testImplementation(project(":boot-telemetry-otel-prometheus"))
   testImplementation(libs.ktor.server.test.host)
 }

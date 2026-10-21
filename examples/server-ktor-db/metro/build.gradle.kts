@@ -28,6 +28,12 @@ dependencies {
   // migrations, and Exposed with schema verification
   implementation(project(path = ":boot-db-flyway", configuration = "metroElements"))
   implementation(project(path = ":boot-db-exposed", configuration = "metroElements"))
+  // telemetry: the OpenTelemetry SDK, Prometheus export, and the Ktor instrumentation that serves its scrape
+  implementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+  implementation(project(path = ":boot-telemetry-otel-prometheus", configuration = "metroElements"))
+  implementation(project(path = ":boot-server-http-ktor-otel", configuration = "metroElements"))
+  // HikariCP's pool metrics, through OpenTelemetry's HikariCP instrumentation
+  implementation(libs.opentelemetry.instrumentation.hikaricp)
 }
 
 application {

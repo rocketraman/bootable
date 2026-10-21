@@ -4,6 +4,11 @@ import com.github.rocketraman.bootable.db.flyway.FlywayMigrationService
 import com.github.rocketraman.bootable.db.jdbc.HikariConnectionPoolFactory
 import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
 import com.github.rocketraman.bootable.db.jdbc.SqliteConfig
+import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
+import com.github.rocketraman.bootable.telemetry.otel.MetricsConfig
+import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
+import com.github.rocketraman.bootable.telemetry.otel.PrometheusTelemetry
+import com.github.rocketraman.bootable.telemetry.otel.TelemetryConfig
 import de.infix.testBalloon.framework.core.testSuite
 import io.ktor.client.HttpClient
 import io.ktor.client.request.*
@@ -29,7 +34,12 @@ private fun withServer(block: suspend HttpClient.() -> Unit) {
     FlywayMigrationService(database.dataSource).start()
     SchemaVerificationService(db, setOf(EntryTable)).start()
     testApplication {
-      val server = EntryServer(ServerConfig("127.0.0.1:0"), EntryRepository(db), "test")
+      val prometheus = PrometheusTelemetry()
+      val openTelemetry = OpenTelemetryService(
+        TelemetryConfig(metrics = MetricsConfig(runtime = false), registerGlobal = false),
+        listOf(prometheus),
+      ).openTelemetry
+      val server = EntryServer(ServerConfig("127.0.0.1:0"), EntryRepository(db), KtorTelemetry(openTelemetry, setOf(prometheus)), "test")
       application { with(server) { module() } }
       client.block()
     }
@@ -121,6 +131,17 @@ val EntryServerTest by testSuite {
 
       assert(delete("/entries/greeting").status == HttpStatusCode.NoContent)
       assert(get("/entries/greeting").status == HttpStatusCode.NotFound)
+    }
+  }
+
+  test("the metrics count stored entries, and are served for Prometheus to scrape") {
+    withServer {
+      put("/entries/a") { setBody("1") }
+      put("/entries/b") { setBody("2") }
+
+      val response = get("/metrics")
+      assert(response.status == HttpStatusCode.OK)
+      assert(response.bodyAsText().lines().any { it.startsWith("entries_stored_total{") && it.endsWith(" 2.0") })
     }
   }
 }
