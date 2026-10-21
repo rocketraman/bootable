@@ -5,7 +5,7 @@ exposed = "1.5.1"
 flyway = "13.10.0"
 graalvm-buildtools = "0.10.6"
 hikari = "7.1.0"
-hoplite = "3.0.3"
+hoplite = "3.0.4"
 # 4.0.0 is out, but npm tags it next rather than latest, and Ktor's HTMX attributes follow htmx 2
 htmx = "2.0.11"
 kilua = "0.0.36"
