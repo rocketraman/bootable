@@ -201,20 +201,41 @@ To use a DI framework, depend on the `-kodein` or `-metro` artifact of each modu
 
 == Design
 
-=== Why no built-in DI?
+=== Dependency Injection
 
-The heavy-weight nature of DI frameworks like Spring has given DI a bit of a bad rap, and many people argue it is unnecessary in Kotlin — that simple constructor injection is enough.
+Everyone has their own preferences: no DI at all, relying solely on constructor injection and context parameters, compile-time annotation-based frameworks like https://zacsweers.github.io/metro/[Metro], https://dagger.dev/[Dagger] or https://github.com/evant/kotlin-inject[kotlin-inject], or runtime DSL based options like https://kosi-libs.org/kodein/[Kodein] and https://insert-koin.io/[Koin].
+We don't want to impose a choice on users.
+Bootable is designed to be DI independent -- combine it with whichever DI you like, or no DI at all.
+
+That being said, Bootable ships with bindings for two popular options: https://zacsweers.github.io/metro/[Metro] and https://kosi-libs.org/kodein/[Kodein].
+Simply pull in the `-metro` or `-kodein` suffixed variants of each module to use them.
+
+=== Which DI Should I Use?
+
+The heavy-weight nature of DI frameworks like Spring has given DI a bit of a bad rap, and many people argue it is unnecessary in Kotlin — that constructor injection and context parameters are enough.
 This is absolutely true for small projects, but as a project grows the need for modularity arises: consider a multi-module app, each module of which exposes one or more `AppService` implementations without any central code being aware of them all.
-Collecting those into a `Set<AppService>` is exactly what a DI container's multibindings do well — but it is also easy to do by hand, and different teams reasonably prefer different tools (or none).
+Collecting those into a `Set<AppService>` is exactly what a DI container's multibindings do well — but it is also easy to do by hand, and different teams reasonably prefer different approaches.
+
+We recommend most teams use https://zacsweers.github.io/metro/[Metro], which provides a strong feature-set with compile-time graph construction and validation via a set of DI-specific annotations.
+
+NOTE: Unlike Spring, these annotations do not control or configure application behavior.
+They simply manage the dependency graph.
+
+With Metro, missing dependencies or other dependency issues are a compile error, not a runtime error.
+Also, while startup time differences are usually minimal, applications with large graphs will benefit from compile-time graph construction, which at runtime will have construction performance rivaling vanilla no-DI setups.
+
+If a clean simple DSL is important to you, then consider https://kosi-libs.org/kodein/[Kodein].
+Compared to Metro, it has no compile-time graph checking, and is slightly slower to initialize on application startup since it wires the graph at runtime via reflection.
+Metro has a more verbose and complex annotation-based syntax, but the payoff is compile-time verification and construction of the graph.
+
+=== How Do I Integrate Random DI with Bootable?
 
 Bootable's core is plain Kotlin: the `AppService` / `LifecycleController` interfaces, the built-in controllers, and the main framework class https://github.com/rocketraman/bootable/blob/HEAD/boot/src/main/kotlin/com/github/rocketraman/bootable/boot/Bootable.kt[Bootable.kt] carry no DI annotations, and `Bootable` takes its two sets through an ordinary constructor.
 The seam is those two sets; how you fill them is up to you.
 
-For convenience, each module that has anything to wire ships optional *Kodein* and *Metro* bindings as separate `-kodein` / `-metro` artifacts (e.g. `boot-metro`), each depending on the plain module, so you can opt into a framework per module — one ordinary dependency, no Gradle plugin or capability selection — without the core ever depending on one.
-Kodein has, to my eye, a clean simple DSL syntax, BUT no compile-time graph checking, and is slightly slower to initialize on application startup since it wires the graph at runtime.
-Metro has a more verbose and complex annotation-based syntax, but the payoff is compile-time verification and construction of the graph.
+For convenience, each module that has anything to wire ships optional *Kodein* and *Metro* bindings as separate `-kodein` / `-metro` artifacts (e.g. `boot-metro`), each depending on the plain module, so you can opt into a batteries included framework by simply importing the selected dependencies with the suffix for the chosen DI.
 
-See these three wiring options:
+See these three wiring options for example code:
 
 * link:./examples/wiring-vanilla[examples/wiring-vanilla]
 * link:./examples/wiring-kodein[examples/wiring-kodein]
