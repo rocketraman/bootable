@@ -210,7 +210,7 @@ Bootable is designed to be DI independent -- combine it with whichever DI you li
 That being said, Bootable ships with bindings for two popular options: https://zacsweers.github.io/metro/[Metro] and https://kosi-libs.org/kodein/[Kodein].
 Simply pull in the `-metro` or `-kodein` suffixed variants of each module to use them.
 
-=== Which DI Should I Use?
+==== Which DI Should I Use?
 
 The heavy-weight nature of DI frameworks like Spring has given DI a bit of a bad rap, and many people argue it is unnecessary in Kotlin — that constructor injection and https://kotlinlang.org/docs/context-parameters.html[context parameters] are enough.
 This is absolutely true for small projects, but as a project grows the need for modularity arises: consider a multi-module app, each module of which exposes one or more `AppService` implementations without any central code being aware of them all.
@@ -234,7 +234,7 @@ See these three wiring options for example code:
 * link:./examples/wiring-kodein[examples/wiring-kodein]
 * link:./examples/wiring-metro[examples/wiring-metro]
 
-=== How Do I Integrate Random DI with Bootable?
+==== How Do I Integrate Random DI with Bootable?
 
 Bootable's core is plain Kotlin: the `AppService` / `LifecycleController` interfaces, the built-in controllers, and the main framework class https://github.com/rocketraman/bootable/blob/HEAD/boot/src/main/kotlin/com/github/rocketraman/bootable/boot/Bootable.kt[Bootable.kt] carry no DI annotations, and `Bootable` takes its two sets through an ordinary constructor.
 The seam is those two sets; how you fill them is up to you.
