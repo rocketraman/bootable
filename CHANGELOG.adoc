@@ -39,6 +39,19 @@ With Kodein, `bootableModule` uses `StartOrder` and `StartOrder.Tiebreaker` bind
 
 `LifecycleController.priority()` is unchanged.
 
+=== Telemetry with OpenTelemetry
+
+New modules record traces and metrics with the OpenTelemetry SDK, tied to the application lifecycle; see the Telemetry section of the README.
+
+* `boot-telemetry-otel`: `OpenTelemetryService` builds the SDK from `telemetry.sdk`, exports over OTLP, and, in the `Telemetry` phase, shuts down last, exporting what is still buffered.
+Log events within a span carry its trace and span ids, which `boot-logging-log4j2`'s layouts print.
+`OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` fill in what `telemetry.sdk` leaves unset.
+* `boot-telemetry-otel-prometheus`: Prometheus export, and its scrape.
+Its exemplars carry only the trace and span ids, within OpenMetrics's 128-character limit for an exemplar's labels.
+* `boot-telemetry-otel-gcp`: GCP resource detection, and authenticated OTLP export to Google Cloud Trace and Cloud Monitoring.
+* `boot-telemetry-otel-micrometer-bridge`: a Micrometer `MeterRegistry` that records into the SDK.
+* `boot-server-http-ktor-otel`: traces and measures a Ktor server's requests, and serves the metrics scrape, on the server or a listener of its own.
+
 === Masked config values
 
 `boot-config-common` adds `Masked`, for a config property of a Bootable module that holds a secret, such as a password, an API key, or an auth header.

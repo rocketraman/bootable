@@ -49,6 +49,11 @@ dependencies {
   dokka(project(":boot-server-http-ktor-cio"))
   dokka(project(":boot-server-http-ktor-jetty"))
   dokka(project(":boot-server-http-ktor-netty"))
+  dokka(project(":boot-server-http-ktor-otel"))
+  dokka(project(":boot-telemetry-otel"))
+  dokka(project(":boot-telemetry-otel-gcp"))
+  dokka(project(":boot-telemetry-otel-micrometer-bridge"))
+  dokka(project(":boot-telemetry-otel-prometheus"))
 }
 
 // The published version comes from a `vX.Y.Z` tag on HEAD, so a release is driven purely by tagging; any
@@ -505,6 +510,116 @@ listOf(
 
       testImplementation(project(":boot-logging-log4j2"))
     }
+  }
+}
+
+project("boot-telemetry-otel") {
+  configureDiVariants()
+  dependencies {
+    // OpenTelemetryService is an AppService, and the OpenTelemetry instance is the module's whole point
+    api(project(":boot"))
+    api(project(":boot-config-common"))
+    api(rootProject.libs.opentelemetry.api)
+    api(rootProject.libs.opentelemetry.sdk)
+    // OTLP over HTTP with the JDK's own client, rather than OkHttp, which would bring its own Kotlin stdlib
+    api(rootProject.libs.opentelemetry.exporter.otlp) {
+      exclude(group = "io.opentelemetry", module = "opentelemetry-exporter-sender-okhttp")
+    }
+    runtimeOnly(rootProject.libs.opentelemetry.exporter.sender.jdk)
+    api(rootProject.libs.opentelemetry.extension.kotlin)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:${rootProject.libs.versions.kotlinx.coroutines.get()}")
+    implementation(rootProject.libs.opentelemetry.instrumentation.runtime.telemetry)
+    // puts the current trace and span ids in every log4j2 event's context data, where Bootable's layouts find them
+    runtimeOnly(rootProject.libs.opentelemetry.instrumentation.log4j.context.data)
+    // the logging API only: the application chooses the logging implementation (e.g. boot-logging-log4j2)
+    implementation(rootProject.libs.bundles.log4j.api)
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+
+    testImplementation(rootProject.libs.opentelemetry.sdk.testing)
+    // to check that log events in a span get its trace and span ids, as Bootable's layouts expect
+    testImplementation(rootProject.libs.log4j.core)
+    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(":boot-logging-log4j2"))
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+  }
+}
+
+// Each of these plugs into boot-telemetry-otel's SDK through its OpenTelemetryCustomizer set, or builds on its
+// OpenTelemetry instance
+mapOf(
+  // the GCP resource detector is an SDK autoconfigure provider, so it needs the autoconfigure SPI to load
+  "gcp" to listOf(
+    rootProject.libs.opentelemetry.gcp.resources,
+    rootProject.libs.opentelemetry.sdk.extension.autoconfigure.spi,
+    rootProject.libs.google.auth.library.oauth2.http,
+  ),
+  "micrometer-bridge" to listOf(rootProject.libs.micrometer.core, rootProject.libs.opentelemetry.instrumentation.micrometer),
+  "prometheus" to listOf(rootProject.libs.opentelemetry.exporter.prometheus, rootProject.libs.prometheus.metrics.exposition.textformats),
+).forEach { (name, libraries) ->
+  project("boot-telemetry-otel-$name") {
+    configureDiVariants()
+    dependencies {
+      api(project(":boot-telemetry-otel"))
+      libraries.forEach { api(it) }
+      // only useful with boot-telemetry-otel's SDK, so each flavor brings its matching flavor
+      "metroApi"(project(path = ":boot", configuration = "metroElements"))
+      "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+      "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+
+      testImplementation(rootProject.libs.opentelemetry.sdk.testing)
+      // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+      testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+      testImplementation(project(path = ":boot", configuration = "metroElements"))
+      testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+      testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+      testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+      testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+      testImplementation(project(":boot-logging-log4j2"))
+    }
+
+    sourceSets.named("test") {
+      compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+      runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    }
+  }
+}
+
+project("boot-server-http-ktor-otel") {
+  configureDiVariants()
+  dependencies {
+    api(project(":boot-server-http-ktor"))
+    api(project(":boot-telemetry-otel"))
+    api(rootProject.libs.opentelemetry.instrumentation.ktor)
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+
+    // requests are traced and scraped through a real server, with a real Prometheus reader behind it
+    testImplementation(project(":boot-server-http-ktor-cio"))
+    testImplementation(project(":boot-telemetry-otel-prometheus"))
+    testImplementation(rootProject.libs.opentelemetry.sdk.testing)
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-telemetry-otel-prometheus", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-telemetry-otel-prometheus", configuration = "metroElements"))
+    testImplementation(project(":boot-logging-log4j2"))
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
   }
 }
 
