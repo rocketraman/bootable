@@ -221,7 +221,9 @@ interface StartOrder {
 
 /** Bootable's default phases. */
 enum class DefaultPhase : Phase {
-  /** Connections to things the app needs: db pools, service clients, caches, telemetry. */
+  /** What everything else records into: tracing and metrics SDKs and exporters. Starts first, stops last. */
+  Telemetry,
+  /** Connections to things the app needs: db pools, service clients, caches. */
   Infrastructure,
   /** Bring shared state into shape before the app uses it: migrations, schema checks, seed data, cache warm-up. */
   Initialization,
@@ -260,16 +262,20 @@ schema to have been migrated by _something_".
 
 === Phases
 
-Bootable's default phases are four. Bootable starts the phases in order, and stops them in the reverse order:
+Bootable's default phases are five. Bootable starts the phases in order, and stops them in the reverse order:
 
 [cols="1,3,3", options="header"]
 |===
 | Phase | Holds | Examples
 
+| `Telemetry`
+| What every other service records into.
+| An OpenTelemetry SDK, with its exporters; a metrics registry; a tracing exporter.
+
 | `Infrastructure`
 | Connections to the systems the app needs, and the plumbing everything else relies on.
 | `JdbcDataSourceService` (db pool), HTTP/gRPC clients for other services, Kafka producers, Redis clients,
-  metrics registries and tracing exporters, secrets loaders, feature-flag clients.
+  secrets loaders, feature-flag clients.
 
 | `Initialization`
 | Work that brings shared state into shape before the app uses it. Usually it runs once, and has nothing to do
@@ -288,6 +294,8 @@ Bootable's default phases are four. Bootable starts the phases in order, and sto
 
 ==== Choosing a phase
 
+* *Does every other service record into it?* Then it is `Telemetry`. Applications rarely write one: a telemetry
+  module declares it.
 * *Does it bring work in?* Then it is `Serving`, whatever the protocol. A scheduler belongs here too: a timer
   firing is work arriving, just like a request.
 * *Is it a connection or plumbing that others use?* Then it is `Infrastructure`. The phase holds the app's own
@@ -304,8 +312,9 @@ Stopping in reverse is what makes the phases useful when the app shuts down, not
   everything they use is still running.
 . `Application` stops next. Nothing calls into it any more.
 . `Initialization` rarely has anything to stop.
-. `Infrastructure` stops last: pools close once nothing uses them, and telemetry exporters are the last to
-  stop, so they can flush everything the other phases recorded while shutting down.
+. `Infrastructure` stops next: pools close once nothing uses them.
+. `Telemetry` stops last, so its exporters can flush everything the other phases recorded while shutting down,
+  including the pools' last metrics.
 
 ==== Edge cases
 
@@ -325,13 +334,20 @@ The names are part of the API, and each was chosen against alternatives:
 |===
 | Phase | Why this name, and not another
 
+| `Telemetry`
+| Its own phase, rather than part of `Infrastructure`, because everything depends on it, and it depends on
+  nothing the app starts. Inside `Infrastructure`, every pool and client would have to declare a milestone to
+  start after it, and one that forgot could stop after it, its last metrics lost. A phase says it once, in the
+  telemetry module. `Observability` was the other candidate, but logging, the third pillar, is set up before any
+  service starts, so the phase holds telemetry and nothing else.
+
 | `Infrastructure`
 | `Resources` fits the lifecycle better, as on the JVM a resource is something you acquire and must release.
   But it collides twice in a JVM project: classpath resources (Flyway's migrations _are_ classpath resources,
   read in the next phase), and REST resources, which are endpoints and belong at the opposite end, in
-  `Serving`. It also doesn't cover plumbing that isn't a connection, such as telemetry. "Infrastructure" names
-  the layer, as the foundation that everything else sits on. Note it means the app's own side (clients and
-  pools), not infrastructure in the ops sense (servers and clusters).
+  `Serving`. It also doesn't cover plumbing that isn't a connection. "Infrastructure" names the layer, as the
+  foundation that everything else sits on. Note it means the app's own side (clients and pools), not
+  infrastructure in the ops sense (servers and clusters).
 
 | `Initialization`
 | `Schema` is too narrow, since seed data and cache warm-up belong here too. `Preparation` was the other
@@ -346,7 +362,8 @@ The names are part of the API, and each was chosen against alternatives:
   depend on", which is the infrastructure end. `Edge` and `Endpoints` are network-centric. `Inbound` doesn't
   fit a scheduler. `Public` implies facing the internet, but an internal gRPC server isn't public. `Running`
   clashes with Bootable's `=> Running` log stage. `Serving` names the line itself: this is where the app starts
-  doing work for others. It also completes the sequence: infrastructure, initialization, application, serving.
+  doing work for others. It also completes the sequence: telemetry, infrastructure, initialization, application,
+  serving.
 |===
 
 === Custom start orders
@@ -389,6 +406,7 @@ object OurStartOrder : StartOrder {
   override val defaultPhase = OurPhase.Core
 
   private val fromDefaults = mapOf(
+    DefaultPhase.Telemetry to OurPhase.Platform,
     DefaultPhase.Infrastructure to OurPhase.Platform,
     DefaultPhase.Initialization to OurPhase.Data,
     DefaultPhase.Application to OurPhase.Core,
@@ -548,7 +566,7 @@ service or controller has done anything:
 . Check the start order itself: `phases` must not repeat a phase, and must contain `defaultPhase` and every
   phase a service is in. A service in a phase the start order doesn't know fails the boot, rather than being
   started somewhere arbitrary: +
-  `VaultSecretsService is in phase Secrets, which is not one of the start order's phases: [Infrastructure, Initialization, Application, Serving]. Pass Bootable a StartOrder that includes Secrets.`
+  `VaultSecretsService is in phase Secrets, which is not one of the start order's phases: [Telemetry, Infrastructure, Initialization, Application, Serving]. Pass Bootable a StartOrder that includes Secrets.`
 . Group services by phase, in the order of `phases`.
 . Within each phase, build edges `provider -> dependent` for every `after`/`requires` milestone whose providers
   are in the same phase. Providers in an *earlier* phase are already satisfied. Providers in a *later* phase are

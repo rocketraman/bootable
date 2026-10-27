@@ -9,7 +9,8 @@ Each service declares an `ordering()`: a *phase*, and, within that phase, the *m
 Bootable computes a start plan from them before anything starts, logs it, and fails the boot if it can't be met.
 See link:docs/service-ordering.adoc[Service ordering] for the design.
 
-* Services start phase by phase, in the order `Infrastructure`, `Initialization`, `Application`, `Serving`, and stop in the reverse order.
+* Services start phase by phase, in the order `Telemetry`, `Infrastructure`, `Initialization`, `Application`, `Serving`, and stop in the reverse order.
+`Telemetry` holds what everything else records into, so it starts first and stops last, and exports what the other phases record while they stop.
 A service that declares nothing is in `Application`.
 * `Ordering(phase, provides, after, requires)` orders a service within its phase against a `Milestone`, a role, rather than against another module's classes or numbers.
 `after` is satisfied when nothing provides the milestone; `requires` fails the boot then.
