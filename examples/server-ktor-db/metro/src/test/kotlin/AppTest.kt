@@ -8,7 +8,7 @@ import dev.zacsweers.metro.createGraph
 
 /** The graph resolves; nothing is started, so no database is created. */
 val AppTest by testSuite {
-  test("wires the database, migrations, schema verification, and server") {
+  test("wires the database, migrations, schema verification, seed entries, and server") {
     val services = createGraph<AppGraph>().appServices
 
     assert(
@@ -17,6 +17,7 @@ val AppTest by testSuite {
         ExposedDatabaseService::class,
         FlywayMigrationService::class,
         SchemaVerificationService::class,
+        SeedEntriesService::class,
         EntryServer::class,
       )
     )

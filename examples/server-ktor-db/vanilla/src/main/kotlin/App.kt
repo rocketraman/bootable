@@ -19,8 +19,9 @@ import com.github.rocketraman.bootable.db.jdbc.SqliteConfig
  * migrated schema.
  *
  * Bootable starts the services phase by phase: the pool first (validating a connection), then the migrations, then
- * the schema verification, then the server. Shutdown runs in reverse, so the server stops taking requests before the
- * Exposed `Database` is unregistered and the pool closes.
+ * the schema verification and the sample entries, then the server. Shutdown runs in reverse, so the server stops
+ * taking requests before the Exposed `Database` is unregistered and the pool closes. The set's order doesn't matter:
+ * each service declares where it starts, and the start plan is logged.
  */
 fun appServices(binder: ConfigBinder): Set<AppService> {
   val database = JdbcDataSourceService(
@@ -29,12 +30,14 @@ fun appServices(binder: ConfigBinder): Set<AppService> {
   )
   val exposedConfig = binder.config<ExposedConfig>("db.exposed")
   val exposed = ExposedDatabaseService(database.dataSource, exposedConfig)
+  val repository = EntryRepository(exposed.database)
   return setOf(
     database,
     exposed,
     FlywayMigrationService(database.dataSource, binder.config("db.flyway")),
     SchemaVerificationService(exposed.database, setOf(EntryTable), exposedConfig.schemaVerification),
-    EntryServer(binder.config("server"), EntryRepository(exposed.database), "vanilla"),
+    SeedEntriesService(repository),
+    EntryServer(binder.config("server"), repository, "vanilla"),
   )
 }
 

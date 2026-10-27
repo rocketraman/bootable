@@ -14,7 +14,7 @@ import javax.sql.DataSource
 
 /** The graph resolves; nothing is started, so no database is created. */
 val AppTest by testSuite {
-  test("wires the database, migrations, schema verification, and server") {
+  test("wires the database, migrations, schema verification, seed entries, and server") {
     val di = appDI().direct
     val services = di.instance<Set<AppService>>()
 
@@ -24,6 +24,7 @@ val AppTest by testSuite {
         ExposedDatabaseService::class,
         FlywayMigrationService::class,
         SchemaVerificationService::class,
+        SeedEntriesService::class,
         EntryServer::class,
       )
     )
