@@ -1,0 +1,8 @@
+= Changelog
+
+== 3.1.0 (unreleased)
+
+=== Config enum values match in any case
+
+`hopliteConfigBinder` matches enum values against the entries' names ignoring case, so `schemaVerification = fail`, `Fail`, and `FAIL` all read the same.
+This applies to every enum in config, so config values needn't follow how a Kotlin enum's entries are cased.

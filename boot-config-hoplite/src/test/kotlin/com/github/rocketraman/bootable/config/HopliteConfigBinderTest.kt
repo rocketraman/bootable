@@ -6,6 +6,11 @@ import de.infix.testBalloon.framework.core.testSuite
 // public: hoplite constructs it reflectively
 data class ServerConfig(val host: String, val port: Int)
 
+enum class Speed { Fast, Slow }
+
+// public: hoplite constructs it reflectively
+data class SpeedConfig(val speed: Speed)
+
 private fun binder(env: Map<String, String>): ConfigBinder =
   hopliteConfigBinder(report = false, environmentVariables = { env })
 
@@ -28,6 +33,12 @@ val HopliteConfigBinderTest by testSuite {
 
     val e = runCatching { binder(env).config<ServerConfig>("server") }.exceptionOrNull()
     assert(e is ConfigException && "Unresolved substitution" in e.message.orEmpty())
+  }
+
+  test("enum values match the entries' names in any case") {
+    listOf("Fast", "fast", "FAST").forEach {
+      assert(binder(mapOf("SPEED_SPEED" to it)).config<SpeedConfig>("speed") == SpeedConfig(Speed.Fast))
+    }
   }
 
   test("environment variables override config with underscores as separators") {

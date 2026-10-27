@@ -58,6 +58,8 @@ private val shellPromptEnvVars = setOf("PS1", "PS2", "PS4", "PROMPT_COMMAND")
  *
  * [environmentVariables] supplies the environment variables to read (defaults to [System.getenv]).
  *
+ * Enum values match the entries' names in any case, so `fail`, `Fail`, and `FAIL` are all `Fail`.
+ *
  * Returns a plain [ConfigBinder]; decode config sections with `binder.config<T>("key")`:
  *
  * ```
@@ -106,6 +108,7 @@ fun hopliteConfigBinder(
       }
     }
     .withExplicitSealedTypes()
+    .withResolveTypesCaseInsensitive()
     .build()
     .configBinder()
 
