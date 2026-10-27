@@ -644,6 +644,7 @@ addition, and they are the piece that makes "Liquibase instead of Flyway" or "no
   keep them apart. Otherwise `Preparation` avoids the overlap.
 * Concurrent start of unordered services: the contract allows it, and the note defers it (see _Unordered
   services_).
-* Separately from ordering: if a service's `start()` throws, `boot` currently logs and calls `exitProcess(-1)`
-  without shutting down the services that already started (e.g. the pool is never closed). The start plan makes a
-  clean partial shutdown easy (reverse of the started prefix). Not yet done.
+* Separately from ordering: if a service's `start()` threw, `boot` logged and called `exitProcess(-1)` without
+  shutting down the services that had already started (e.g. the pool was never closed). Done in 3.1: Bootable now
+  runs the normal shutdown, which stops the started services in reverse, then exits with -1. The service whose
+  start failed is not stopped: if it must release what it acquired, it cleans up before it throws.

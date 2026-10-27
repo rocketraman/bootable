@@ -5,6 +5,8 @@ import com.github.rocketraman.bootable.common.safeExec
 import com.github.rocketraman.bootable.common.threadStacks
 import com.github.rocketraman.bootable.logging.log4j2.LoggingType
 import com.github.rocketraman.bootable.logging.log4j2.loggingInit
+import java.util.Collections
+import java.util.IdentityHashMap
 import java.util.concurrent.SynchronousQueue
 import kotlin.concurrent.timer
 import kotlin.system.exitProcess
@@ -20,7 +22,8 @@ import org.apache.logging.log4j.kotlin.logger
  * The services start in the order of their [AppService.ordering]: phase by phase, in the order of [startOrder]'s
  * phases, and within each phase after the providers of the milestones each service waits for. [tiebreaker] orders
  * the services those leave unordered. The start plan is computed and logged before any lifecycle controller
- * runs, so an order that can't be met fails the boot before anything has started (see [startPlan]).
+ * runs, so an order that can't be met fails the boot before anything has started (see [startPlan]). If starting
+ * fails, the services that had started are shut down, in reverse, before the process exits.
  *
  * [maxShutdownTime] is a [boot] argument rather than a constructor dependency, so the constructor takes only what
  * makes up the application.
@@ -35,7 +38,9 @@ class Bootable(
   @Volatile private var running = true
   private val terminationQueue = SynchronousQueue<Int>()
   private val shutdownHook = Thread { appTerminate() }
-  private val disabledServices = mutableSetOf<String>()
+  /** The services started, and not yet stopped. */
+  private val startedServices: MutableSet<AppService> =
+    Collections.synchronizedSet(Collections.newSetFromMap(IdentityHashMap()))
   private lateinit var serviceContext: ServiceContext
 
   companion object {
@@ -46,13 +51,26 @@ class Bootable(
    * This is internal as it is intended to be used only from the [com.github.rocketraman.bootable.boot] helper function.
    */
   internal fun boot(startupMark: TimeMark = TimeSource.Monotonic.markNow(), maxShutdownTime: Long = 30) {
+    exit(run(startupMark, maxShutdownTime))
+  }
+
+  /** Runs the application until it terminates, and returns the exit code. */
+  internal fun run(startupMark: TimeMark = TimeSource.Monotonic.markNow(), maxShutdownTime: Long = 30): Int {
     appPlan()
 
     log.info("=> Initializing (${startupMark.elapsedNow()})…")
     appInit()
 
     log.info("=> Starting (${startupMark.elapsedNow()})…")
-    appStart()
+    @Suppress("TooGenericExceptionCaught")
+    try {
+      appStart()
+    } catch (e: Exception) {
+      log.fatal(e) { "Failed to start application, stopping the services that started…" }
+      running = false
+      appStop(startupMark, maxShutdownTime)
+      return -1
+    }
 
     // shouldn't need this if a signal handler is installed, but install this shutdown hook as a fallback
     Runtime.getRuntime().addShutdownHook(shutdownHook)
@@ -61,16 +79,20 @@ class Bootable(
     val runningMark = TimeSource.Monotonic.markNow()
     val exitCode = awaitTermination()
 
+    appStop(startupMark, maxShutdownTime)
+    log.debug { "Total uptime was ${runningMark.elapsedNow()}." }
+    return exitCode
+  }
+
+  private fun appStop(startupMark: TimeMark, maxShutdownTime: Long) {
     log.info("=> Shutting down (${startupMark.elapsedNow()})")
 
     val shutdownMark = TimeSource.Monotonic.markNow()
     safeExec { appShutdown(maxShutdownTime) }
     safeExec { appCleanup() }
 
-    log.debug { "Shut down application in ${shutdownMark.elapsedNow()}, total uptime was ${runningMark.elapsedNow()}." }
+    log.debug { "Shut down application in ${shutdownMark.elapsedNow()}." }
     log.info("=> Stopped")
-
-    exit(exitCode)
   }
 
   private fun appPlan() {
@@ -123,30 +145,19 @@ class Bootable(
       } else {
         appService.start()
       }
-      synchronized(disabledServices) {
-        disabledServices.remove(appService.name())
-      }
+      startedServices += appService
     } else {
       log.warn { "==> Skipping start of ${appService.name()}, these controllers voted NO: ${votedNo.map { it.name() }}…" }
-      synchronized(disabledServices) {
-        disabledServices.add(appService.name())
-      }
     }
   }
 
   private fun serviceShutdown(appService: AppService) {
-    val isDisabled = synchronized(disabledServices) {
-      disabledServices.contains(appService.name())
-    }
-    if(isDisabled) {
-      log.info { "==> Stopping ${appService.name()}… disabled, ignoring shutdown" }
+    if(!startedServices.remove(appService)) {
+      log.info { "==> Stopping ${appService.name()}… not started, ignoring shutdown" }
     } else {
       log.info { "==> Stopping ${appService.name()}…" }
       safeExec({ e -> log.warn(e) { "Error stopping ${appService.name()}, ignoring…" } }) {
         appService.shutdown()
-        synchronized(disabledServices) {
-          disabledServices.add(appService.name())
-        }
       }
     }
   }

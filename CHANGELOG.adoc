@@ -53,3 +53,14 @@ Subtype names match only in their own case.
 
 * Config that selects a sealed subtype with `_type` must use `type` instead.
 * A sealed subtype can't have a property named `type`, as that key now selects the subtype.
+
+=== A failed start shuts down the services that started
+
+When a service's `start()` throws, Bootable now runs the normal shutdown before exiting with -1, instead of exiting at once.
+The services that had started stop in reverse order, so, for example, the database pool is closed.
+The service whose `start()` threw is not stopped: if it must release what it acquired, it cleans up before it throws.
+
+==== Breaking changes
+
+* A service is shut down only if its `start()` returned.
+Previously Bootable called `shutdown()` on any service that a controller hadn't vetoed, whether or not it had started.

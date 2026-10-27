@@ -17,6 +17,10 @@ interface AppService {
 
   fun start() { Ignore }
 
+  /**
+   * Stops the service. Called only if [start] returned: a service whose start fails partway, and must release
+   * what it acquired, cleans up in [start] itself before it throws.
+   */
   fun shutdown() { Ignore }
 
   /**
