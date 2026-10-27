@@ -1,7 +1,9 @@
 package com.github.rocketraman.bootable.db.exposed
 
 import com.github.rocketraman.bootable.boot.AppService
-import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
+import com.github.rocketraman.bootable.boot.DefaultPhase
+import com.github.rocketraman.bootable.boot.Ordering
+import com.github.rocketraman.bootable.db.jdbc.DbMilestones
 import org.apache.logging.log4j.kotlin.logger
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -18,8 +20,9 @@ import org.jetbrains.exposed.v1.migration.jdbc.MigrationUtils
  * SQL and carries on. The schema itself is never changed: migrations are a migration tool's job, such as
  * `boot-db-flyway`'s.
  *
- * It starts at [PRIORITY], below [JdbcDataSourceService.PRIORITY] and `boot-db-flyway`'s migrations, so it checks
- * the migrated schema, and before the services that use it.
+ * It is in the [DefaultPhase.Initialization] phase, after [DbMilestones.SchemaMigrated], so it checks the schema once
+ * a migration module, such as `boot-db-flyway`'s, has migrated it, if the application has one, and before the
+ * application's services that use it start.
  */
 class SchemaVerificationService(
   private val database: Database,
@@ -50,15 +53,9 @@ class SchemaVerificationService(
     }
   }
 
-  override fun priority() = PRIORITY
+  override fun ordering() = Ordering(DefaultPhase.Initialization, after = setOf(DbMilestones.SchemaMigrated))
 
   companion object {
-    /**
-     * Below [JdbcDataSourceService.PRIORITY], and below `boot-db-flyway`'s migrations (100 lower), so the schema is
-     * checked once migrated, and before the services that use the database start.
-     */
-    const val PRIORITY = JdbcDataSourceService.PRIORITY - 200
-
     private val log = logger()
   }
 }

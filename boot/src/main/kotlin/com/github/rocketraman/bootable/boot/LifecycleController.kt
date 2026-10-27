@@ -2,8 +2,18 @@ package com.github.rocketraman.bootable.boot
 
 import com.github.rocketraman.bootable.common.Ignore
 
+/**
+ * The application's services, for a [LifecycleController] to start and stop.
+ *
+ * @property appServices every service the application was given.
+ * @property startPlan the same services, in the order they start in; they stop in the reverse order. See [startPlan].
+ * @property serviceStart starts a service, unless a controller votes against it (see
+ *   [LifecycleController.serviceStartVote]).
+ * @property serviceShutdown stops a service, unless it was never started.
+ */
 data class ServiceContext(
   val appServices: Set<AppService>,
+  val startPlan: List<AppService>,
   val serviceStart: (appService: AppService) -> Unit,
   val serviceShutdown: (appService: AppService) -> Unit
 )

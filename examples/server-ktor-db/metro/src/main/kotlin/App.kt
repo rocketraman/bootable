@@ -30,6 +30,9 @@ interface EntriesBindings : ConfigBinderProvider {
   @Provides @IntoSet fun entryTable(): Table = EntryTable
 
   @Provides @IntoSet
+  fun seedEntries(entries: EntryRepository): AppService = SeedEntriesService(entries)
+
+  @Provides @IntoSet
   fun entryServer(config: ServerConfig, entries: EntryRepository): AppService = EntryServer(config, entries, "metro")
 }
 

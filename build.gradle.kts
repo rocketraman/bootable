@@ -194,11 +194,20 @@ configure(subprojects.filter { !it.path.startsWith(":examples") }) {
 project("boot") {
   configureDiVariants()
   dependencies {
+    // ServiceOrderConfig, Bootable's own settings, is decoded with a ConfigBinder
+    api(project(":boot-config-common"))
     implementation(project(":boot-common"))
     // todo for now, we depend on boot-logging-log4j2, later we could use service loaders to discover implementations at runtime
     implementation(project(":boot-logging-log4j2"))
     // note: no DI framework — Bootable's wiring is plain Kotlin (kotlin-reflect is still needed at runtime
     // for log4j-api-kotlin logging, and comes transitively via boot-logging-log4j2)
+  }
+
+  // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+  configurations["testImplementation"].extendsFrom(configurations["kodeinApi"], configurations["metroApi"])
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
   }
 
   kotlin {

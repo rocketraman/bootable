@@ -3,7 +3,9 @@ package com.github.rocketraman.bootable.db.flyway
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.StartOrder
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.startPlan
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
 import com.github.rocketraman.bootable.config.hopliteConfigModule
@@ -47,11 +49,12 @@ object TestCustomizerBindings {
   fun installedBy(): FlywayConfigurationCustomizer = FlywayConfigurationCustomizer { it.installedBy("metro") }
 }
 
-/** Starts the services in priority order, as Bootable does, checks the migrated schema, and shuts them down. */
+/** Starts the services in their planned order, as Bootable does, checks the migrated schema, and shuts them down. */
 private fun Set<AppService>.startAndStop() {
   // a fresh database each time, so the migration runs
   listOf("", "-wal", "-shm").forEach { Path("build/flyway-wiring-test.db$it").deleteIfExists() }
-  val ordered = sortedByDescending { it.priority() }
+  // shuffled, so the order holds because the services declare it, not by accident
+  val ordered = startPlan(this, tiebreaker = StartOrder.Tiebreaker.Shuffled())
   assert(ordered.map { it::class } == listOf(JdbcDataSourceService::class, FlywayMigrationService::class))
   ordered.forEach { it.start() }
   try {
@@ -59,7 +62,7 @@ private fun Set<AppService>.startAndStop() {
     assert(dataSource.query("SELECT text FROM greeting WHERE id = 1") == listOf("hello from config"))
     assert(dataSource.query("SELECT count(*) FROM schema_history") == listOf("1"))
   } finally {
-    ordered.reversed().forEach { it.shutdown() }
+    ordered.asReversed().forEach { it.shutdown() }
   }
 }
 

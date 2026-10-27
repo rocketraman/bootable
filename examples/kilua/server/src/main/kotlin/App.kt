@@ -7,7 +7,7 @@ import com.github.rocketraman.bootable.config.common.port
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
 
-/** Vanilla wiring: the renderer and the server, which Bootable starts in priority order, renderer first. */
+/** Vanilla wiring: the renderer and the server, which Bootable starts phase by phase, renderer first. */
 fun appServices(binder: ConfigBinder): Set<AppService> {
   val serverConfig = binder.config<ServerConfig>("server")
   val renderer = SsrRenderer(binder.config("ssr"), serverConfig.localUrl())

@@ -1,5 +1,6 @@
 import com.github.rocketraman.bootable.boot.AdvancedAppService
 import com.github.rocketraman.bootable.boot.AppService
+import com.github.rocketraman.bootable.boot.startPlan
 import de.infix.testBalloon.framework.core.TestConfig
 import de.infix.testBalloon.framework.core.disable
 import de.infix.testBalloon.framework.core.testSuite
@@ -32,15 +33,15 @@ private class Browser(private val url: String) {
 }
 
 /**
- * Starts the renderer and the server in priority order, as Bootable does, on a free port, so the client, rendering in
- * Node.js, can call the server's API; then stops them in reverse. The renderer's Node.js runs on until the tests' JVM
+ * Starts the renderer and the server in their planned order, as Bootable does, on a free port, so the client, rendering
+ * in Node.js, can call the server's API; then stops them in reverse. The renderer's Node.js runs on until the tests' JVM
  * exits, since Kilua's SsrEngine only stops it then.
  */
 private fun withApp(block: Browser.() -> Unit) {
   val config = ServerConfig("127.0.0.1:${ServerSocket(0).use { it.localPort }}")
   val renderer = SsrRenderer(SsrConfig(node), config.localUrl())
   val server = TodoServer(config, TodoRepository(), renderer)
-  val services = setOf(server, renderer).sortedByDescending { it.priority() }
+  val services = startPlan(setOf(server, renderer))
   assert(services == listOf(renderer, server))
 
   val started = mutableListOf<AppService>()

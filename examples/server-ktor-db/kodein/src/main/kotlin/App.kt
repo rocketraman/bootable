@@ -27,6 +27,7 @@ val entriesModule by DI.Module {
   bindSingleton { instance<ConfigBinder>().config<ServerConfig>("server") }
   bindSingleton { new(::EntryRepository) }
   inBindSet<Table> { add { singleton { EntryTable } } }
+  bindAppService { singleton { new(::SeedEntriesService) } }
   bindAppService { singleton { EntryServer(instance(), instance(), "kodein") } }
 }
 

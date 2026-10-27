@@ -34,7 +34,11 @@ NOTE: Importing the Metro DI artifact does bring annotations to your application
 * Runs a set of application services and lifecycle controllers — assemble them however you like (plain Kotlin, Kodein, Metro, a service loader, …). Bootable embeds no DI framework; optional bindings for Kodein and Metro are available per module. See the `examples/` directory for one project per wiring style.
 * Manages the lifecycle of application services.
 * Allows registration of lifecycle controllers, which can be used to control the lifecycle of application services in various ways.
-The basic built-in implementation of this is the `AppStartStopLifecycleController` which starts application services on app start, and shuts them down on app close, in priority order.
+The basic built-in implementation of this is the `AppStartStopLifecycleController` which starts application services on app start, and shuts them down on app close, in reverse.
+Services start phase by phase (infrastructure, initialization, application, serving), and, within a phase, after the milestones they declare; see link:docs/service-ordering.adoc[Service ordering].
+Services left unordered start by name, or shuffled with `boot.service.order.tiebreaker.type = Shuffled` in config (or `BOOT_SERVICE_ORDER_TIEBREAKER_TYPE=Shuffled`).
+Shuffling is useful in `application-local.conf` and test config, to surface services that rely on an order they don't declare.
+An app can pass its own `StartOrder` to add phases; see link:./examples/start-order[examples/start-order], which adds a phase after `Serving` for a service that announces the app is ready once its server is listening.
 Another basic implementation, intended to be used in conjunction with `AppStartStopLifecycleController`, is the `StopSignalHandlerLifecycleController`, which registers signal handlers, which, when received, cleanly shuts the system down.
 Other implementations are possible: for example starting/stopping services at runtime based on a command system, like start/stop messages from RPCs or web requests.
 
@@ -59,7 +63,7 @@ xref:./boot-config-hoplite/README.adoc[Documentation]
 
 `boot-db-jdbc` provides a database connection pool tied to the application lifecycle.
 `JdbcDataSourceService` validates a connection when the app starts, so an unreachable database fails the boot, and closes the pool on shutdown.
-It starts at a high priority, so services that use the database start after it and stop before it.
+It is in the `Infrastructure` phase, so services that use the database start after it and stop before it.
 
 An application makes two choices, each its own dependency:
 

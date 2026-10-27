@@ -1,0 +1,66 @@
+= Changelog
+
+== 3.1.0 (unreleased)
+
+=== Service start order: phases and milestones replace priorities
+
+Services no longer order themselves with a global `priority()` number.
+Each service declares an `ordering()`: a *phase*, and, within that phase, the *milestones* it provides and starts after.
+Bootable computes a start plan from them before anything starts, logs it, and fails the boot if it can't be met.
+See link:docs/service-ordering.adoc[Service ordering] for the design.
+
+* Services start phase by phase, in the order `Infrastructure`, `Initialization`, `Application`, `Serving`, and stop in the reverse order.
+A service that declares nothing is in `Application`.
+* `Ordering(phase, provides, after, requires)` orders a service within its phase against a `Milestone`, a role, rather than against another module's classes or numbers.
+`after` is satisfied when nothing provides the milestone; `requires` fails the boot then.
+* A `StartOrder`, passed to `Bootable`, defines the phases and how each service's ordering is read, so an app can add phases, replace them, or place a service it didn't write.
+The default is `DefaultStartOrder`.
+* Services left unordered start in the order of a `StartOrder.Tiebreaker`: `ByName` (the default), or `Shuffled(seed)`, which surfaces missing milestones and logs its seed.
+`boot.service.order.tiebreaker.type = Shuffled` in config (or `BOOT_SERVICE_ORDER_TIEBREAKER_TYPE=Shuffled`) shuffles them, e.g. in `application-local.conf` or test config, and `boot.service.order.tiebreaker.seed` replays a logged shuffle; `ServiceOrderConfig` holds these settings.
+* `startPlan(services, startOrder, tiebreaker)` computes the order, so tests can check it.
+A plan that can't be met throws a `StartOrderException` listing every problem: an unknown phase, a missing required milestone, a milestone provided in a later phase, or a cycle.
+* `boot-db-jdbc` adds `DbMilestones.DataSourceReady` and `DbMilestones.SchemaMigrated`.
+`boot-db-exposed`'s schema verification starts after `SchemaMigrated`, so it works with any migration module, or none.
+
+==== Breaking changes
+
+* `AppService.priority()` is removed.
+Replace each `override fun priority()` with an `override fun ordering()`: a phase for a service that must start early or late, and a milestone where its order against another service in the same phase matters.
+Services that only differed by priority within a phase now start by name.
+* An app service that started before the database pool, with a priority above `JdbcDataSourceService.PRIORITY`, now starts after it unless it declares `DefaultPhase.Infrastructure`, or a phase of its own ahead of it.
+* An app service that tied with `KtorService` at `Int.MIN_VALUE` now starts before it unless it declares `DefaultPhase.Serving`.
+* The `PRIORITY` constants of `JdbcDataSourceService`, `FlywayMigrationService`, `ExposedDatabaseService`, and `SchemaVerificationService` are removed.
+* `ServiceContext` has a new `startPlan` property, the services in start order, and its constructor takes it after `appServices`.
+A custom `LifecycleController` that sorted `appServices` by `priority()` should iterate `startPlan`, and `startPlan.asReversed()` to stop.
+* `Bootable` takes optional `startOrder` and `tiebreaker` arguments.
+With Kodein, `bootableModule` uses `StartOrder` and `StartOrder.Tiebreaker` bindings if there are any, and otherwise reads the tiebreaker from the `boot.service.order` config section if there is a `ConfigBinder` binding; with Metro, `BootableDefaultBindings` does the same, with all three as optional bindings.
+* `boot` now depends on `boot-config-common`, as an API dependency, for `ServiceOrderConfig`.
+
+`LifecycleController.priority()` is unchanged.
+
+=== Config enum values match in any case
+
+`hopliteConfigBinder` matches enum values against the entries' names ignoring case, so `schemaVerification = fail`, `Fail`, and `FAIL` all read the same.
+This applies to every enum in config, so config values needn't follow how a Kotlin enum's entries are cased.
+
+=== Config selects sealed subtypes with `type`
+
+`hopliteConfigBinder` selects a sealed type's subtype by a `type` key, instead of Hoplite's default `_type`, so an environment variable can select one too: `_` separates the path, so no environment variable can spell `_type`.
+For example, `tiebreaker { type = Shuffled, seed = 42 }`, or `BOOT_SERVICE_ORDER_TIEBREAKER_TYPE=Shuffled` and `BOOT_SERVICE_ORDER_TIEBREAKER_SEED=42`.
+Subtype names match only in their own case.
+
+==== Breaking changes
+
+* Config that selects a sealed subtype with `_type` must use `type` instead.
+* A sealed subtype can't have a property named `type`, as that key now selects the subtype.
+
+=== A failed start shuts down the services that started
+
+When a service's `start()` throws, Bootable now runs the normal shutdown before exiting with -1, instead of exiting at once.
+The services that had started stop in reverse order, so, for example, the database pool is closed.
+The service whose `start()` threw is not stopped: if it must release what it acquired, it cleans up before it throws.
+
+==== Breaking changes
+
+* A service is shut down only if its `start()` returned.
+Previously Bootable called `shutdown()` on any service that a controller hadn't vetoed, whether or not it had started.

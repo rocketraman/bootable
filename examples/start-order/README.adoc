@@ -1,0 +1,48 @@
+= Custom start order example
+
+A Ktor server that writes a _ready file_ once it is listening, and removes it before it stops, using a start order with a phase of the app's own.
+See link:../../docs/service-ordering.adoc[Service ordering] for the design.
+
+== How it works
+
+A ready file exists only while the app takes traffic, so something outside the process can tell when to send requests: a Kubernetes `exec` readiness probe, a load balancer's health check script, or a supervisor.
+
+That needs a service that starts _after_ the server, and Bootable's default phases end with `Serving`, where the server is.
+So the app adds a phase, `Announce`, after the default ones, in `AppStartOrder.kt`:
+
+[source,kotlin]
+----
+enum class AppPhase : Phase { Announce }
+
+object AppStartOrder : StartOrder by DefaultStartOrder {
+  override val phases = DefaultStartOrder.phases + AppPhase.Announce
+}
+----
+
+`ReadyFileService` declares `Ordering(AppPhase.Announce)`, and `main` passes `startOrder = AppStartOrder` to `Bootable`.
+The server is an ordinary `KtorService`, which declares `DefaultPhase.Serving` itself, so the app mixes its own phase with Bootable's.
+
+Bootable logs the plan before anything starts:
+
+----
+Start plan: Serving[HelloServer] Announce[ReadyFileService]
+----
+
+Shutdown runs the plan in reverse, so `Announce` stops first: the ready file is removed while the server still answers, and traffic drains before the server stops.
+
+Without `AppStartOrder`, the boot fails before any service starts, because `Announce` is not one of the default order's phases.
+`AppTest` checks both plans with `startPlan`, without starting anything.
+
+== Running it
+
+From the repository root:
+
+[source,shell]
+----
+./gradlew :examples:start-order:run
+----
+
+While it runs, `examples/start-order/build/ready` exists, and http://localhost:8005 answers.
+Stop it with Ctrl-C, and the log shows the file removed before the server stops.
+
+The port and the file's path are set in `src/main/resources/application.conf`.

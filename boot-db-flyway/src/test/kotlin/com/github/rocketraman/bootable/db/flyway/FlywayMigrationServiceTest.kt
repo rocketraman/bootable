@@ -1,5 +1,8 @@
 package com.github.rocketraman.bootable.db.flyway
 
+import com.github.rocketraman.bootable.boot.AppService
+import com.github.rocketraman.bootable.boot.StartOrder
+import com.github.rocketraman.bootable.boot.startPlan
 import com.github.rocketraman.bootable.db.jdbc.HikariConnectionPoolFactory
 import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
 import com.github.rocketraman.bootable.db.jdbc.SqliteConfig
@@ -100,9 +103,19 @@ val FlywayMigrationServiceTest by testSuite {
     }
   }
 
-  test("starts after the pool, and before services at the default priority") {
-    val priority = FlywayMigrationService.PRIORITY
-    assert(priority < JdbcDataSourceService.PRIORITY && priority > 0)
+  test("starts after the pool, and before the application's services") {
+    withTempDir { dir ->
+      // nothing starts, so nothing opens a connection
+      val pool = JdbcDataSourceService(SqliteConfig(path = dir.resolve("plan.db").toString()), HikariConnectionPoolFactory())
+      try {
+        val migrations = FlywayMigrationService(pool.dataSource)
+        val app = object : AppService {}
+        val plan = startPlan(setOf(app, migrations, pool), tiebreaker = StartOrder.Tiebreaker.Shuffled())
+        assert(plan == listOf(pool, migrations, app))
+      } finally {
+        pool.shutdown()
+      }
+    }
   }
 }
 
