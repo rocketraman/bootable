@@ -5,8 +5,9 @@ import com.github.rocketraman.bootable.common.Ignore
 /**
  * An application service, with a lifecycle.
  *
- * Binding implementations of AppService into the DI environment (see [bindAppService]) will register it with
- * the boot system, which will start it up and shut it down, according to its priority.
+ * Passing implementations of AppService to [Bootable] (directly, or via a DI multibinding such as Kodein's
+ * `bindAppService`) registers them with the boot system, which starts them up and shuts them down in the order of
+ * their [ordering].
  */
 interface AppService {
   /**
@@ -19,11 +20,13 @@ interface AppService {
   fun shutdown() { Ignore }
 
   /**
-   * The startup/shutdown priority of the service. Services with higher priority are started first, and shut down
-   * last. Services default to a priority of 0, which means by default startup and shutdown order are undefined.
-   * Generally services that offer external APIs should have a low priority so they are started last, and shut down
-   * first, and services that offer internal capabilities (database connections, etc.) should have a high priority
-   * so they are started first, and shut down last.
+   * Where this service starts relative to the others: its [Phase], and the [Milestone]s it provides and waits
+   * for. Services start phase by phase, and stop in the reverse order. The default is the [StartOrder]'s default
+   * phase, [DefaultPhase.Application] unless the app changes it, with no milestones, which suits most of an
+   * application's own services.
+   *
+   * Services that their orderings leave unordered may start in any order (see [StartOrder.Tiebreaker]): if the
+   * order between them matters, declare a milestone.
    */
-  fun priority() = 0
+  fun ordering(): Ordering = Ordering()
 }

@@ -1,7 +1,9 @@
 package com.github.rocketraman.bootable.db.exposed
 
+import com.github.rocketraman.bootable.boot.AppService
+import com.github.rocketraman.bootable.boot.StartOrder
+import com.github.rocketraman.bootable.boot.startPlan
 import com.github.rocketraman.bootable.db.flyway.FlywayMigrationService
-import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
 import de.infix.testBalloon.framework.core.testSuite
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -76,8 +78,17 @@ val SchemaVerificationServiceTest by testSuite {
     }
   }
 
-  test("starts after the pool and migrations, and before services at the default priority") {
-    val priority = SchemaVerificationService.PRIORITY
-    assert(priority < FlywayMigrationService.PRIORITY && priority < JdbcDataSourceService.PRIORITY && priority > 0)
+  test("starts after the pool, and before the application's services, with no migration tool") {
+    withDataSource { pool ->
+      val exposed = ExposedDatabaseService(pool.dataSource)
+      try {
+        val verification = SchemaVerificationService(exposed.database, emptySet())
+        val app = object : AppService {}
+        val plan = startPlan(setOf(app, verification, exposed, pool), tiebreaker = StartOrder.Tiebreaker.Shuffled())
+        assert(plan == listOf(pool, exposed, verification, app))
+      } finally {
+        exposed.shutdown()
+      }
+    }
   }
 }

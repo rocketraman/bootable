@@ -1,6 +1,8 @@
 package com.github.rocketraman.bootable.db.jdbc
 
 import com.github.rocketraman.bootable.boot.AppService
+import com.github.rocketraman.bootable.boot.DefaultPhase
+import com.github.rocketraman.bootable.boot.Ordering
 import javax.sql.DataSource
 
 /**
@@ -12,8 +14,9 @@ import javax.sql.DataSource
  * runs [JdbcConfig.prepare], then opens and validates a connection, so a database that can't be reached stops the
  * application at boot rather than on the first request. Shutdown closes the pool.
  *
- * The service starts at [PRIORITY], ahead of the default priority of 0, so services that use the database start
- * after the pool and shut down before it.
+ * The service is in the [DefaultPhase.Infrastructure] phase, so services that use the database, in later phases,
+ * start after the pool and shut down before it. It provides [DbMilestones.DataSourceReady], for anything in the same
+ * phase that must start after the pool.
  */
 class JdbcDataSourceService(private val config: JdbcConfig, poolFactory: ConnectionPoolFactory) : AppService {
 
@@ -33,15 +36,9 @@ class JdbcDataSourceService(private val config: JdbcConfig, poolFactory: Connect
     pool.close()
   }
 
-  override fun priority() = PRIORITY
+  override fun ordering() = Ordering(DefaultPhase.Infrastructure, provides = setOf(DbMilestones.DataSourceReady))
 
   companion object {
-    /**
-     * High, so the pool starts before (and stops after) the services that use it. Room is left above it for
-     * anything that must run even earlier, and below it for services that set up the database, such as migrations.
-     */
-    const val PRIORITY = Int.MAX_VALUE - 1_000
-
     private const val VALIDATION_TIMEOUT_SECONDS = 5
   }
 }

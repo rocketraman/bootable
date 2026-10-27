@@ -3,7 +3,9 @@ package com.github.rocketraman.bootable.db.exposed
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.StartOrder
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.startPlan
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
 import com.github.rocketraman.bootable.config.hopliteConfigModule
@@ -61,12 +63,13 @@ object TestTableBindings {
 }
 
 /**
- * Starts the services in priority order, as Bootable does, so Flyway migrates a fresh database and the schema
+ * Starts the services in their planned order, as Bootable does, so Flyway migrates a fresh database and the schema
  * verification passes, then uses the database and shuts the services down.
  */
 private suspend fun Set<AppService>.startUseAndStop(db: Database) {
   listOf("", "-wal", "-shm").forEach { Path("build/exposed-wiring-test.db$it").deleteIfExists() }
-  val ordered = sortedByDescending { it.priority() }
+  // shuffled, so the order holds because the services declare it, not by accident
+  val ordered = startPlan(this, tiebreaker = StartOrder.Tiebreaker.Shuffled())
   assert(
     ordered.map { it::class } ==
       listOf(
@@ -81,7 +84,7 @@ private suspend fun Set<AppService>.startUseAndStop(db: Database) {
     db.withTransaction { GreetingTable.insert { it[id] = 1; it[text] = "hello" } }
     assert(db.withTransaction { GreetingTable.selectAll().single()[GreetingTable.text] } == "hello")
   } finally {
-    ordered.reversed().forEach { it.shutdown() }
+    ordered.asReversed().forEach { it.shutdown() }
   }
   assert(runCatching { TransactionManager.managerFor(db) }.isFailure)
 }

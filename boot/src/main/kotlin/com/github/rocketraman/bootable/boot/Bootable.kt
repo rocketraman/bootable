@@ -17,18 +17,26 @@ import org.apache.logging.log4j.kotlin.logger
  * with your services and lifecycle controllers (usually via the [boot] convenience function) however you
  * assembled them: by hand, or with whatever DI framework you prefer.
  *
- * [maxShutdownTime] is a [boot] argument rather than a constructor dependency, so the constructor takes only the
- * two sets.
+ * The services start in the order of their [AppService.ordering]: phase by phase, in the order of [startOrder]'s
+ * phases, and within each phase after the providers of the milestones each service waits for. [tiebreaker] orders
+ * the services those leave unordered. The start plan is computed and logged before any lifecycle controller
+ * runs, so an order that can't be met fails the boot before anything has started (see [startPlan]).
+ *
+ * [maxShutdownTime] is a [boot] argument rather than a constructor dependency, so the constructor takes only what
+ * makes up the application.
  */
 class Bootable(
   private val appServices: Set<AppService>,
   private val lifecycleControllers: Set<LifecycleController> = defaultLifecycleControllers(),
+  val startOrder: StartOrder = DefaultStartOrder,
+  val tiebreaker: StartOrder.Tiebreaker = StartOrder.Tiebreaker.ByName,
 ) {
 
   @Volatile private var running = true
   private val terminationQueue = SynchronousQueue<Int>()
   private val shutdownHook = Thread { appTerminate() }
   private val disabledServices = mutableSetOf<String>()
+  private lateinit var serviceContext: ServiceContext
 
   companion object {
     private val log = logger()
@@ -38,6 +46,8 @@ class Bootable(
    * This is internal as it is intended to be used only from the [com.github.rocketraman.bootable.boot] helper function.
    */
   internal fun boot(startupMark: TimeMark = TimeSource.Monotonic.markNow(), maxShutdownTime: Long = 30) {
+    appPlan()
+
     log.info("=> Initializing (${startupMark.elapsedNow()})…")
     appInit()
 
@@ -63,6 +73,14 @@ class Bootable(
     exit(exitCode)
   }
 
+  private fun appPlan() {
+    val plan = phasedStartPlan(appServices, startOrder, tiebreaker)
+    val shuffled =
+      (tiebreaker as? StartOrder.Tiebreaker.Shuffled)?.let { " (ties shuffled, seed ${it.seed})" }.orEmpty()
+    log.info { "Start plan$shuffled: ${plan.describe()}" }
+    serviceContext = ServiceContext(appServices, plan.flatMap { it.services }, ::serviceStart, ::serviceShutdown)
+  }
+
   private fun appInit() {
     lifecycleControllers.sortedByDescending { it.priority() }.forEach {
       it.appInit()
@@ -72,7 +90,7 @@ class Bootable(
   private fun appStart() {
     lifecycleControllers.sortedByDescending { it.priority() }.forEach {
       if(running) {
-        it.appStart(ServiceContext(appServices, ::serviceStart, ::serviceShutdown), ::appTerminate)
+        it.appStart(serviceContext, ::appTerminate)
       }
     }
   }
@@ -86,7 +104,7 @@ class Bootable(
 
   private fun appShutdown(maxShutdownTime: Long) {
     lifecycleControllers.sortedBy { it.priority() }.forEach {
-      it.appShutdown(ServiceContext(appServices, ::serviceStart, ::serviceShutdown), maxShutdownTime, ::halt)
+      it.appShutdown(serviceContext, maxShutdownTime, ::halt)
     }
   }
 

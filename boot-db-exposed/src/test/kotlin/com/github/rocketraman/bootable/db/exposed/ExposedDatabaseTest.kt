@@ -1,5 +1,8 @@
 package com.github.rocketraman.bootable.db.exposed
 
+import com.github.rocketraman.bootable.boot.AppService
+import com.github.rocketraman.bootable.boot.StartOrder
+import com.github.rocketraman.bootable.boot.startPlan
 import com.github.rocketraman.bootable.db.flyway.FlywayMigrationService
 import com.github.rocketraman.bootable.db.jdbc.HikariConnectionPoolFactory
 import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
@@ -109,9 +112,19 @@ val ExposedDatabaseTest by testSuite {
   }
 
   test("is unregistered after the services that use the database, and before the pool closes") {
-    val priority = ExposedDatabaseService.PRIORITY
-    assert(priority < JdbcDataSourceService.PRIORITY)
-    assert(priority > FlywayMigrationService.PRIORITY && priority > SchemaVerificationService.PRIORITY && priority > 0)
+    withDataSource { pool ->
+      val exposed = ExposedDatabaseService(pool.dataSource)
+      try {
+        val migrations = FlywayMigrationService(pool.dataSource)
+        val verification = SchemaVerificationService(exposed.database, emptySet())
+        val app = object : AppService {}
+        val services = setOf(app, verification, migrations, exposed, pool)
+        val plan = startPlan(services, tiebreaker = StartOrder.Tiebreaker.Shuffled())
+        assert(plan == listOf(pool, exposed, migrations, verification, app))
+      } finally {
+        exposed.shutdown()
+      }
+    }
   }
 
   testSuite("withTransaction") {

@@ -19,8 +19,8 @@ data class SsrConfig(
  * renderer has rendered a page. `SsrEngine` has no way to stop Node.js, though: it only stops it from a JVM shutdown
  * hook, so there's nothing for a [shutdown] to do, and Node.js runs until the JVM exits.
  *
- * Bootable starts services in priority order, highest first, and stops them in reverse. This one has the default
- * priority, 0, so it starts before the [TodoServer], whose `KtorService` priority is `Int.MIN_VALUE`: the server never
+ * Bootable starts services phase by phase, and stops them in reverse. This one declares no phase, so it is in the
+ * default, `Application`, and starts before the [TodoServer], which as a `KtorService` is in `Serving`: the server never
  * serves a page without a renderer to render it.
  */
 class SsrRenderer(

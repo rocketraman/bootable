@@ -5,7 +5,12 @@ application services and your lifecycle controllers — and runs them:
 
 [source,kotlin]
 ----
-class Bootable(appServices: Set<AppService>, lifecycleControllers: Set<LifecycleController>)
+class Bootable(
+  appServices: Set<AppService>,
+  lifecycleControllers: Set<LifecycleController> = defaultLifecycleControllers(),
+  startOrder: StartOrder = DefaultStartOrder,
+  tiebreaker: StartOrder.Tiebreaker = StartOrder.Tiebreaker.ByName,
+)
 ----
 
 *How you assemble those two sets is entirely your choice.* This document covers the three wiring styles Bootable
@@ -24,6 +29,12 @@ fun main() = boot { /* return the Bootable to run */ }
 logging already set up. `Bootable`'s `lifecycleControllers` argument defaults to `defaultLifecycleControllers()`
 — the built-in start/stop and signal-handling controllers — so you pass it only to run a custom lifecycle (e.g.
 starting/stopping services on command from an RPC or web request rather than at boot).
+
+`startOrder` and `tiebreaker` decide the order the services start in (see link:service-ordering.adoc[Service
+ordering]), and are optional too. With Kodein, `bootableModule` uses a `StartOrder` or `StartOrder.Tiebreaker`
+binding if there is one; with Metro, `BootableDefaultBindings` does the same, as optional bindings. Without a
+`StartOrder.Tiebreaker` binding, both read it from the `boot.service.order` config section (`ServiceOrderConfig`) if
+there is a `ConfigBinder`; with vanilla wiring, pass `tiebreaker = serviceOrderConfig(binder).tiebreaker`.
 
 == Choosing a wiring style
 

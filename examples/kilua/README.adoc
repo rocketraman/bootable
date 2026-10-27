@@ -69,8 +69,8 @@ It returns once the renderer has rendered a first page, and fails if it hasn't w
 
 `TodoServer`, in `server/src/main/kotlin/TodoServer.kt`, is a `NettyKtorService`, which calls `renderer.render(...)` for `GET /`.
 
-Bootable starts services in priority order, highest first, and stops them in reverse (see link:../../docs/service-ordering.adoc[Service ordering]).
-`SsrRenderer` has the default priority, 0, and `TodoServer`, as a `KtorService`, has `Int.MIN_VALUE`, so the renderer starts before the server: the server never takes a request it can't render.
+Bootable starts services phase by phase, and stops them in reverse (see link:../../docs/service-ordering.adoc[Service ordering]).
+`SsrRenderer` declares no phase, so it is in the default, `Application`, and `TodoServer`, as a `KtorService`, is in `Serving`, so the renderer starts before the server: the server never takes a request it can't render.
 The log shows the order (trimmed):
 
 ----

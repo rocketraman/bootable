@@ -18,8 +18,8 @@ import com.github.rocketraman.bootable.db.jdbc.SqliteConfig
  * `dataSource`, and the repository uses it through an Exposed `Database`, whose tables are verified against the
  * migrated schema.
  *
- * Bootable starts the services by priority: the pool first (validating a connection), then the migrations, then the
- * schema verification, then the server. Shutdown runs in reverse, so the server stops taking requests before the
+ * Bootable starts the services phase by phase: the pool first (validating a connection), then the migrations, then
+ * the schema verification, then the server. Shutdown runs in reverse, so the server stops taking requests before the
  * Exposed `Database` is unregistered and the pool closes.
  */
 fun appServices(binder: ConfigBinder): Set<AppService> {

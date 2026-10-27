@@ -1,7 +1,9 @@
 package com.github.rocketraman.bootable.db.flyway
 
 import com.github.rocketraman.bootable.boot.AppService
-import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
+import com.github.rocketraman.bootable.boot.DefaultPhase
+import com.github.rocketraman.bootable.boot.Ordering
+import com.github.rocketraman.bootable.db.jdbc.DbMilestones
 import org.apache.logging.log4j.kotlin.logger
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.configuration.FluentConfiguration
@@ -18,8 +20,10 @@ fun interface FlywayConfigurationCustomizer {
 /**
  * Migrates the database with Flyway when the application starts.
  *
- * It starts at [PRIORITY], just below [JdbcDataSourceService.PRIORITY], so it runs after the pool has started and
- * validated its connection, and before the services that use the schema. A failed migration fails the start.
+ * It is in the [DefaultPhase.Initialization] phase, so it runs after the pool has started and validated its
+ * connection, and before the application's services that use the schema. It provides [DbMilestones.SchemaMigrated],
+ * so services in the same phase that check or use the schema, such as `boot-db-exposed`'s schema verification, start
+ * after it. A failed migration fails the start.
  *
  * ```
  * FlywayMigrationService(database.dataSource, binder.config("db.flyway"))
@@ -47,15 +51,9 @@ class FlywayMigrationService(
     result.warnings.forEach { log.warn { it } }
   }
 
-  override fun priority() = PRIORITY
+  override fun ordering() = Ordering(DefaultPhase.Initialization, provides = setOf(DbMilestones.SchemaMigrated))
 
   companion object {
-    /**
-     * Just below [JdbcDataSourceService.PRIORITY], so migrations run once the pool is up, and before the services
-     * that use the database, including `boot-db-exposed`'s schema verification at a lower priority still.
-     */
-    const val PRIORITY = JdbcDataSourceService.PRIORITY - 100
-
     private val log = logger()
   }
 }

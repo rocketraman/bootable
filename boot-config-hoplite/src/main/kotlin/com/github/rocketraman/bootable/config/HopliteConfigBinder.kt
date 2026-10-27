@@ -60,6 +60,10 @@ private val shellPromptEnvVars = setOf("PS1", "PS2", "PS4", "PROMPT_COMMAND")
  *
  * Enum values match the entries' names in any case, so `fail`, `Fail`, and `FAIL` are all `Fail`.
  *
+ * A sealed type is chosen by its subtype's name, in a `type` key next to the subtype's properties, e.g.
+ * `tiebreaker { type = Shuffled, seed = 42 }`, or `TIEBREAKER_TYPE=Shuffled` and `TIEBREAKER_SEED=42` in the
+ * environment. Unlike enum values, subtype names match only in their own case.
+ *
  * Returns a plain [ConfigBinder]; decode config sections with `binder.config<T>("key")`:
  *
  * ```
@@ -107,7 +111,8 @@ fun hopliteConfigBinder(
         strict()
       }
     }
-    .withExplicitSealedTypes()
+    // `type`, not Hoplite's default `_type`: an environment variable can't spell `_type`, as `_` separates the path
+    .withExplicitSealedTypes("type")
     .withResolveTypesCaseInsensitive()
     .build()
     .configBinder()

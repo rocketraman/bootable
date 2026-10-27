@@ -1,7 +1,9 @@
 package com.github.rocketraman.bootable.db.exposed
 
 import com.github.rocketraman.bootable.boot.AppService
-import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
+import com.github.rocketraman.bootable.boot.DefaultPhase
+import com.github.rocketraman.bootable.boot.Ordering
+import com.github.rocketraman.bootable.db.jdbc.DbMilestones
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import javax.sql.DataSource
@@ -16,8 +18,8 @@ import javax.sql.DataSource
  * transaction's database when none is named; shutdown unregisters this one, so a transaction after shutdown, or in
  * a later boot in the same JVM, can't pick it up once its pool is closed.
  *
- * The service runs at [PRIORITY], just below [JdbcDataSourceService.PRIORITY], so it shuts down after the services
- * that use the database and before the pool closes.
+ * The service is in the [DefaultPhase.Infrastructure] phase, after [DbMilestones.DataSourceReady], so it shuts down
+ * after the services that use the database, in later phases, and before the pool closes.
  *
  * ```
  * val exposed = ExposedDatabaseService(database.dataSource, binder.config("db.exposed"))
@@ -36,14 +38,5 @@ class ExposedDatabaseService(
     TransactionManager.closeAndUnregister(database)
   }
 
-  override fun priority() = PRIORITY
-
-  companion object {
-    /**
-     * Just below [JdbcDataSourceService.PRIORITY], and above the services that use the database (including
-     * `boot-db-flyway`'s migrations and [SchemaVerificationService]), so the `Database` is unregistered after they
-     * stop and before the pool closes.
-     */
-    const val PRIORITY = JdbcDataSourceService.PRIORITY - 50
-  }
+  override fun ordering() = Ordering(DefaultPhase.Infrastructure, after = setOf(DbMilestones.DataSourceReady))
 }

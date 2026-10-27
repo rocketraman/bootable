@@ -1,6 +1,8 @@
 package com.github.rocketraman.bootable.server.http.ktor
 
 import com.github.rocketraman.bootable.boot.AdvancedAppService
+import com.github.rocketraman.bootable.boot.DefaultPhase
+import com.github.rocketraman.bootable.boot.Ordering
 import com.github.rocketraman.bootable.config.common.HostPort
 import com.github.rocketraman.bootable.config.common.host
 import com.github.rocketraman.bootable.config.common.port
@@ -60,7 +62,8 @@ abstract class KtorService<TEngine : ApplicationEngine, TConfiguration : Applica
     }
   }
 
-  override fun priority() = Int.MIN_VALUE
+  /** In the [DefaultPhase.Serving] phase, so the server starts once the services it uses have, and stops first. */
+  override fun ordering() = Ordering(DefaultPhase.Serving)
 
   /**
    * Configures the engine, after the connector and shutdown defaults are set, so anything set here wins. The
