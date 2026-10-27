@@ -1,7 +1,7 @@
 [versions]
 compose-multiplatform = "1.12.2"
 dokka = "2.2.0"
-exposed = "1.5.1"
+exposed = "1.6.0"
 flyway = "13.11.1"
 graalvm-buildtools = "0.11.5"
 hikari = "7.1.0"
