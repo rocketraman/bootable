@@ -16,7 +16,7 @@ A service that declares nothing is in `Application`.
 * A `StartOrder`, passed to `Bootable`, defines the phases and how each service's ordering is read, so an app can add phases, replace them, or place a service it didn't write.
 The default is `DefaultStartOrder`.
 * Services left unordered start in the order of a `StartOrder.Tiebreaker`: `ByName` (the default), or `Shuffled(seed)`, which surfaces missing milestones and logs its seed.
-`boot.service.order.tiebreaker.type = Shuffled` in config (or `BOOT_SERVICE_ORDER_TIEBREAKER_TYPE=Shuffled`) shuffles them, e.g. in `application-local.conf` or test config, and `boot.service.order.tiebreaker.seed` replays a logged shuffle; `ServiceOrderConfig` holds these settings.
+`boot.service.order.tiebreaker._type = Shuffled` in config (or `BOOT_SERVICE_ORDER_TIEBREAKER=Shuffled`) shuffles them, e.g. in `application-local.conf` or test config, and `boot.service.order.tiebreaker.seed` replays a logged shuffle; `ServiceOrderConfig` holds these settings.
 * `startPlan(services, startOrder, tiebreaker)` computes the order, so tests can check it.
 A plan that can't be met throws a `StartOrderException` listing every problem: an unknown phase, a missing required milestone, a milestone provided in a later phase, or a cycle.
 * `boot-db-jdbc` adds `DbMilestones.DataSourceReady` and `DbMilestones.SchemaMigrated`.
@@ -38,21 +38,17 @@ With Kodein, `bootableModule` uses `StartOrder` and `StartOrder.Tiebreaker` bind
 
 `LifecycleController.priority()` is unchanged.
 
-=== Config enum values match in any case
+=== Config enum values and sealed subtype names match in any case
 
 `hopliteConfigBinder` matches enum values against the entries' names ignoring case, so `schemaVerification = fail`, `Fail`, and `FAIL` all read the same.
 This applies to every enum in config, so config values needn't follow how a Kotlin enum's entries are cased.
+Sealed subtype names match ignoring case too, so `Shuffled` and `shuffled` select the same subtype.
 
-=== Config selects sealed subtypes with `type`
+=== Environment variables select sealed subtypes
 
-`hopliteConfigBinder` selects a sealed type's subtype by a `type` key, instead of Hoplite's default `_type`, so an environment variable can select one too: `_` separates the path, so no environment variable can spell `_type`.
-For example, `tiebreaker { type = Shuffled, seed = 42 }`, or `BOOT_SERVICE_ORDER_TIEBREAKER_TYPE=Shuffled` and `BOOT_SERVICE_ORDER_TIEBREAKER_SEED=42`.
-Subtype names match only in their own case.
-
-==== Breaking changes
-
-* Config that selects a sealed subtype with `_type` must use `type` instead.
-* A sealed subtype can't have a property named `type`, as that key now selects the subtype.
+Bootable now uses Hoplite 3.0.5, where an environment variable selects a sealed type's subtype by naming it as the sealed type's own value, since no environment variable can spell `_type`: `_` separates the path.
+For example, `tiebreaker { _type = Shuffled, seed = 42 }` in config, or `BOOT_SERVICE_ORDER_TIEBREAKER=Shuffled` and `BOOT_SERVICE_ORDER_TIEBREAKER_SEED=42`.
+An environment variable that selects a subtype overrides the one config selects, and config can still set the subtype's properties.
 
 === A failed start shuts down the services that started
 

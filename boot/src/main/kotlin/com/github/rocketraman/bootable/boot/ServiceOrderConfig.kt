@@ -10,17 +10,17 @@ import com.github.rocketraman.bootable.config.config
  * ```
  * boot.service.order {
  *   tiebreaker {
- *     type = Shuffled  # or ByName, the default
+ *     _type = Shuffled  # or ByName, the default
  *     seed = 42        # optional: replays a logged shuffle
  *   }
  * }
  * ```
  *
- * or, as environment variables, `BOOT_SERVICE_ORDER_TIEBREAKER_TYPE=Shuffled` and
- * `BOOT_SERVICE_ORDER_TIEBREAKER_SEED=42`. The `type` is the [StartOrder.Tiebreaker] subtype's name, and the other
+ * or, as environment variables, `BOOT_SERVICE_ORDER_TIEBREAKER=Shuffled` and
+ * `BOOT_SERVICE_ORDER_TIEBREAKER_SEED=42`. The `_type` is the [StartOrder.Tiebreaker] subtype's name, and the other
  * keys are its properties.
  *
- * Set them like any other config, e.g. `type = Shuffled` in `application-local.conf` or test config, where a
+ * Set them like any other config, e.g. `_type = Shuffled` in `application-local.conf` or test config, where a
  * surprise is cheap, and the default in production, so it starts in the same order on every run.
  */
 data class ServiceOrderConfig(
