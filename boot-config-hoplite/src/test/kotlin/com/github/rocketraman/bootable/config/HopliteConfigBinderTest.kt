@@ -62,26 +62,43 @@ val ServiceOrderConfigTest by testSuite {
     assert(serviceOrderConfig(binder(emptyMap())) == ServiceOrderConfig())
   }
 
-  test("is read from environment variables, the tiebreaker by its type") {
-    val env = mapOf("BOOT_SERVICE_ORDER_TIEBREAKER_TYPE" to "Shuffled", "BOOT_SERVICE_ORDER_TIEBREAKER_SEED" to "42")
+  test("is read from environment variables, the tiebreaker by its own value") {
+    val env = mapOf("BOOT_SERVICE_ORDER_TIEBREAKER" to "Shuffled", "BOOT_SERVICE_ORDER_TIEBREAKER_SEED" to "42")
     assert(serviceOrderConfig(binder(env)).tiebreaker == StartOrder.Tiebreaker.Shuffled(42))
 
-    val byName = mapOf("BOOT_SERVICE_ORDER_TIEBREAKER_TYPE" to "ByName")
+    val byName = mapOf("BOOT_SERVICE_ORDER_TIEBREAKER" to "ByName")
     assert(serviceOrderConfig(binder(byName)).tiebreaker == StartOrder.Tiebreaker.ByName)
   }
 
   test("shuffles with a new seed when none is given") {
-    val env = mapOf("BOOT_SERVICE_ORDER_TIEBREAKER_TYPE" to "Shuffled")
+    val env = mapOf("BOOT_SERVICE_ORDER_TIEBREAKER" to "Shuffled")
     assert(serviceOrderConfig(binder(env)).tiebreaker is StartOrder.Tiebreaker.Shuffled)
   }
 
   test("is read from config") {
-    val binder = hocon("boot.service.order.tiebreaker { type = Shuffled, seed = 42 }")
+    val binder = hocon("boot.service.order.tiebreaker { _type = Shuffled, seed = 42 }")
+    assert(serviceOrderConfig(binder).tiebreaker == StartOrder.Tiebreaker.Shuffled(42))
+  }
+
+  test("the tiebreaker's subtype name matches in any case") {
+    listOf("shuffled", "SHUFFLED").forEach {
+      val env = mapOf("BOOT_SERVICE_ORDER_TIEBREAKER" to it, "BOOT_SERVICE_ORDER_TIEBREAKER_SEED" to "42")
+      assert(serviceOrderConfig(binder(env)).tiebreaker == StartOrder.Tiebreaker.Shuffled(42))
+    }
+  }
+
+  test("an environment variable selects the tiebreaker over config") {
+    val conf = "boot.service.order.tiebreaker { _type = ByName, seed = 42 }"
+    val binder = hopliteConfigBinder(
+      report = false,
+      environmentVariables = { mapOf("BOOT_SERVICE_ORDER_TIEBREAKER" to "Shuffled") },
+      withConfigStage2 = { addPropertySource(PropertySource.string(conf, "conf")) },
+    )
     assert(serviceOrderConfig(binder).tiebreaker == StartOrder.Tiebreaker.Shuffled(42))
   }
 
   test("in strict mode, a seed without a shuffle fails") {
-    val binder = hocon("boot.service.order.tiebreaker { type = ByName, seed = 42 }", strict = true)
+    val binder = hocon("boot.service.order.tiebreaker { _type = ByName, seed = 42 }", strict = true)
     val e = runCatching { serviceOrderConfig(binder) }.exceptionOrNull()
     val message = e?.message.orEmpty()
     assert(e is ConfigException && "'boot.service.order.tiebreaker.seed'" in message && "unused" in message)

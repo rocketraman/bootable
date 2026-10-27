@@ -447,13 +447,13 @@ on `boot`, and the environment is only set during `appInit`, after the plan is m
 ----
 boot.service.order {
   tiebreaker {
-    type = Shuffled  # ByName, the default, if unset
+    _type = Shuffled  # ByName, the default, if unset
     seed = 42        # optional: replays a logged shuffle
   }
 }
 ----
 
-Or, as environment variables, `BOOT_SERVICE_ORDER_TIEBREAKER_TYPE=Shuffled` and
+Or, as environment variables, `BOOT_SERVICE_ORDER_TIEBREAKER=Shuffled` and
 `BOOT_SERVICE_ORDER_TIEBREAKER_SEED=42`.
 
 [source,kotlin]
@@ -466,10 +466,10 @@ fun serviceOrderConfig(binder: ConfigBinder): ServiceOrderConfig = binder.config
 Bootable(appServices, tiebreaker = serviceOrderConfig(binder).tiebreaker)
 ----
 
-Config names the sealed `StartOrder.Tiebreaker` itself: `type` is the subtype's name, and the other keys are its
-properties, so the seed is `tiebreaker.seed`, where it means something. `hopliteConfigBinder` selects sealed
-subtypes by a `type` key rather than Hoplite's default `_type`, which no environment variable can spell, since `_`
-separates the path. Subtype names match only in their own case (`Shuffled`, not `shuffled`), unlike enum values.
+Config names the sealed `StartOrder.Tiebreaker` itself: `_type` is the subtype's name, and the other keys are its
+properties, so the seed is `tiebreaker.seed`, where it means something. No environment variable can spell `_type`,
+since `_` separates the path, so an environment variable names the subtype as the tiebreaker's own value instead.
+Subtype names match in any case, as enum values do.
 
 `boot`'s Kodein and Metro flavors read it this way when the app has a `ConfigBinder`, so an app sets it in config
 and writes no code; one without a `ConfigBinder` gets `ByName`. Keeping the tiebreaker apart from the `StartOrder`
