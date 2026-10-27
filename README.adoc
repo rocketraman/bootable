@@ -38,6 +38,7 @@ The basic built-in implementation of this is the `AppStartStopLifecycleControlle
 Services start phase by phase (infrastructure, initialization, application, serving), and, within a phase, after the milestones they declare; see link:docs/service-ordering.adoc[Service ordering].
 Services left unordered start by name, or shuffled with `boot.service.order.tiebreaker.type = Shuffled` in config (or `BOOT_SERVICE_ORDER_TIEBREAKER_TYPE=Shuffled`).
 Shuffling is useful in `application-local.conf` and test config, to surface services that rely on an order they don't declare.
+An app can pass its own `StartOrder` to add phases; see link:./examples/start-order[examples/start-order], which adds a phase after `Serving` for a service that announces the app is ready once its server is listening.
 Another basic implementation, intended to be used in conjunction with `AppStartStopLifecycleController`, is the `StopSignalHandlerLifecycleController`, which registers signal handlers, which, when received, cleanly shuts the system down.
 Other implementations are possible: for example starting/stopping services at runtime based on a command system, like start/stop messages from RPCs or web requests.
 
