@@ -89,6 +89,55 @@ Bootable now uses Hoplite 3.0.5, where an environment variable selects a sealed 
 For example, `tiebreaker { _type = Shuffled, seed = 42 }` in config, or `BOOT_SERVICE_ORDER_TIEBREAKER=Shuffled` and `BOOT_SERVICE_ORDER_TIEBREAKER_SEED=42`.
 An environment variable that selects a subtype overrides the one config selects, and config can still set the subtype's properties.
 
+=== Config substitutions use Hoplite's resolvers
+
+`hopliteConfigBinder` now substitutes values with Hoplite's resolvers, `${{ context:path }}`, instead of its preprocessors, `${VAR}` and `{{key}}`.
+Hoplite has deprecated preprocessors in favour of resolvers since 2023, and its maintainer has confirmed resolvers are the intended default.
+Resolvers resolve a value only when it is bound, so a `${...}` elsewhere, such as in an exported shell variable like `PS1`, no longer fails loading.
+That makes Bootable's filter of such environment variables unnecessary, so it is removed.
+
+The substitutions map as follows:
+
+[cols="1,1"]
+|===
+|Preprocessor |Resolver
+
+|`${VAR}` (environment variable or system property)
+|`${{ env:VAR }}`, or `${{ sysprop:name }}` for a system property
+
+|`${VAR:-default}`
+|`${{ env:VAR:-default }}`
+
+|`{{key}}` or `${key}` (another config value)
+|`${{ ref:key }}`
+
+|`${random.int}`, `${random.int(10)}`, `${random.uuid}`, ...
+|`${{ random:int }}`, `${{ random:int(10) }}`, `${{ random:uuid }}`, ...
+|===
+
+`${{ env:name }}` reads the environment that `hopliteConfigBinder`'s `environmentVariables` supplies, as the environment variables source does.
+
+HOCON's own substitutions, unquoted `${VAR}`, `${?VAR}`, and `${a.b}`, are unaffected: HOCON resolves them when it parses the file, falling back to the environment for `${VAR}` and `${?VAR}`.
+They are the recommended way to reference environment variables, and the only one inside maps and lists.
+
+==== Breaking changes
+
+* Preprocessor substitutions are no longer expanded.
+They are not an error: a `${VAR}` or `{{key}}` is left in the value as literal text.
+That includes a `${VAR}` inside a quoted HOCON string, which Hoplite's preprocessors used to expand and HOCON doesn't.
+* A resolver resolves only a data class field whose value is a single string.
+A `${{ ... }}` inside a map, list, or set, such as `dataSourceProperties`, Flyway's `placeholders`, `locations`, or `schemas`, or telemetry's `otlp.headers` or `resourceAttributes`, is left as literal text; use HOCON's `${?VAR}` there.
+* A `${{ ... }}` that resolves to nothing fails the bind, and doesn't fall back to the data class's default value (https://github.com/sksamuel/hoplite/issues/460[sksamuel/hoplite#460]).
+Give an optional value a fallback, e.g. `${{ env:DB_HOST:-localhost }}`.
+* Hoplite's module resolvers use different names from its module preprocessors: `awssm://` (and `${awssecret:...}`, `secretsmanager://`) is `aws-secrets-manager://`, `azurekeyvault://` is `azure-key-vault://`, and `gcpsm://` is `gcp-secrets-manager://`.
+`vault://` and `consul://` are unchanged.
+There is no resolver for AWS Parameter Store's `${ssm:key}` or `paramstore://`.
+* Hoplite's module resolvers, for Vault, AWS, GCP, Azure, and Consul, can now be added in the `withConfigStageN` hooks with `addResolver`, which used to throw because Bootable had added preprocessors.
+A preprocessor added there still runs, but an unresolved substitution is no longer reported, since Hoplite skips that check once there are resolvers.
+* The config report shows values before resolvers run, so it shows `${{ env:DB_HOST }}` rather than the value it resolves to.
+Resolvers don't mark values as secrets in the report the way some preprocessors did, but since the report shows the expression, it doesn't print the secret either.
+* `isKnownNonConfigEnvVar` is removed.
+
 === A failed start shuts down the services that started
 
 When a service's `start()` throws, Bootable now runs the normal shutdown before exiting with -1, instead of exiting at once.

@@ -3,6 +3,9 @@ package com.github.rocketraman.bootable.config
 import com.sksamuel.hoplite.*
 import com.sksamuel.hoplite.ConfigBinder as UpstreamConfigBinder
 import com.sksamuel.hoplite.decoder.Decoder
+import com.sksamuel.hoplite.fp.valid
+import com.sksamuel.hoplite.resolver.context.ContextResolver
+import com.sksamuel.hoplite.resolver.context.EnvVarContextResolver
 import com.sksamuel.hoplite.secrets.CompositeSecretsPolicy
 import com.sksamuel.hoplite.secrets.Obfuscator
 import com.sksamuel.hoplite.secrets.SecretsPolicy
@@ -20,23 +23,9 @@ class HopliteConfigBinder(private val binder: UpstreamConfigBinder): ConfigBinde
 }
 
 /**
- * Whether the environment variable [name] is set by the shell or other tooling and is never application config.
- * These are excluded from the environment source because their values are shell code that routinely contains
- * `${...}`, which Hoplite would otherwise fail on as an unresolved substitution.
- *
- * TODO remove once Hoplite excludes these itself: https://github.com/sksamuel/hoplite/issues/602
- */
-fun isKnownNonConfigEnvVar(name: String): Boolean =
-  // exported bash functions (`export -f`, or tools like Lmod), named `BASH_FUNC_name%%`
-  name.startsWith("BASH_FUNC_") ||
-    name in shellPromptEnvVars
-
-private val shellPromptEnvVars = setOf("PS1", "PS2", "PS4", "PROMPT_COMMAND")
-
-/**
  * Builds a default Hoplite-based [ConfigBinder], reading properties in the following order, from highest priority
  * to lowest:
- * - environment variables (supports upper case, convert `_` to `.`; see [isKnownNonConfigEnvVar] for exclusions)
+ * - environment variables (supports upper case, convert `_` to `.`)
  * - system properties (with `config.override.` prefix)
  * - `application-local.conf` in resources
  * - `application.conf` in resources
@@ -54,11 +43,17 @@ private val shellPromptEnvVars = setOf("PS1", "PS2", "PS4", "PROMPT_COMMAND")
  * - stage3
  *
  * If report is true (the default), a report of all config keys and values is enabled. All sensitive values should
- * be of type [Masked] (or Hoplite's `Secret`) to avoid leaking them in the report, named with "secret",
- * "credential", or "pass" in the name, or have pre-processor metadata that identifies the value as a secret.
- * Configure this via [secretsPolicy]; a [Masked] value is masked whatever the policy.
+ * be of type [Masked] (or Hoplite's `Secret`), or named with "secret", "credential", or "pass" in the name, to
+ * avoid leaking them in the report. Configure this via [secretsPolicy]; a [Masked] value is masked whatever the
+ * policy. The report shows values as loaded, before resolvers run, so it shows `${{ env:DB_PASSWORD }}`, not the
+ * password.
  *
- * [environmentVariables] supplies the environment variables to read (defaults to [System.getenv]).
+ * Config values may reference other values with Hoplite's resolvers, e.g. `${{ env:DB_HOST }}`,
+ * `${{ env:DB_HOST:-localhost }}`, or `${{ sysprop:name }}`. These resolve only in a field whose value is a single
+ * string, not in a map, list, or set; use HOCON's own `${?DB_HOST}` substitutions there.
+ *
+ * [environmentVariables] supplies the environment variables to read, both as a config source and for
+ * `${{ env:name }}` (defaults to [System.getenv]).
  *
  * A sealed type is chosen by its subtype's name, in a `_type` key next to the subtype's properties, e.g.
  * `tiebreaker { _type = Shuffled, seed = 42 }`, or, in the environment, as the sealed type's own value, e.g.
@@ -89,13 +84,13 @@ fun hopliteConfigBinder(
     .addDefaultDecoders()
     .addDecoder(MaskedDecoder())
     .addDecoders(decoders)
-    .addDefaultPreprocessors()
+    .addResolvers(defaultResolvers().map {
+      if (it == EnvVarContextResolver) EnvironmentVariablesContextResolver(environmentVariables) else it
+    })
     .addDefaultNodeTransformers()
     .addDefaultParamMappers()
     .withConfigStage1()
-    .addPropertySource(EnvironmentVariablesPropertySource({
-      environmentVariables().filterKeys { !isKnownNonConfigEnvVar(it) }
-    }))
+    .addPropertySource(EnvironmentVariablesPropertySource(environmentVariables))
     .addPropertySource(SystemPropertiesPropertySource) // requires config.override. prefix
     .addPropertySource(UserSettingsPropertySource)
     .addPropertySource(XdgConfigPropertySource)
@@ -120,4 +115,18 @@ fun hopliteConfigBinder(
     .configBinder()
 
   return HopliteConfigBinder(upstream)
+}
+
+/**
+ * Hoplite's [EnvVarContextResolver], reading [environmentVariables] instead of [System.getenv], so that
+ * `${{ env:name }}` sees the same environment as the environment variables source.
+ */
+private class EnvironmentVariablesContextResolver(
+  private val environmentVariables: () -> Map<String, String>,
+) : ContextResolver() {
+  override val contextKey = EnvVarContextResolver.contextKey
+  override val default = EnvVarContextResolver.default
+
+  override fun lookup(path: String, node: StringNode, root: Node, context: DecoderContext): ConfigResult<String?> =
+    environmentVariables()[path].valid()
 }

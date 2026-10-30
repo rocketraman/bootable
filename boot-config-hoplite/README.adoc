@@ -37,6 +37,35 @@ Bootable injects a Hoplite `ParameterMapper` that maps configuration properties 
 
 See also https://github.com/sksamuel/hoplite/issues/410[hoplite issue #410].
 
+## Substitutions
+
+A config value can reference an environment variable, a system property, or another config value with Hoplite's https://github.com/sksamuel/hoplite#resolvers[resolvers]:
+
+```hocon
+app.name = "orders"
+db {
+  host = "${{ env:DB_HOST }}"
+  port = "${{ env:DB_PORT:-5432 }}"
+  user = "${{ sysprop:db.user }}"
+  name = "${{ ref:app.name }}"
+}
+```
+
+A reference that resolves to nothing, without a `:-fallback`, fails the bind.
+`${{ env:name }}` reads the environment variables passed to `hopliteConfigBinder(environmentVariables = ...)`, which default to the process environment.
+Hoplite modules add resolvers for secret stores, such as Vault, AWS Secrets Manager, GCP Secret Manager, and Azure Key Vault; add them with `addResolver` in a `withConfigStageN` hook.
+
+Resolvers resolve only a data class field whose value is a single string, not the entries of a map, list, or set.
+There, and anywhere else, use HOCON's own substitutions, which HOCON resolves when it parses the file, falling back to the environment:
+
+```hocon
+db.dataSourceProperties {
+  sslmode = ${?DB_SSLMODE}
+}
+```
+
+Hoplite's deprecated preprocessor syntax, `${VAR}` in a quoted string or `{{key}}`, is not expanded and is left as literal text.
+
 ## Custom Types
 
 Hoplite `Decoder` instances may be registered via the Java ServiceLoader framework, or passed to the `hopliteConfigBinder(...)` factory.
