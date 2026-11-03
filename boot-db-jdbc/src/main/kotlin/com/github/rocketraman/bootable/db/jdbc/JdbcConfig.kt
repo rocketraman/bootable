@@ -1,5 +1,7 @@
 package com.github.rocketraman.bootable.db.jdbc
 
+import com.github.rocketraman.bootable.config.Masked
+
 /**
  * How to connect to a database. [JdbcDataSourceService] builds its pool from this, using the [ConnectionPoolFactory]
  * of the chosen pool module.
@@ -16,11 +18,8 @@ interface JdbcConfig {
 
   val username: String?
 
-  /**
-   * The password. Hoplite's default secrets policy treats any field whose name contains "pass" as a secret, so
-   * this is masked in the config report.
-   */
-  val password: String?
+  /** The password: [Masked], so it is kept out of logs, exception messages, and the config report. */
+  val password: Masked?
 
   /** Driver-specific connection properties, passed to the driver on every new connection. */
   val dataSourceProperties: Map<String, String>

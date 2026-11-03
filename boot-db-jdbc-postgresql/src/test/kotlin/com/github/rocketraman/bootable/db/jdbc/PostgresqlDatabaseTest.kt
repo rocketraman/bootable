@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.db.jdbc
 
+import com.github.rocketraman.bootable.config.Masked
 import com.github.rocketraman.bootable.db.flyway.FlywayMigrationService
 import de.infix.testBalloon.framework.core.TestConfig
 import de.infix.testBalloon.framework.core.disable
@@ -26,7 +27,7 @@ val PostgresqlDatabaseTest by testSuite(
       port = it.firstMappedPort,
       database = it.databaseName,
       username = it.username,
-      password = it.password,
+      password = Masked(it.password),
       applicationName = "bootable-test",
     )
   }

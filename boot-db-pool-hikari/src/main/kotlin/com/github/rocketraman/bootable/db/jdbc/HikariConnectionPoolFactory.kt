@@ -52,7 +52,7 @@ internal fun hikariConfig(
   jdbcUrl = config.jdbcUrl
   config.driverClassName?.let { driverClassName = it }
   config.username?.let { username = it }
-  config.password?.let { password = it }
+  config.password?.let { password = it.value }
   config.dataSourceProperties.forEach { (key, value) -> addDataSourceProperty(key, value) }
 
   // the configured size wins, but going above what the driver says the database copes with is likely a mistake

@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.db.jdbc
 
+import com.github.rocketraman.bootable.config.Masked
 import kotlin.io.path.Path
 import kotlin.io.path.createDirectories
 import kotlin.time.Duration
@@ -44,7 +45,7 @@ data class SqliteConfig(
   override val jdbcUrl get() = "jdbc:sqlite:$path"
   override val driverClassName get() = "org.sqlite.JDBC"
   override val username: String? get() = null
-  override val password: String? get() = null
+  override val password: Masked? get() = null
   override val maxConnectionsHint get() = 1
 
   override fun prepare() {

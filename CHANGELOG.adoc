@@ -58,6 +58,7 @@ Its exemplars carry only the trace and span ids, within OpenMetrics's 128-charac
 `boot-config-common` adds `Masked`, for a config property of a Bootable module that holds a secret, such as a password, an API key, or an auth header.
 Those modules' config classes don't depend on a config library, so they can't use Hoplite's `Secret`; an application's own config classes should.
 Its `toString` is masked, and `hopliteConfigBinder` decodes it from a string or a number and masks it in its config report, whatever the secrets policy, including in a map, whose values Hoplite's report would otherwise list as unused, in plain text.
+The JDBC modules' `password` is `Masked`.
 
 === Config enum values and sealed subtype names match in any case
 

@@ -4,6 +4,7 @@ import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.config.Masked
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
 import com.github.rocketraman.bootable.config.hopliteConfigModule
@@ -30,7 +31,7 @@ private val expectedConfig = PostgresqlConfig(
   port = 5433,
   database = "app",
   username = "app",
-  password = "secret",
+  password = Masked("secret"),
   applicationName = "wiring-test",
   sslMode = PostgresqlSslMode.VERIFY_FULL,
   connectTimeout = 3.seconds,
