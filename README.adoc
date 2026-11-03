@@ -210,6 +210,7 @@ With Metro, the `-metro` modules contribute everything.
 
 link:./examples/server-ktor-db[examples/server-ktor-db] traces its requests, with a span for each database operation within them, records its request, pool, and runtime metrics and a counter of its own, and serves them at http://localhost:8001/metrics, wired each of the three ways.
 Its metrics are pulled, so they need nothing else running, but its traces are pushed: to see them, point `OTEL_EXPORTER_OTLP_ENDPOINT` at an OpenTelemetry collector or Jaeger (see <<TelemetryPushPull>>).
+Its link:./examples/server-ktor-db/README.adoc[README] shows how to see both locally, with Grafana or Jaeger in a container.
 
 [[TelemetryPushPull]]
 ==== Push and pull
