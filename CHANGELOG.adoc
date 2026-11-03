@@ -39,6 +39,12 @@ With Kodein, `bootableModule` uses `StartOrder` and `StartOrder.Tiebreaker` bind
 
 `LifecycleController.priority()` is unchanged.
 
+=== Masked config values
+
+`boot-config-common` adds `Masked`, for a config property of a Bootable module that holds a secret, such as a password, an API key, or an auth header.
+Those modules' config classes don't depend on a config library, so they can't use Hoplite's `Secret`; an application's own config classes should.
+Its `toString` is masked, and `hopliteConfigBinder` decodes it from a string or a number and masks it in its config report, whatever the secrets policy, including in a map, whose values Hoplite's report would otherwise list as unused, in plain text.
+
 === Config enum values and sealed subtype names match in any case
 
 `hopliteConfigBinder` matches enum values against the entries' names ignoring case, so `schemaVerification = fail`, `Fail`, and `FAIL` all read the same.

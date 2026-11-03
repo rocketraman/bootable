@@ -51,6 +51,13 @@ Add additional modules as you wish.
 [[Configuration]]
 === Configuration
 
+Bootable's own modules declare a config property that holds a secret, such as a password, an API key, or an auth header, as `Masked`, from `boot-config-common`, rather than `String`.
+Their config classes don't depend on a config library, so they can't use the library's own type, such as Hoplite's `Secret`.
+`Masked` has a masked `toString`, so a config class can be logged or printed safely, and `boot-config-hoplite` masks it in its config report.
+
+Bootable doesn't aim to make config libraries interchangeable.
+In your own config classes, declare secrets with your config library's type, such as Hoplite's `Secret`.
+
 ==== Hoplite
 
 See https://github.com/sksamuel/hoplite[hoplite].
