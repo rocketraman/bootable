@@ -32,6 +32,7 @@
             <option value="$PROJECT_DIR$/boot-telemetry-otel-gcp" />
             <option value="$PROJECT_DIR$/boot-telemetry-otel-micrometer-bridge" />
             <option value="$PROJECT_DIR$/boot-telemetry-otel-prometheus" />
+            <option value="$PROJECT_DIR$/boot-telemetry-otel-signoz" />
             <option value="$PROJECT_DIR$/examples" />
             <option value="$PROJECT_DIR$/examples/compose-html" />
             <option value="$PROJECT_DIR$/examples/compose-html/client" />

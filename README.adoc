@@ -169,6 +169,7 @@ For SDK settings the config doesn't cover, such as a span processor, a metric vi
 
 | `boot-telemetry-otel-prometheus` | `PrometheusTelemetryConfig` | Prometheus export: `PrometheusTelemetry` registers a metric reader with the SDK, and renders the scrape, in the OpenMetrics or Prometheus text format, for an HTTP integration to serve.
 | `boot-telemetry-otel-gcp` | `GcpTelemetryConfig` | Google Cloud: the GCP platform's resource attributes (the Cloud Run service and revision, or the GKE cluster, namespace, and pod), and authentication of OTLP export to Google's OTLP endpoint, `https://telemetry.googleapis.com`, which writes traces to Cloud Trace and metrics to Cloud Monitoring, without a collector.
+| `boot-telemetry-otel-signoz` | `SigNozTelemetryConfig` | https://signoz.io/[SigNoz], which ingests OTLP itself, at `https://ingest.<region>.signoz.cloud:443` for SigNoz Cloud, or a self-hosted SigNoz's collector on port 4318: the ingestion key on export to SigNoz Cloud, the environment also as `deployment.environment`, which SigNoz's filters read, and, optionally, delta temporality for counters and histograms, which SigNoz suggests to cut the samples it stores.
 | `boot-telemetry-otel-micrometer-bridge` | | A Micrometer `MeterRegistry` that records into the SDK, for libraries that report only to Micrometer.
 |===
 
@@ -198,6 +199,9 @@ telemetry {
   gcp {
     projectId = my-project
   }
+  signoz {
+    ingestionKey = ${?SIGNOZ_INGESTION_KEY}
+  }
   ktor {
     hostPort = ":9090"
   }
@@ -205,7 +209,7 @@ telemetry {
 ----
 
 With vanilla wiring, build the customizers, then an `OpenTelemetryService(telemetryConfig(binder), listOf(prometheus, ktorConfig.excludeScrapeFromTraces()))`, pass it to `boot` as an app service, and hand its `openTelemetry` to whatever records telemetry: e.g. `KtorTelemetry(telemetry.openTelemetry, setOf(prometheus), ktorConfig)`.
-With Kodein, import `openTelemetryModule`, then `prometheusTelemetryModule`, `gcpTelemetryModule`, `micrometerBridgeModule`, and `ktorTelemetryModule` as needed, and bind `OpenTelemetry` and `KtorTelemetry` where needed.
+With Kodein, import `openTelemetryModule`, then `prometheusTelemetryModule`, `gcpTelemetryModule`, `sigNozTelemetryModule`, `micrometerBridgeModule`, and `ktorTelemetryModule` as needed, and bind `OpenTelemetry` and `KtorTelemetry` where needed.
 With Metro, the `-metro` modules contribute everything.
 
 link:./examples/server-ktor-db[examples/server-ktor-db] traces its requests, with a span for each database operation within them, records its request, pool, and runtime metrics and a counter of its own, and serves them at http://localhost:8001/metrics, wired each of the three ways.
@@ -230,7 +234,7 @@ Push works where nothing can reach the application to scrape it: short-lived job
 The application usually pushes to an OpenTelemetry collector beside it, such as a sidecar or a node agent, rather than straight to the backend.
 The collector batches, retries, samples, and holds the backend's credentials, so the application needs only its address.
 A collector can also scrape Prometheus endpoints, so the two models mix.
-Some backends take OTLP directly, without a collector: Jaeger, for one, and Google Cloud, with `boot-telemetry-otel-gcp`.
+Some backends take OTLP directly, without a collector: Jaeger, for one, Google Cloud, with `boot-telemetry-otel-gcp`, and SigNoz, with `boot-telemetry-otel-signoz`.
 
 * With Prometheus already in place, let it pull the metrics, and push the traces over OTLP.
 * With a collector, or a hosted backend, push both over OTLP, and leave Prometheus out.

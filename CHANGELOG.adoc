@@ -49,6 +49,7 @@ Log events within a span carry its trace and span ids, which `boot-logging-log4j
 * `boot-telemetry-otel-prometheus`: Prometheus export, and its scrape.
 Its exemplars carry only the trace and span ids, within OpenMetrics's 128-character limit for an exemplar's labels.
 * `boot-telemetry-otel-gcp`: GCP resource detection, and authenticated OTLP export to Google Cloud Trace and Cloud Monitoring.
+* `boot-telemetry-otel-signoz`: OTLP export to SigNoz, authenticated for SigNoz Cloud, optionally with delta temporality.
 * `boot-telemetry-otel-micrometer-bridge`: a Micrometer `MeterRegistry` that records into the SDK.
 * `boot-server-http-ktor-otel`: traces and measures a Ktor server's requests, and serves the metrics scrape, on the server or a listener of its own.
 

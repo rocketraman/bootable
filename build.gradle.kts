@@ -54,6 +54,7 @@ dependencies {
   dokka(project(":boot-telemetry-otel-gcp"))
   dokka(project(":boot-telemetry-otel-micrometer-bridge"))
   dokka(project(":boot-telemetry-otel-prometheus"))
+  dokka(project(":boot-telemetry-otel-signoz"))
 }
 
 // The published version comes from a `vX.Y.Z` tag on HEAD, so a release is driven purely by tagging; any
@@ -563,6 +564,8 @@ mapOf(
   ),
   "micrometer-bridge" to listOf(rootProject.libs.micrometer.core, rootProject.libs.opentelemetry.instrumentation.micrometer),
   "prometheus" to listOf(rootProject.libs.opentelemetry.exporter.prometheus, rootProject.libs.prometheus.metrics.exposition.textformats),
+  // SigNoz ingests OTLP, so it needs nothing beyond the SDK's exporters
+  "signoz" to emptyList(),
 ).forEach { (name, libraries) ->
   project("boot-telemetry-otel-$name") {
     configureDiVariants()

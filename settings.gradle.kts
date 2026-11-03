@@ -51,6 +51,7 @@ include("boot-telemetry-otel")
 include("boot-telemetry-otel-gcp")
 include("boot-telemetry-otel-micrometer-bridge")
 include("boot-telemetry-otel-prometheus")
+include("boot-telemetry-otel-signoz")
 
 include(":examples:compose-html:client")
 include(":examples:compose-html:server")
