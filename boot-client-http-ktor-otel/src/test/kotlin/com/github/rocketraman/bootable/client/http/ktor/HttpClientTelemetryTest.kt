@@ -3,18 +3,23 @@ package com.github.rocketraman.bootable.client.http.ktor
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.boot.startPlan
+import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.common.HostPort
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
-import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.server.http.ktor.CioKtorService
 import com.github.rocketraman.bootable.server.http.ktor.KtorService
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.server.http.ktor.installTelemetry
 import com.github.rocketraman.bootable.telemetry.otel.MetricsConfig
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizer
+import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizers
+import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
 import com.github.rocketraman.bootable.telemetry.otel.TelemetryConfig
 import com.github.rocketraman.bootable.telemetry.otel.openTelemetryModule
@@ -46,6 +51,8 @@ import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.kodein.di.direct
 import org.kodein.di.inBindSet
+import org.kodein.di.inara.Binding
+import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import org.kodein.di.singleton
 import java.net.URI
@@ -237,6 +244,17 @@ object TestTelemetryBindings {
   @Provides fun engine(downstream: Downstream): KtorClientEngine = downstream
 }
 
+/** An application's module, composed as an Inara application composes it, with the test's in-memory telemetry. */
+@DIModule(composed = true)
+interface InaraTestModule :
+  ConfigModule,
+  BootableModule,
+  OpenTelemetryModule,
+  KtorClientModule,
+  HttpClientTelemetryModule {
+  @OpenTelemetryCustomizers val inMemoryTelemetry: OpenTelemetryCustomizer
+}
+
 private val expectedConfig = HttpClientTelemetryConfig(capturedResponseHeaders = listOf("X-Request-Id"))
 
 /** Calls downstream through the wired client, as the application would, and checks its span. */
@@ -278,6 +296,21 @@ val HttpClientTelemetryWiringTest by testSuite {
 
       assert(graph.httpClientTelemetry.config == expectedConfig)
       checkTraces(graph.appServices, graph.clients, graph.inMemoryTelemetry)
+    }
+
+    test("inara") {
+      val inMemory = InMemoryTelemetry()
+      val module = InaraTestModule(
+        configModule = hopliteConfigModule(),
+        bootableModule = bootableModule(),
+        openTelemetryModule = openTelemetryModule(),
+        ktorClientModule = ktorClientModule(Downstream()),
+        httpClientTelemetryModule = httpClientTelemetryModule(),
+        inMemoryTelemetry = Binding.value(inMemory),
+      )
+
+      assert(module.httpClientTelemetry.config == expectedConfig)
+      checkTraces(module.setOfAppServices(), module.ktorClientService, inMemory)
     }
   }
 }

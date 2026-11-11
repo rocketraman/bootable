@@ -3,11 +3,14 @@ package com.github.rocketraman.bootable.server.http.ktor
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.BuildInfo
 import com.github.rocketraman.bootable.boot.HealthLifecycleController
 import com.github.rocketraman.bootable.boot.ReadinessConfig
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.config.ConfigBinder
+import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.test.StaticConfigBinder
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
@@ -18,6 +21,8 @@ import io.ktor.server.cio.*
 import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.kodein.di.direct
+import org.kodein.di.inara.Binding
+import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 
 /**
@@ -63,6 +68,20 @@ interface HealthListenerGraph : BootableGraph
 /** The listener of its own [services] has, or the service in its place that does nothing. */
 private fun Set<AppService>.healthListener(): AppService = single { it.name().startsWith("HealthKtorService") }
 
+/** An application's module, composed as an Inara application composes it. */
+@DIModule(composed = true)
+interface InaraHealthModule : ConfigModule, BootableModule, KtorServerEngineModule, KtorHealthModule
+
+private fun inaraHealthModule(
+  configBinder: ConfigBinder = healthConfigBinder(),
+  ktorServerEngineModule: KtorServerEngineModule = NoKtorServerEngineModule,
+) = InaraHealthModule(
+  configModule = ConfigModule(configBinder = Binding.value(configBinder)),
+  bootableModule = bootableModule(),
+  ktorServerEngineModule = ktorServerEngineModule,
+  ktorHealthModule = ktorHealthModule(),
+)
+
 val KtorHealthWiringTest by testSuite {
   test("KtorHealth serves the application's HealthLifecycleController and BuildInfo, with its config, in kodein") {
     val di = DI {
@@ -81,6 +100,13 @@ val KtorHealthWiringTest by testSuite {
     assert(graph.ktorHealth.health === graph.health)
     assert(graph.ktorHealth.config.readyPath == "/ready")
     assert(graph.ktorHealth.buildInfo == BuildInfo(version = "1.4.2"))
+  }
+
+  test("KtorHealth serves the application's HealthLifecycleController and BuildInfo, with its config, in inara") {
+    val module = inaraHealthModule()
+    assert(module.ktorHealth.health === module.health)
+    assert(module.ktorHealth.config.readyPath == "/ready")
+    assert(module.ktorHealth.buildInfo == BuildInfo(version = "1.4.2"))
   }
 
   testSuite("the listener of its own is an app service") {
@@ -118,6 +144,24 @@ val KtorHealthWiringTest by testSuite {
         bindSingleton<ConfigBinder> { healthConfigBinder(hostPort = "127.0.0.1:0") }
       }.direct
       val failure = runCatching { di.instance<Set<AppService>>() }.exceptionOrNull()
+      assert(generateSequence(failure) { it.cause }.any { it.message?.contains("no KtorServerEngine") == true })
+    }
+
+    test("on the application's KtorServerEngine, in inara") {
+      val module = inaraHealthModule(
+        configBinder = healthConfigBinder(hostPort = "127.0.0.1:0"),
+        ktorServerEngineModule = KtorServerEngineModule(ktorServerEngine = Binding.value(KtorServerEngine(CIO))),
+      )
+      assert(module.setOfAppServices().healthListener() is HealthKtorService<*, *>)
+    }
+
+    test("that does nothing, with no engine needed, when no hostPort is set, in inara") {
+      assert(inaraHealthModule().setOfAppServices().healthListener().name() == "HealthKtorService (none)")
+    }
+
+    test("that fails, naming the missing engine, when hostPort is set but there is no engine, in inara") {
+      val module = inaraHealthModule(configBinder = healthConfigBinder(hostPort = "127.0.0.1:0"))
+      val failure = runCatching { module.setOfAppServices() }.exceptionOrNull()
       assert(generateSequence(failure) { it.cause }.any { it.message?.contains("no KtorServerEngine") == true })
     }
   }

@@ -3,10 +3,15 @@ package com.github.rocketraman.bootable.db.jdbc
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.setOfAppServices
+import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.telemetry.otel.MetricsConfig
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizer
+import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizers
+import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
 import com.github.rocketraman.bootable.telemetry.otel.TelemetryConfig
 import com.github.rocketraman.bootable.telemetry.otel.openTelemetryModule
@@ -26,6 +31,8 @@ import io.opentelemetry.sdk.metrics.data.MetricData
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader
 import org.kodein.di.DI
 import org.kodein.di.direct
+import org.kodein.di.inara.Binding
+import org.kodein.di.inara.DIModule
 import org.kodein.di.inBindSet
 import org.kodein.di.instance
 import org.kodein.di.singleton
@@ -95,6 +102,29 @@ object TestBindings {
   @Provides @IntoSet
   fun initSql(): HikariConfigCustomizer = HikariConfigCustomizer { it.connectionInitSql = "SELECT 'metro'" }
 }
+
+@DIModule(composed = true)
+interface InaraTestModule :
+  ConfigModule,
+  BootableModule,
+  OpenTelemetryModule,
+  JdbcDataSourceModule,
+  HikariPoolModule,
+  HikariPoolMetricsModule {
+  @OpenTelemetryCustomizers val inMemoryMetrics: InMemoryMetrics
+  @HikariConfigCustomizers val initSql: HikariConfigCustomizer
+}
+
+private fun inaraTestModule() = InaraTestModule(
+  configModule = hopliteConfigModule(),
+  bootableModule = bootableModule(),
+  openTelemetryModule = openTelemetryModule(),
+  jdbcDataSourceModule = jdbcDataSourceModule(JdbcGenericConfigSource),
+  hikariPoolModule = hikariPoolModule(),
+  hikariPoolMetricsModule = hikariPoolMetricsModule(),
+  inMemoryMetrics = Binding.single { InMemoryMetrics() },
+  initSql = Binding.value(HikariConfigCustomizer { it.connectionInitSql = "SELECT 'inara'" }),
+)
 
 /** Config comes from src/test/resources/application.conf, as it would in an application. */
 val HikariPoolMetricsTest by testSuite {
@@ -185,6 +215,21 @@ val HikariPoolMetricsTest by testSuite {
           .checkPoolMetrics(graph.inMemoryMetrics, "metrics-wiring-test")
       } finally {
         graph.appServices.filterIsInstance<OpenTelemetryService>().single().shutdown()
+      }
+    }
+
+    test("inara, alongside the application's own customizer") {
+      val module = inaraTestModule()
+
+      assert(module.setOfHikariConfigCustomizers().size == 2)
+      val hikari = module.dataSource as HikariDataSource
+      assert(hikari.connectionInitSql == "SELECT 'inara'")
+      val services = module.setOfAppServices()
+      try {
+        services.filterIsInstance<JdbcDataSourceService>().single()
+          .checkPoolMetrics(module.inMemoryMetrics, "metrics-wiring-test")
+      } finally {
+        services.filterIsInstance<OpenTelemetryService>().single().shutdown()
       }
     }
   }

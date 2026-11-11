@@ -3,12 +3,20 @@ package com.github.rocketraman.bootable.periodic
 import com.github.rocketraman.bootable.boot.AdvancedAppService
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
+import com.github.rocketraman.bootable.boot.AppServices
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.setOfAppServices
+import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
+import com.github.rocketraman.bootable.leader.AlwaysLeaderModule
+import com.github.rocketraman.bootable.leader.LeaderElectionModule
 import com.github.rocketraman.bootable.telemetry.otel.ALWAYS_SAMPLE
 import com.github.rocketraman.bootable.telemetry.otel.MetricsConfig
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizer
+import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizers
+import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
 import com.github.rocketraman.bootable.telemetry.otel.Sample
 import com.github.rocketraman.bootable.telemetry.otel.TelemetryConfig
@@ -31,6 +39,8 @@ import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.kodein.di.direct
 import org.kodein.di.inBindSet
+import org.kodein.di.inara.Binding
+import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import org.kodein.di.singleton
 import java.util.concurrent.atomic.AtomicInteger
@@ -91,6 +101,27 @@ object TracingTestBindings {
   @Provides @IntoSet
   fun tracedLoop(periodic: PeriodicServices): AppService = periodic.create("traced", loopConfig) {}
 }
+
+/** An application's module, composed as an Inara application composes it, with the SDK and a loop to trace. */
+@DIModule(composed = true)
+interface InaraTracingModule : ConfigModule, BootableModule, OpenTelemetryModule, LeaderElectionModule, PeriodicModule {
+  @OpenTelemetryCustomizers val inMemorySpans: OpenTelemetryCustomizer
+  @AppServices val tracedLoop: PeriodicAppService
+}
+
+private fun inaraTracingModule(
+  spans: InMemorySpans,
+  tracingOptions: PeriodicTracingOptions = PeriodicTracingOptions(),
+) =
+  InaraTracingModule(
+    configModule = hopliteConfigModule(),
+    bootableModule = bootableModule(),
+    openTelemetryModule = openTelemetryModule(),
+    leaderElectionModule = AlwaysLeaderModule,
+    periodicModule = periodicModule(tracingOptions = tracingOptions),
+    inMemorySpans = Binding.value(spans),
+    tracedLoop = Binding.single { periodicServices.create("traced", loopConfig) {} },
+  )
 
 val PeriodicTracingTest by testSuite {
   test("each run is a root span of its own, named for the service, with the run's spans within it") {
@@ -164,6 +195,17 @@ val PeriodicTracingTest by testSuite {
     }
   }
 
+  test("inara, through the OpenTelemetryModule's OpenTelemetry") {
+    val spans = InMemorySpans()
+    val module = inaraTracingModule(spans)
+    try {
+      val loop = module.setOfAppServices().filterIsInstance<PeriodicAppService>().single()
+      assert(traceRuns(loop, spans).isNotEmpty())
+    } finally {
+      module.openTelemetryService.shutdown()
+    }
+  }
+
   test("kodein, not traced without an OpenTelemetry binding") {
     val di = DI {
       import(bootableModule)
@@ -185,6 +227,15 @@ val PeriodicTracingTest by testSuite {
       assert(di.instance<PeriodicServices>().interceptors.isEmpty())
     } finally {
       telemetry.shutdown()
+    }
+  }
+
+  test("inara, not traced when the options turn it off") {
+    val module = inaraTracingModule(InMemorySpans(), PeriodicTracingOptions(enabled = false))
+    try {
+      assert(module.periodicServices.interceptors.isEmpty())
+    } finally {
+      module.openTelemetryService.shutdown()
     }
   }
 

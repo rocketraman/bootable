@@ -25,4 +25,8 @@ val KtorServerNettyEngineWiringTest by testSuite {
   test("KtorServerNettyEngineBindings provides Netty as the KtorServerEngine, in metro") {
     assert(createGraph<KtorServerNettyEngineGraph>().engine.factory === Netty)
   }
+
+  test("ktorServerNettyEngineModule() provides Netty as the KtorServerEngine, in inara") {
+    assert(ktorServerNettyEngineModule().ktorServerEngine?.factory === Netty)
+  }
 }
