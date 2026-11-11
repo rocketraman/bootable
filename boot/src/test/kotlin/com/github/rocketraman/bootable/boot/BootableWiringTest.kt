@@ -2,6 +2,8 @@ package com.github.rocketraman.bootable.boot
 
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.test.StaticConfigBinder
+import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.config.EmptyConfigModule
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
 import dev.zacsweers.metro.DependencyGraph
@@ -10,6 +12,8 @@ import dev.zacsweers.metro.createGraph
 import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.kodein.di.direct
+import org.kodein.di.inara.Binding
+import org.kodein.di.inara.DIModule
 import org.kodein.di.inBindSet
 import org.kodein.di.singleton
 import org.kodein.di.instance
@@ -52,6 +56,25 @@ interface ConfiguredGraph : BootableGraph {
 @DependencyGraph(TestScope::class, additionalScopes = [BootScope::class], bindingContainers = [OrderBindings::class])
 interface OrderedGraph : BootableGraph
 
+private val inaraCheck = HealthCheck("wired") { HealthStatus.Healthy }
+
+/** An application's module, composed as an Inara application composes it, with one readiness check. */
+@DIModule(composed = true)
+interface InaraTestModule : ConfigModule, BootableModule {
+  @HealthChecks val wiredCheck: HealthCheck
+}
+
+private fun inaraTestModule(
+  configModule: ConfigModule = EmptyConfigModule,
+  bootableModule: BootableModulePart = bootableModule(),
+) = InaraTestModule(
+  configModule = configModule,
+  bootableModule = bootableModule,
+  wiredCheck = Binding.value(inaraCheck),
+)
+
+private val inaraConfigModule = ConfigModule(configBinder = Binding.value(ShufflingConfig))
+
 val BootableWiringTest by testSuite {
   testSuite("the start order and tiebreaker") {
     test("default, in kodein") {
@@ -89,6 +112,22 @@ val BootableWiringTest by testSuite {
       val bootable = createGraph<OrderedGraph>().bootable
       assert(bootable.startOrder === WiredStartOrder && bootable.tiebreaker == StartOrder.Tiebreaker.Shuffled(42))
     }
+
+    test("default, in inara") {
+      val bootable = inaraTestModule().bootable
+      assert(bootable.startOrder === DefaultStartOrder && bootable.tiebreaker == StartOrder.Tiebreaker.ByName)
+    }
+
+    test("are bound, in inara") {
+      val bootable = inaraTestModule(
+        bootableModule = bootableModule(startOrder = WiredStartOrder, tiebreaker = StartOrder.Tiebreaker.Shuffled(42)),
+      ).bootable
+      assert(bootable.startOrder === WiredStartOrder && bootable.tiebreaker == StartOrder.Tiebreaker.Shuffled(42))
+    }
+
+    test("from config, in inara") {
+      assert(inaraTestModule(inaraConfigModule).bootable.tiebreaker == StartOrder.Tiebreaker.Shuffled(7))
+    }
   }
 
   testSuite("health") {
@@ -112,6 +151,13 @@ val BootableWiringTest by testSuite {
       assert(graph.lifecycleControllers.health().config.drainDelay == 3.seconds)
       assert(graph.healthChecks.isEmpty())
     }
+
+    test("is a lifecycle controller, with the marked checks and config, in inara") {
+      val module = inaraTestModule(inaraConfigModule)
+      assert(module.setOfLifecycleControllers().health() === module.health)
+      assert(module.health.config.drainDelay == 3.seconds)
+      assert(module.health.checks == setOf(inaraCheck))
+    }
   }
 
   testSuite("build info") {
@@ -133,6 +179,14 @@ val BootableWiringTest by testSuite {
 
     test("empty without config, in metro") {
       assert(createGraph<DefaultsGraph>().buildInfo == BuildInfo())
+    }
+
+    test("from config, in inara") {
+      assert(inaraTestModule(inaraConfigModule).buildInfo == BuildInfo(version = "1.4.2"))
+    }
+
+    test("empty without config, in inara") {
+      assert(inaraTestModule().buildInfo == BuildInfo())
     }
   }
 }

@@ -161,7 +161,7 @@ data class HealthReadyReport(
  * ```
  *
  * Kodein's `bootableModule` and Metro's `BootableDefaultBindings` add it for you, with the checks of the
- * `Set<HealthCheck>` they open.
+ * `Set<HealthCheck>` they open, as Inara's `BootableModule` does with its `@HealthChecks` members.
  */
 class HealthLifecycleController(
   val checks: Set<HealthCheck> = emptySet(),
