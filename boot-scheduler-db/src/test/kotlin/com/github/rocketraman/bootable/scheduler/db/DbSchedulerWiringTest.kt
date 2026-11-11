@@ -5,19 +5,29 @@ import com.github.kagkarlsson.scheduler.SchedulerClient
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.Health
 import com.github.rocketraman.bootable.boot.StartOrder
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.boot.startPlan
+import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.config.HopliteConfigModule
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
 import com.github.rocketraman.bootable.config.hopliteConfigModule
+import com.github.rocketraman.bootable.db.flyway.FlywayMigrationModule
 import com.github.rocketraman.bootable.db.flyway.FlywayMigrationService
 import com.github.rocketraman.bootable.db.flyway.flywayMigrationModule
+import com.github.rocketraman.bootable.db.jdbc.HikariPoolModule
+import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceModule
 import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
+import com.github.rocketraman.bootable.db.jdbc.SqliteConfigSource
 import com.github.rocketraman.bootable.db.jdbc.hikariPoolModule
 import com.github.rocketraman.bootable.db.jdbc.jdbcDataSourceModule
 import com.github.rocketraman.bootable.db.jdbc.sqliteConfigModule
+import com.github.rocketraman.bootable.telemetry.otel.NoopOpenTelemetryModule
+import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryApiModule
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
 import dev.zacsweers.metro.DependencyGraph
@@ -28,6 +38,8 @@ import dev.zacsweers.metro.createGraph
 import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.kodein.di.direct
+import org.kodein.di.inara.Binding
+import org.kodein.di.inara.DIModule
 import org.kodein.di.inBindSet
 import org.kodein.di.instance
 import org.kodein.di.singleton
@@ -58,6 +70,31 @@ object TestBindings {
 
   @Provides @IntoSet fun tasks(record: TaskRecord): DbSchedulerTaskProvider = record
 }
+
+@DIModule(composed = true)
+interface InaraWiringTestModule :
+  ConfigModule,
+  BootableModule,
+  OpenTelemetryApiModule,
+  JdbcDataSourceModule,
+  HikariPoolModule,
+  FlywayMigrationModule,
+  DbSchedulerModule,
+  DbSchedulerHealthCheckModule {
+  @DbSchedulerTaskProviders val record: TaskRecord
+}
+
+private fun inaraWiringTestModule() = InaraWiringTestModule(
+  configModule = HopliteConfigModule(),
+  bootableModule = bootableModule(),
+  openTelemetryApiModule = NoopOpenTelemetryModule,
+  jdbcDataSourceModule = jdbcDataSourceModule(SqliteConfigSource),
+  hikariPoolModule = hikariPoolModule(),
+  flywayMigrationModule = flywayMigrationModule(),
+  dbSchedulerModule = dbSchedulerModule(),
+  dbSchedulerHealthCheckModule = dbSchedulerHealthCheckModule(),
+  record = Binding.single { TaskRecord() },
+)
 
 /**
  * Starts the services in their planned order, as Bootable does, checks the migrated scheduler runs the tasks, and
@@ -125,6 +162,14 @@ val DbSchedulerWiringTest by testSuite {
       val graph = createGraph<TestGraph>()
       assert(graph.health.checks.single() is DbSchedulerHealthCheck)
       graph.appServices.startAndRun(graph.record, graph.schedulerClient)
+    }
+
+    test("inara") {
+      val module = inaraWiringTestModule()
+
+      assert(module.scheduler === module.dbSchedulerService.scheduler)
+      assert(module.health.checks.single() is DbSchedulerHealthCheck)
+      module.setOfAppServices().startAndRun(module.record, module.schedulerClient)
     }
   }
 }

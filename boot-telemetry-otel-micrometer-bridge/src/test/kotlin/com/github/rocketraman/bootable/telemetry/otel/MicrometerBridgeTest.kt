@@ -2,7 +2,10 @@ package com.github.rocketraman.bootable.telemetry.otel
 
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.config.HopliteConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
@@ -19,6 +22,8 @@ import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader
 import org.kodein.di.DI
 import org.kodein.di.direct
 import org.kodein.di.inBindSet
+import org.kodein.di.inara.Binding
+import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import org.kodein.di.singleton
 import java.time.Duration
@@ -47,6 +52,12 @@ object TestMetricsBindings {
   @Provides @SingleIn(TestScope::class) fun inMemoryMetrics(): InMemoryMetrics = InMemoryMetrics()
 
   @Provides @IntoSet fun inMemory(metrics: InMemoryMetrics): OpenTelemetryCustomizer = metrics
+}
+
+/** An application's module, composed as an Inara application composes it, with the SDK's metrics kept in memory. */
+@DIModule(composed = true)
+interface InaraTestModule : ConfigModule, BootableModule, OpenTelemetryModule, MicrometerBridgeModule {
+  @OpenTelemetryCustomizers val inMemoryMetrics: InMemoryMetrics
 }
 
 /** Records a Micrometer counter, and checks the SDK has it, with the application's resource. */
@@ -95,6 +106,17 @@ val MicrometerBridgeTest by testSuite {
     test("metro") {
       val graph = createGraph<TestGraph>()
       checkBridged(graph.meterRegistry, graph.inMemoryMetrics)
+    }
+
+    test("inara") {
+      val module = InaraTestModule(
+        configModule = HopliteConfigModule(),
+        bootableModule = bootableModule(),
+        openTelemetryModule = openTelemetryModule(),
+        micrometerBridgeModule = micrometerBridgeModule(),
+        inMemoryMetrics = Binding.single { InMemoryMetrics() },
+      )
+      checkBridged(module.meterRegistry, module.inMemoryMetrics)
     }
   }
 }

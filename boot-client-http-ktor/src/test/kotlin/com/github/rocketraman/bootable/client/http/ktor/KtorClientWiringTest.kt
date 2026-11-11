@@ -3,7 +3,11 @@ package com.github.rocketraman.bootable.client.http.ktor
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.setOfAppServices
+import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.config.HopliteConfigModule
 import com.github.rocketraman.bootable.config.Masked
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
@@ -26,6 +30,8 @@ import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.kodein.di.direct
 import org.kodein.di.inBindSet
+import org.kodein.di.inara.Binding
+import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import org.kodein.di.singleton
 import kotlin.time.Duration.Companion.milliseconds
@@ -74,6 +80,13 @@ object TestClientBindings {
   @Provides @IntoSet fun customizer(): KtorClientCustomizer = headerCustomizer
 
   @Provides @IntoSet fun defaults(): KtorClientDefaults = moduleDefaults
+}
+
+/** An application's module, composed as an Inara application composes it, with the test's customizer and defaults. */
+@DIModule(composed = true)
+interface InaraTestModule : ConfigModule, BootableModule, KtorClientModule {
+  @KtorClientCustomizers val testCustomizer: KtorClientCustomizer
+  @NamedClientDefaults val testDefaults: KtorClientDefaults
 }
 
 private val expectedConfig = KtorClientsConfig(
@@ -139,6 +152,17 @@ val KtorClientWiringTest by testSuite {
     test("metro") {
       val graph = createGraph<TestGraph>()
       checkClients(graph.appServices, graph.clients, graph.httpClient)
+    }
+
+    test("inara") {
+      val module = InaraTestModule(
+        configModule = HopliteConfigModule(),
+        bootableModule = bootableModule(),
+        ktorClientModule = ktorClientModule(mockEngine()),
+        testCustomizer = Binding.value(headerCustomizer),
+        testDefaults = Binding.value(moduleDefaults),
+      )
+      checkClients(module.setOfAppServices(), module.ktorClientService, module.httpClient)
     }
   }
 }

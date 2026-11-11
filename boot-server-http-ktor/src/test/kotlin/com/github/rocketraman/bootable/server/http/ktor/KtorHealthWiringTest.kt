@@ -2,11 +2,13 @@ package com.github.rocketraman.bootable.server.http.ktor
 
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.BuildInfo
 import com.github.rocketraman.bootable.boot.Health
 import com.github.rocketraman.bootable.boot.ReadinessConfig
 import com.github.rocketraman.bootable.boot.bootableModule
 import com.github.rocketraman.bootable.config.ConfigBinder
+import com.github.rocketraman.bootable.config.ConfigModule
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
 import dev.zacsweers.metro.DependencyGraph
@@ -15,6 +17,8 @@ import dev.zacsweers.metro.createGraph
 import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.kodein.di.direct
+import org.kodein.di.inara.Binding
+import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import kotlin.reflect.KClass
 
@@ -43,6 +47,10 @@ interface HealthGraph : BootableGraph {
   val health: Health
 }
 
+/** An application's module, composed as an Inara application composes it. */
+@DIModule(composed = true)
+interface InaraHealthModule : ConfigModule, BootableModule, KtorHealthModule
+
 val KtorHealthWiringTest by testSuite {
   test("KtorHealth serves the application's Health and BuildInfo, with its config, in kodein") {
     val di = DI {
@@ -61,5 +69,16 @@ val KtorHealthWiringTest by testSuite {
     assert(graph.ktorHealth.health === graph.health)
     assert(graph.ktorHealth.config.readyPath == "/ready")
     assert(graph.ktorHealth.buildInfo == BuildInfo(version = "1.4.2"))
+  }
+
+  test("KtorHealth serves the application's Health and BuildInfo, with its config, in inara") {
+    val module = InaraHealthModule(
+      configModule = ConfigModule(configBinder = Binding.value(HealthConfigBinder)),
+      bootableModule = bootableModule(),
+      ktorHealthModule = ktorHealthModule(),
+    )
+    assert(module.ktorHealth.health === module.health)
+    assert(module.ktorHealth.config.readyPath == "/ready")
+    assert(module.ktorHealth.buildInfo == BuildInfo(version = "1.4.2"))
   }
 }

@@ -256,6 +256,9 @@ project("boot-client-http-ktor") {
     // the logging API only: the application chooses the logging implementation (e.g. boot-logging-log4j2)
     implementation(rootProject.libs.bundles.log4j.api)
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    // the inara flavor adds its service to boot's set, and reads its config
+    "inaraApi"(project(path = ":boot", configuration = "inaraElements"))
+    "inaraApi"(project(path = ":boot-config-common", configuration = "inaraElements"))
 
     // the clients run against a real server on each engine, and against a MockEngine through the engine seam
     testImplementation(project(":boot-client-http-ktor-cio"))
@@ -263,17 +266,22 @@ project("boot-client-http-ktor") {
     testImplementation(rootProject.libs.ktor.client.mock)
     // certificates for the mutual TLS tests, generated as they run
     testImplementation(rootProject.libs.ktor.network.tls.certificates)
-    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     testImplementation(project(":boot-logging-log4j2"))
   }
 
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 }
 
@@ -306,6 +314,8 @@ project("boot-client-http-ktor-otel") {
     "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-client-http-ktor", configuration = "kodeinElements"))
     "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-client-http-ktor", configuration = "inaraElements"))
+    "inaraApi"(project(path = ":boot-telemetry-otel-common", configuration = "inaraElements"))
 
     // client calls are made from within a real, traced server's requests
     testImplementation(project(":boot-client-http-ktor-cio"))
@@ -314,21 +324,28 @@ project("boot-client-http-ktor-otel") {
     testImplementation(project(":boot-telemetry-otel"))
     testImplementation(rootProject.libs.ktor.client.mock)
     testImplementation(rootProject.libs.opentelemetry.sdk.testing)
-    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-client-http-ktor", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-client-http-ktor", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-client-http-ktor", configuration = "metroElements"))
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
     testImplementation(project(":boot-logging-log4j2"))
   }
 
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 }
 
@@ -364,6 +381,9 @@ project("boot-db-jdbc") {
     api(project(":boot"))
     api(project(":boot-config-common"))
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    // the inara flavor marks its service with boot's AppServices set, and reads config-common's ConfigModule
+    "inaraApi"(project(path = ":boot", configuration = "inaraElements"))
+    "inaraApi"(project(path = ":boot-config-common", configuration = "inaraElements"))
 
     // a real driver, so the lifecycle tests run against a real database
     testImplementation(rootProject.libs.sqlite.jdbc)
@@ -385,6 +405,8 @@ project("boot-db-jdbc-otel") {
     "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
     "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
+    "inaraApi"(project(path = ":boot-telemetry-otel-common", configuration = "inaraElements"))
 
     testImplementation(rootProject.libs.sqlite.jdbc)
     testImplementation(rootProject.libs.opentelemetry.sdk.testing)
@@ -393,23 +415,31 @@ project("boot-db-jdbc-otel") {
     testImplementation(project(":boot-db-exposed"))
     // withSpan, for the enclosing span
     testImplementation(project(":boot-telemetry-otel"))
-    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
     testImplementation(project(":boot-logging-log4j2"))
   }
 
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 }
 
@@ -424,21 +454,28 @@ project("boot-db-pool-hikari") {
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
 
     testImplementation(rootProject.libs.sqlite.jdbc)
-    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     testImplementation(project(":boot-logging-log4j2"))
   }
 
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 }
 
@@ -457,26 +494,36 @@ project("boot-db-pool-hikari-otel") {
     "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
     "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-db-pool-hikari", configuration = "inaraElements"))
+    "inaraApi"(project(path = ":boot-telemetry-otel-common", configuration = "inaraElements"))
 
     testImplementation(rootProject.libs.sqlite.jdbc)
     testImplementation(rootProject.libs.opentelemetry.sdk.testing)
-    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
     testImplementation(project(":boot-logging-log4j2"))
   }
 
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 }
 
@@ -490,23 +537,31 @@ project("boot-db-jdbc-sqlite") {
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
 
-    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     // the driver settings only matter through a real pool
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
     testImplementation(project(":boot-logging-log4j2"))
   }
 
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 }
 
@@ -521,16 +576,21 @@ project("boot-db-jdbc-mysql") {
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
 
-    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     // the driver settings only matter through a real pool, and Flyway proves its database module is there
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
     testImplementation(project(":boot-db-flyway"))
     testImplementation(project(":boot-logging-log4j2"))
@@ -538,9 +598,12 @@ project("boot-db-jdbc-mysql") {
     testImplementation(rootProject.libs.testcontainers.mysql)
   }
 
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 }
 
@@ -555,16 +618,21 @@ project("boot-db-jdbc-postgresql") {
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
 
-    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     // the driver settings only matter through a real pool, and Flyway proves its database module is there
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
     testImplementation(project(":boot-db-flyway"))
     testImplementation(project(":boot-logging-log4j2"))
@@ -572,9 +640,12 @@ project("boot-db-jdbc-postgresql") {
     testImplementation(rootProject.libs.testcontainers.postgresql)
   }
 
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 }
 
@@ -589,27 +660,37 @@ project("boot-db-exposed") {
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
 
-    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would, against a real
+    // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would, against a real
     // SQLite database, with Flyway creating the schema that is verified
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-jdbc-sqlite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc-sqlite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-jdbc-sqlite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-flyway", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-flyway", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-flyway", configuration = "metroElements"))
     testImplementation(project(":boot-logging-log4j2"))
   }
 
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 }
 
@@ -626,25 +707,34 @@ project("boot-db-flyway") {
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
 
-    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would, against a real
+    // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would, against a real
     // SQLite database
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-jdbc-sqlite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc-sqlite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-jdbc-sqlite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
     testImplementation(project(":boot-logging-log4j2"))
   }
 
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 }
 
@@ -655,11 +745,24 @@ project("boot-env") {
     implementation(project(":boot"))
     // the metro flavor contributes to boot's BootScope (in-repo: boot's metro source set; POM: boot-metro)
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    // the inara flavor marks its initializer with boot's LifecycleControllers, and reads config-common's ConfigModule
+    "inaraApi"(project(path = ":boot", configuration = "inaraElements"))
+    "inaraApi"(project(path = ":boot-config-common", configuration = "inaraElements"))
+  }
+
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["inara"].output
+    runtimeClasspath += sourceSets["inara"].output
   }
 }
 
 // LeaderElection, the role a periodic loop's gate asks about, with no implementation beyond AlwaysLeader
 project("boot-leader-common") {
+  // an inara flavor only: the small module that the other inara modules require
+  configureDiVariants()
   dependencies {
     // leadership is a StateFlow
     api(rootProject.libs.kotlinx.coroutines.core)
@@ -685,22 +788,30 @@ project("boot-leader-k8s") {
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-client-http-ktor", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-client-http-ktor", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-client-http-ktor", configuration = "inaraElements"))
+    "inaraApi"(project(path = ":boot-leader-common", configuration = "inaraElements"))
 
     // the election runs against a fake API server, through the Java engine
     testImplementation(project(":boot-client-http-ktor-java"))
-    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-client-http-ktor", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-client-http-ktor", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-client-http-ktor", configuration = "metroElements"))
     testImplementation(project(":boot-logging-log4j2"))
   }
 
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 }
 
@@ -717,22 +828,31 @@ project("boot-periodic") {
     // the logging API only: the application chooses the logging implementation (e.g. boot-logging-log4j2)
     implementation(rootProject.libs.bundles.log4j.api)
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    // the inara flavor requires a LeaderElectionModule and an OpenTelemetryApiModule
+    "inaraApi"(project(path = ":boot-leader-common", configuration = "inaraElements"))
+    "inaraApi"(project(path = ":boot-telemetry-otel-common", configuration = "inaraElements"))
 
-    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     // the tracing tests record spans with a real SDK. Its Kodein flavor only: the Metro flavor would contribute the
     // SDK to every test graph, so the Metro tracing test binds the OpenTelemetry itself
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "inaraElements"))
     testImplementation(rootProject.libs.opentelemetry.sdk.testing)
     testImplementation(project(":boot-logging-log4j2"))
   }
 
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 }
 
@@ -752,20 +872,28 @@ project("boot-scheduler-db") {
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
+    "inaraApi"(project(path = ":boot-telemetry-otel-common", configuration = "inaraElements"))
 
     // the tests run the scheduler against real databases, migrated by Flyway with this module's migrations: SQLite,
     // and PostgreSQL and MySQL in containers, which are skipped where Docker is unavailable, outside CI
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-jdbc-sqlite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc-sqlite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-jdbc-sqlite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-flyway", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-flyway", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-db-flyway", configuration = "metroElements"))
     testImplementation(project(":boot-db-jdbc-postgresql"))
     testImplementation(project(":boot-db-jdbc-mysql"))
@@ -774,6 +902,7 @@ project("boot-scheduler-db") {
     // the Metro flavor would contribute the SDK to every test graph, so the Metro tracing test binds the
     // OpenTelemetry itself
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "inaraElements"))
     testImplementation(rootProject.libs.opentelemetry.sdk.testing)
     testImplementation(project(":boot-db-jdbc-otel"))
     testImplementation(project(":boot-logging-log4j2"))
@@ -781,9 +910,12 @@ project("boot-scheduler-db") {
     testImplementation(rootProject.libs.testcontainers.mysql)
   }
 
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 }
 
@@ -814,19 +946,25 @@ project("boot-server-http-ktor") {
     implementation(rootProject.libs.kotlinx.serialization.json)
     // the metro flavor contributes KtorHealth to boot's BootScope
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    // the inara flavor requires boot's BootableModule, for its Health and BuildInfo
+    "inaraApi"(project(path = ":boot", configuration = "inaraElements"))
 
     // the lifecycle tests run a real server on each engine
     testImplementation(rootProject.libs.ktor.server.cio)
     testImplementation(rootProject.libs.ktor.server.netty)
     testImplementation(project(":boot-logging-log4j2"))
-    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
   }
 
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 }
 
@@ -867,27 +1005,38 @@ project("boot-telemetry-otel") {
     // the logging API only: the application chooses the logging implementation (e.g. boot-logging-log4j2)
     implementation(rootProject.libs.bundles.log4j.api)
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    // the inara flavor adds its service to boot's set, reads its config, and provides the OpenTelemetryApiModule
+    "inaraApi"(project(path = ":boot", configuration = "inaraElements"))
+    "inaraApi"(project(path = ":boot-config-common", configuration = "inaraElements"))
+    "inaraApi"(project(path = ":boot-telemetry-otel-common", configuration = "inaraElements"))
 
     testImplementation(rootProject.libs.opentelemetry.sdk.testing)
     // to check that log events in a span get its trace and span ids, as Bootable's layouts expect
     testImplementation(rootProject.libs.log4j.core)
-    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     testImplementation(project(":boot-logging-log4j2"))
   }
 
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 }
 
 // what Bootable's telemetry shares, over the OpenTelemetry API only, for modules and applications that trace
 // without depending on an SDK: with none, the API is a no-op
 project("boot-telemetry-otel-common") {
+  // an inara flavor only: the small module that the other inara modules require
+  configureDiVariants()
   dependencies {
     api(rootProject.libs.opentelemetry.api)
     // the span's context as a coroutine context element, so withSpan's span follows its block across dispatchers
@@ -921,21 +1070,28 @@ mapOf(
       "metroApi"(project(path = ":boot", configuration = "metroElements"))
       "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
       "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+      "inaraApi"(project(path = ":boot-telemetry-otel", configuration = "inaraElements"))
 
       testImplementation(rootProject.libs.opentelemetry.sdk.testing)
-      // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+      // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would
       testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+      testImplementation(project(path = ":boot", configuration = "inaraElements"))
       testImplementation(project(path = ":boot", configuration = "metroElements"))
       testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+      testImplementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
       testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
       testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+      testImplementation(project(path = ":boot-telemetry-otel", configuration = "inaraElements"))
       testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
       testImplementation(project(":boot-logging-log4j2"))
     }
 
+    // the tests compose the inara flavor into a module of their own, as an application does
+    configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+    dependencies { "kspTest"(rootProject.libs.inara.processor) }
     sourceSets.named("test") {
-      compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-      runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+      compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+      runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
     }
   }
 }
@@ -949,25 +1105,33 @@ project("boot-server-http-ktor-otel") {
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-telemetry-otel", configuration = "inaraElements"))
 
     // requests are traced and scraped through a real server, with a real Prometheus reader behind it
     testImplementation(project(":boot-server-http-ktor-cio"))
     testImplementation(project(":boot-telemetry-otel-prometheus"))
     testImplementation(rootProject.libs.opentelemetry.sdk.testing)
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
     testImplementation(project(path = ":boot-telemetry-otel-prometheus", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-telemetry-otel-prometheus", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-telemetry-otel-prometheus", configuration = "metroElements"))
     testImplementation(project(":boot-logging-log4j2"))
   }
 
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 }
 
@@ -994,21 +1158,28 @@ project("boot-test-otel") {
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-telemetry-otel", configuration = "inaraElements"))
 
     // TestClock
     testImplementation(project(":boot-test"))
-    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
   }
 
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 }
 
