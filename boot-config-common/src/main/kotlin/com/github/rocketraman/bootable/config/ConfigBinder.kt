@@ -15,3 +15,9 @@ interface ConfigBinder {
  * ```
  */
 inline fun <reified T: Any> ConfigBinder.config(prefix: String): T = configOf(prefix, T::class)
+
+/** A [ConfigBinder] with no config, for an application that reads none. Every read fails. */
+object EmptyConfigBinder : ConfigBinder {
+  override fun <T : Any> configOf(prefix: String, type: KClass<T>): T =
+    throw IllegalStateException("No config to read the $prefix section from: this application was given no ConfigBinder")
+}

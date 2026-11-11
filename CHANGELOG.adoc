@@ -2,6 +2,17 @@
 
 == 3.1.0 (unreleased)
 
+=== Experimental Inara bindings
+
+Kodein's authors are sunsetting it in favour of https://kosi-libs.org/inara/[Inara], a compile-time successor run by KSP.
+Each module with Kodein bindings now also has experimental Inara bindings, as an `-inara` artifact (`boot-inara`, `boot-db-jdbc-inara`, …): a `@DIModule`, and a builder function of the same name that binds its members, for the application to compose into its own `@DIModule(composed = true)`.
+`boot-config-common-inara` adds `ConfigModule`, which binds a config section for any module with `configModule.config("prefix")`.
+`boot-config-hoplite-inara` adds `HopliteConfigModule()`, a `ConfigModule` that decodes with Hoplite.
+`BootableModule` is composed over the `ConfigModule` it is built with, so the application's module needn't list it; without one, `BootableModule()` has the `EmptyConfigModule`, whose `EmptyConfigBinder` fails every read.
+Each module's builder function takes the `BootableModule` as its context, reading its config from it, and, since Inara has no multibindings, adding its services to it; the application adds its own with `addAppService { … }`.
+`boot-db-jdbc-inara`'s `JdbcDataSourceModule(configSource, pool, context)` takes a `JdbcConfigSource`, such as `SqliteConfigSource`, and a `JdbcPool`, such as `HikariPool()`.
+See link:docs/wiring.adoc#inara-experimental[Wiring Bootable].
+
 === Service start order: phases and milestones replace priorities
 
 Services no longer order themselves with a global `priority()` number.

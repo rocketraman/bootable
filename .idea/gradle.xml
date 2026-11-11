@@ -41,10 +41,12 @@
             <option value="$PROJECT_DIR$/examples/server-ktor" />
             <option value="$PROJECT_DIR$/examples/server-ktor-db" />
             <option value="$PROJECT_DIR$/examples/server-ktor-db/common" />
+            <option value="$PROJECT_DIR$/examples/server-ktor-db/inara" />
             <option value="$PROJECT_DIR$/examples/server-ktor-db/kodein" />
             <option value="$PROJECT_DIR$/examples/server-ktor-db/metro" />
             <option value="$PROJECT_DIR$/examples/server-ktor-db/vanilla" />
             <option value="$PROJECT_DIR$/examples/start-order" />
+            <option value="$PROJECT_DIR$/examples/wiring-inara" />
             <option value="$PROJECT_DIR$/examples/wiring-kodein" />
             <option value="$PROJECT_DIR$/examples/wiring-metro" />
             <option value="$PROJECT_DIR$/examples/wiring-vanilla" />

@@ -1,6 +1,7 @@
 package com.github.rocketraman.bootable.boot
 
 import com.github.rocketraman.bootable.config.ConfigBinder
+import com.github.rocketraman.bootable.config.ConfigModule
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
 import dev.zacsweers.metro.DependencyGraph
@@ -9,6 +10,7 @@ import dev.zacsweers.metro.createGraph
 import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.kodein.di.direct
+import org.kodein.di.inara.Binding
 import org.kodein.di.instance
 import kotlin.reflect.KClass
 
@@ -82,6 +84,25 @@ val BootableWiringTest by testSuite {
     test("are bound, in metro") {
       val bootable = createGraph<OrderedGraph>().bootable
       assert(bootable.startOrder === WiredStartOrder && bootable.tiebreaker == StartOrder.Tiebreaker.Shuffled(42))
+    }
+
+    test("default, in inara") {
+      val bootable = BootableModule().bootable
+      assert(bootable.startOrder === DefaultStartOrder && bootable.tiebreaker == StartOrder.Tiebreaker.ByName)
+    }
+
+    test("are bound, in inara") {
+      val bootable = BootableModule(
+        startOrder = WiredStartOrder,
+        tiebreaker = StartOrder.Tiebreaker.Shuffled(42),
+      ).bootable
+      assert(bootable.startOrder === WiredStartOrder && bootable.tiebreaker == StartOrder.Tiebreaker.Shuffled(42))
+    }
+
+    test("from config, in inara") {
+      val configModule = ConfigModule(configBinder = Binding.value(ShufflingConfig))
+      val bootable = BootableModule(configModule).bootable
+      assert(bootable.tiebreaker == StartOrder.Tiebreaker.Shuffled(7))
     }
   }
 }

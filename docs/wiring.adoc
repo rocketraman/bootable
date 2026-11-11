@@ -17,6 +17,7 @@ class Bootable(
 documents and ships helpers for — plain Kotlin, Kodein-DI, and Metro — but nothing stops you using any other
 mechanism (a service loader, Guice, Koin, …) or none at all. There is one runnable example project per style
 under `examples/` (`wiring-vanilla`, `wiring-kodein`, `wiring-metro`); copy the one that matches your choice.
+Experimental helpers for a fourth, Inara, are described in <<inara-experimental>>, with its example in `wiring-inara`.
 
 The entry point is the same in every style:
 
@@ -53,6 +54,10 @@ there is a `ConfigBinder`; with vanilla wiring, pass `tiebreaker = serviceOrderC
 | *Metro* (compile-time)
 | You want the wiring validated by the compiler (missing/duplicate bindings are build errors) with no runtime
   reflection. Metro is a Kotlin compiler plugin: it requires Kotlin 2.3+ and you apply its Gradle plugin.
+
+| *Inara* (compile-time, experimental)
+| You want Kodein's successor: explicit, compile-checked wiring with no annotations beyond one `@DIModule`.
+  Inara is a KSP processor, so you apply KSP. It has no multibindings, so you add your own services to Bootable's yourself.
 |===
 
 Vanilla needs nothing special — the plain `boot` artifact carries no DI framework. For a DI style, depend on a
@@ -220,6 +225,129 @@ duplicate binding.
 Unit tests need no DI (domain classes take plain constructor parameters). To override a binding in an
 integration test, `createDynamicGraph<AppGraph>(FakeBindings)` builds the real graph with one container
 substituted, still at compile time. See `examples/server-ktor`'s tests.
+
+[#inara-experimental]
+== Inara (experimental)
+
+https://kosi-libs.org/inara/[Inara] is the compile-time successor to Kodein-DI, from the same authors, who are https://kodein-koders.com/en/blog/inara-inject-your-dependencies-at-compile-time/[sunsetting Kodein] in its favour.
+Bootable's Inara support is experimental, as is Inara itself (0.2.0 at the time of writing): its shape may change, and if it settles, the Kodein bindings will be deprecated in its favour.
+
+An Inara module is an interface whose members are its dependencies.
+Inara's KSP processor generates a builder for each interface annotated `@DIModule`, taking one `Binding` per member, and a member without a default needs one, so a missing binding is a compile error.
+Each binding's body has the module as its receiver, so it reaches the other members by name.
+
+Each Bootable module's `-inara` artifact contributes a `@DIModule` (`BootableModule`, `ConfigModule`, `EnvironmentModule`, `JdbcDataSourceModule`, `FlywayMigrationModule`, `ExposedDatabaseModule`), with a builder function of the same name that binds all of its members.
+`BootableModule` is itself composed over the `ConfigModule` it is built with, so an application that extends `BootableModule` has the config too.
+The other builders take the modules they use, such as the `JdbcDataSourceModule` that Flyway migrates, and a _context_: the `BootableModule`, from which they read their config and to which they add their services.
+Your application's module is a _composed_ `@DIModule` that extends the modules it uses and adds its own members.
+Its generated builder takes each parent as a built module, plus a binding for each of its own members, and reuses the parents' bindings, so a singleton is shared between a parent and your module.
+
+[source,kotlin]
+----
+@DIModule(composed = true)
+interface AppModule : BootableModule {
+  val greetingConfig: GreetingConfig
+  val greetingService: GreetingService
+}
+
+fun main() = boot {
+  val bootable = BootableModule(HopliteConfigModule())
+  val app = AppModule(
+    bootableModule = bootable,
+    greetingConfig = bootable.config("greeting"),
+    greetingService = Binding.single { GreetingService(greetingConfig) },
+  )
+  app.addAppService { app.greetingService }
+  app.bootable
+}
+----
+
+`bootable.config("greeting")` binds a config section, decoded once, in any module, like Metro's `ConfigBinderProvider.config`.
+It works on any `ConfigModule`, and the Bootable modules' builders bind their own sections the same way, from their context.
+
+A larger application can give its own code a module of its own, built like the Bootable modules, and compose them all, as Kodein imports modules.
+The database is `JdbcDataSourceModule` with the application's two choices, a driver module's config (`SqliteConfigSource`, `PostgresqlConfigSource`, `MysqlConfigSource`, or `JdbcGenericConfigSource` for any database by URL) and a pool (`HikariPool()`), as Kodein imports a driver config module and a pool module:
+
+[source,kotlin]
+----
+@DIModule
+interface EntriesModule {
+  val entryRepository: EntryRepository
+  val entryServer: EntryServer
+  …
+}
+
+fun <C> EntriesModule(exposed: ExposedDatabaseModule, context: C): EntriesModule
+  where C : ConfigModule, C : AppServiceAcceptor {
+  val module = EntriesModule(
+    entryRepository = Binding.single { EntryRepository(exposed.database) },
+    …
+  )
+  context.addAppService { module.entryServer }
+  return module
+}
+
+@DIModule(composed = true)
+interface AppModule : BootableModule, JdbcDataSourceModule, FlywayMigrationModule, ExposedDatabaseModule, EntriesModule
+
+fun appModule(): AppModule {
+  val bootable = BootableModule(HopliteConfigModule())
+  val jdbc = JdbcDataSourceModule(SqliteConfigSource, HikariPool(), bootable)
+  val exposed = ExposedDatabaseModule(jdbc, setOf(EntryTable), bootable)
+  return AppModule(
+    bootableModule = bootable,
+    jdbcDataSourceModule = jdbc,
+    flywayMigrationModule = FlywayMigrationModule(jdbc, bootable),
+    exposedDatabaseModule = exposed,
+    entriesModule = EntriesModule(exposed, bootable),
+  )
+}
+----
+
+Composing the modules into an `AppModule` is optional: each builder has already added its services to the `BootableModule`, so `boot { bootable.bootable }` runs them too.
+The composed module gives the application, and its tests, one module to reach everything from.
+
+Apply KSP, and add Inara's processor to it:
+
+[source,kotlin]
+----
+plugins {
+  id("com.google.devtools.ksp") version "2.3.13"
+}
+
+dependencies {
+  implementation("com.github.rocketraman.bootable:boot-inara:$v")
+  implementation("com.github.rocketraman.bootable:boot-config-hoplite-inara:$v")
+  ksp("org.kodein.di.inara:inara-processor:0.2.0")
+}
+----
+
+Bootable's `-inara` artifacts ship their modules' generated builders, so the processor only runs on your own modules.
+`boot-config-hoplite-inara` adds `HopliteConfigModule()`, a `ConfigModule` with the default Hoplite `ConfigBinder`, like Kodein's `hopliteConfigModule`.
+To pass Hoplite options, build the module yourself: `ConfigModule(configBinder = Binding.single { hopliteConfigBinder(report = false) })`.
+Inara 0.2.0's runtime is built with Kotlin 2.4, so your compiler must be Kotlin 2.3 or later to read it; its first release may move to Kotlin 2.5.
+
+=== What differs from Kodein and Metro
+
+No multibindings:: Inara resolves everything at compile time, through generated code, and has no equivalent of Kodein's `inBindSet` or Metro's `@IntoSet`.
+Instead, `BootableModule` is an `AppServiceAcceptor`, and each Bootable module's builder adds its own services to the context it is given, so the application adds only its own, with `app.addAppService { … }` once its module is built.
+The builders' context is typed `C where C : ConfigModule, C : AppServiceAcceptor`, so they see only the config and `addAppService`, not the rest of the `BootableModule`.
+Each `BootableModule(…)` has its own services, so tests and several applications in one process don't share them.
+Forgetting one of those is not a compile error: the module is wired, but the service never starts.
+`EnvironmentModule(context)` adds its initializer to the context, a `LifecycleControllerAcceptor`, in the same way.
+Tables and customizers, which only the application provides, are plain parameters: `ExposedDatabaseModule(jdbc, tables, context, customizers)`.
+
+No optional bindings:: Inara never looks up a type, so where Kodein uses a binding only if there is one, the builder function takes a nullable parameter instead.
+`BootableModule(configModule)` reads the tiebreaker from the `boot.service.order` config section, as Kodein and Metro do whenever there is a `ConfigBinder`.
+`BootableModule()` has the `EmptyConfigModule`, whose binder fails every read, and the tiebreaker is `ByName`.
+Pass `startOrder` or `tiebreaker` to set them in code.
+A member with a default body, such as `startOrder` or `dataSource`, is optional too, and runs on every access.
+
+No diamonds:: A composed module rejects two parents that share an ancestor, so only `BootableModule` extends `ConfigModule`, and the other Bootable modules don't extend each other: `FlywayMigrationModule(jdbc, context)` takes the `JdbcDataSourceModule` it migrates, and the context it reads its config from, as parameters instead.
+
+Singletons are per module:: `Binding.single` builds once per module instance, which is what Metro's `@SingleIn` gives; the builder functions use it for every stateful member.
+
+See `examples/wiring-inara`, and `examples/server-ktor-db/inara` for the database modules.
 
 == A note on performance
 

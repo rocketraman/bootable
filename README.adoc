@@ -11,6 +11,7 @@ Bootable's core is plain Kotlin and embeds *no* dependency-injection framework.
 Its runtime takes two sets — your application services and your lifecycle controllers — and runs them; how you assemble those sets is entirely your choice.
 Wire them by hand, use a DI solution provided by Bootable as optional add-on artifacts, or bring your own DI.
 Bootable ships optional bindings for https://github.com/kosi-libs/Kodein[Kodein-DI] (clean DSL syntax but executes at runtime) and https://github.com/ZacSweers/metro[Metro] (complex annotation-based syntax, but executes and checks for a valid dependency graph at compile-time).
+Experimental bindings for https://kosi-libs.org/inara/[Inara], Kodein's compile-time successor, are available too.
 These are selectable per module, and you can just as easily integrate with any other DI, or none at all.
 
 == Why Not Spring Boot?
@@ -112,7 +113,7 @@ With Kodein, import `jdbcDataSourceModule`, a driver config module (`sqliteConfi
 With Metro, the `-metro` driver, pool, Flyway, and Exposed modules contribute everything; for the generic config, add `JdbcGenericConfigBindings` to your graph's `bindingContainers`; register tables with `@Provides @IntoSet fun myTable(): Table = MyTable`.
 A graph without a driver or a pool fails to compile with a missing binding.
 
-See link:./examples/server-ktor-db[examples/server-ktor-db] for a small Ktor server that keeps entries in a SQLite database, through a HikariCP pool, with its schema created by a Flyway migration and its queries written with Exposed. Its server code is shared, and it is wired three ways: `vanilla`, `kodein`, and `metro`, each a runnable app, e.g. `./gradlew :examples:server-ktor-db:metro:run`.
+See link:./examples/server-ktor-db[examples/server-ktor-db] for a small Ktor server that keeps entries in a SQLite database, through a HikariCP pool, with its schema created by a Flyway migration and its queries written with Exposed. Its server code is shared, and it is wired four ways: `vanilla`, `kodein`, `metro`, and the experimental `inara`, each a runnable app, e.g. `./gradlew :examples:server-ktor-db:metro:run`.
 
 === Environment
 
@@ -202,6 +203,8 @@ To use a DI framework, depend on the `-kodein` or `-metro` artifact of each modu
 
 * *Kodein* (runtime): import the provided `bootableModule` / `hopliteConfigModule` / `environmentModule`, contribute your services with `bindAppService { … }`, and pass the resolved sets to `boot`.
 * *Metro* (compile-time): declare a `@DependencyGraph` that extends `BootableGraph`, contribute your services with `@ContributesIntoSet`, and `boot { createGraph<AppGraph>().bootable }`.
+* *Inara* (compile-time, experimental): build each module you use with its builder function (`HopliteConfigModule()`, `BootableModule(HopliteConfigModule())`, `JdbcDataSourceModule(SqliteConfigSource, HikariPool(), bootable)`, …), compose them, and your own modules, into a `@DIModule(composed = true)`, add your own services with `app.addAppService { … }`, and `boot { app.bootable }`.
+See link:docs/wiring.adoc[Wiring Bootable].
 
 == Design
 
@@ -213,6 +216,10 @@ Bootable is designed to be DI independent -- combine it with whichever DI you li
 
 That being said, Bootable ships with bindings for two popular options: https://zacsweers.github.io/metro/[Metro] and https://kosi-libs.org/kodein/[Kodein].
 Simply pull in the `-metro` or `-kodein` suffixed variants of each module to use them.
+
+The authors of Kodein are https://kodein-koders.com/en/blog/inara-inject-your-dependencies-at-compile-time/[sunsetting it] in favour of https://kosi-libs.org/inara/[Inara], a compile-time successor.
+Bootable has experimental Inara bindings, as `-inara` suffixed variants.
+If they work out, the Kodein bindings will be deprecated in their favour.
 
 ==== Which DI Should I Use?
 
@@ -237,6 +244,7 @@ See these three wiring options for example code:
 * link:./examples/wiring-vanilla[examples/wiring-vanilla]
 * link:./examples/wiring-kodein[examples/wiring-kodein]
 * link:./examples/wiring-metro[examples/wiring-metro]
+* link:./examples/wiring-inara[examples/wiring-inara] (experimental)
 
 ==== How Do I Integrate Random DI with Bootable?
 
