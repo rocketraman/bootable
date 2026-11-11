@@ -256,6 +256,9 @@ project("boot-db-jdbc") {
     api(project(":boot"))
     api(project(":boot-config-common"))
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    // the inara flavor contributes its service to boot's SetContributions
+    "inaraApi"(project(path = ":boot", configuration = "inaraElements"))
+    "inaraApi"(project(path = ":boot-config-common", configuration = "inaraElements"))
 
     // a real driver, so the lifecycle tests run against a real database
     testImplementation(rootProject.libs.sqlite.jdbc)
@@ -273,6 +276,7 @@ project("boot-db-pool-hikari") {
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
 
     testImplementation(rootProject.libs.sqlite.jdbc)
     // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
@@ -301,6 +305,7 @@ project("boot-db-jdbc-sqlite") {
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
 
     // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
@@ -332,6 +337,7 @@ project("boot-db-jdbc-mysql") {
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
 
     // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
@@ -366,6 +372,7 @@ project("boot-db-jdbc-postgresql") {
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
 
     // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
@@ -400,6 +407,7 @@ project("boot-db-exposed") {
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
 
     // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would, against a real
     // SQLite database, with Flyway creating the schema that is verified
@@ -437,6 +445,7 @@ project("boot-db-flyway") {
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
     "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    "inaraApi"(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
 
     // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would, against a real
     // SQLite database
@@ -466,6 +475,9 @@ project("boot-env") {
     implementation(project(":boot"))
     // the metro flavor contributes to boot's BootScope (in-repo: boot's metro source set; POM: boot-metro)
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    // the inara flavor contributes its initializer to boot's SetContributions
+    "inaraApi"(project(path = ":boot", configuration = "inaraElements"))
+    "inaraApi"(project(path = ":boot-config-common", configuration = "inaraElements"))
   }
 }
 
