@@ -6,12 +6,15 @@ flyway = "13.11.1"
 graalvm-buildtools = "0.11.5"
 hikari = "7.1.0"
 hoplite = "3.0.5"
+# experimental: Kodein's compile-time successor, a KSP processor
+inara = "0.2.0"
 # 4.0.0 is out, but npm tags it next rather than latest, and Ktor's HTMX attributes follow htmx 2
 htmx = "2.0.11"
 kilua = "0.0.36"
 kotlin = "2.4.21"
 kotlinx-coroutines = "1.11.0"
 kotlinx-html = "0.12.0"
+ksp = "2.3.13"
 kotlinx-serialization = "1.12.0"
 ktor = "3.6.0"
 log4j = "2.26.1"
@@ -33,6 +36,7 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-power-assert = { id = "org.jetbrains.kotlin.plugin.power-assert", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "vanniktech-publish" }
 metro = { id = "dev.zacsweers.metro", version.ref = "metro" }
 testBalloon = { id = "de.infix.testBalloon", version.ref = "testBalloon" }
@@ -50,6 +54,9 @@ hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
 
 hoplite-core = { module = "com.sksamuel.hoplite:hoplite-core", version.ref = "hoplite" }
 hoplite-hocon = { module = "com.sksamuel.hoplite:hoplite-hocon", version.ref = "hoplite" }
+
+inara-processor = { module = "org.kodein.di.inara:inara-processor", version.ref = "inara" }
+inara-runtime = { module = "org.kodein.di.inara:inara-runtime", version.ref = "inara" }
 
 kotlin-bom = { module = "org.jetbrains.kotlin:kotlin-bom", version.ref = "kotlin" }
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }

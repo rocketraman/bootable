@@ -23,6 +23,7 @@ plugins {
   alias(libs.plugins.kotlin.compose) apply false
   alias(libs.plugins.kotlin.power.assert) apply false
   alias(libs.plugins.kotlin.serialization) apply false
+  alias(libs.plugins.ksp) apply false
   alias(libs.plugins.testBalloon) apply false
   signing
   alias(libs.plugins.maven.publish) apply false
@@ -201,13 +202,19 @@ project("boot") {
     implementation(project(":boot-logging-log4j2"))
     // note: no DI framework — Bootable's wiring is plain Kotlin (kotlin-reflect is still needed at runtime
     // for log4j-api-kotlin logging, and comes transitively via boot-logging-log4j2)
+    // the inara flavor can read the tiebreaker from config, through config-common's ConfigModule
+    "inaraApi"(project(path = ":boot-config-common", configuration = "inaraElements"))
   }
 
-  // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
-  configurations["testImplementation"].extendsFrom(configurations["kodeinApi"], configurations["metroApi"])
+  // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would
+  configurations["testImplementation"].extendsFrom(
+    configurations["kodeinApi"],
+    configurations["metroApi"],
+    configurations["inaraApi"],
+  )
   sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output + sourceSets["inara"].output
   }
 
   kotlin {
@@ -235,6 +242,7 @@ project("boot-config-hoplite") {
     // resolve the sibling metro source sets; in the published POM they map to the -metro coordinates.
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-config-common", configuration = "metroElements"))
+    "inaraApi"(project(path = ":boot-config-common", configuration = "inaraElements"))
   }
 }
 
@@ -510,9 +518,9 @@ listOf(
 
 /**
  * Convention for a Bootable module that ships optional DI bindings alongside its vanilla API:
- *   src/main/ -> vanilla   src/metro/ -> Metro bindings   src/kodein/ -> Kodein bindings
+ *   src/main/ -> vanilla   src/metro/ -> Metro bindings   src/kodein/ -> Kodein bindings   src/inara/ -> Inara modules
  *
- * Each present flavor (src/metro, src/kodein) is published as its own **plain coordinate** `<module>-<flavor>`
+ * Each present flavor (src/metro, src/kodein, src/inara) is published as its own **plain coordinate** `<module>-<flavor>`
  * (e.g. `boot-metro`) whose POM depends on the base coordinate + the DI runtime + any sibling `-<flavor>`
  * coordinates. A downstream consumer just adds `implementation("...:boot-metro")` — no attribute, capability,
  * rule, or plugin — and it resolves identically from Gradle and Maven. In-repo the same flavor is exposed as a
@@ -521,14 +529,19 @@ listOf(
  *
  * The Metro compiler plugin is applied (and Kotlin bumped to 2.3) only when src/metro exists; it applies to the
  * whole module (it can't be scoped) but its runtime is kept off the vanilla/kodein artifacts via compileOnly.
+ *
+ * The Inara flavor runs Inara's KSP processor on its source set only (`kspInara`), which generates the builders of its
+ * `@DIModule`s into the flavor jar. The consumer runs the processor too, on the application's composed `@DIModule`.
  */
 fun Project.configureDiVariants() {
   val hasMetro = file("src/metro/kotlin").exists()
   val hasKodein = file("src/kodein/kotlin").exists()
-  if (!hasMetro && !hasKodein) return
+  val hasInara = file("src/inara/kotlin").exists()
+  if (!hasMetro && !hasKodein && !hasInara) return
 
   val metroRuntime = "dev.zacsweers.metro:runtime:${rootProject.libs.versions.metro.get()}"
   val kodeinDi = "org.kodein.di:kodein-di:7.33.0"
+  val inaraRuntime = rootProject.libs.inara.runtime.get().toString()
 
   if (hasMetro) {
     apply(plugin = "dev.zacsweers.metro")
@@ -633,5 +646,16 @@ fun Project.configureDiVariants() {
     dependencies.add("kodeinApi", kodeinDi)
     // module-wide Metro plugin also processes the kodein compilation, so it needs the runtime at compile time
     if (hasMetro) dependencies.add("kodeinCompileOnly", metroRuntime)
+  }
+  if (hasInara) {
+    defineFlavor("inara")
+    dependencies.add("inaraApi", inaraRuntime)
+    // generate the flavor's @DIModule builders; KSP's per-source-set configurations keep it off the other flavors
+    apply(plugin = "com.google.devtools.ksp")
+    dependencies.add("kspInara", rootProject.libs.inara.processor.get().toString())
+    // KSP adds its output to the source set, so the sources jar ships the generated builders once they exist
+    tasks.named("inaraSourcesJar") { dependsOn("kspInaraKotlin") }
+    // as for kodein, the module-wide Metro plugin also processes the inara compilation
+    if (hasMetro) dependencies.add("inaraCompileOnly", metroRuntime)
   }
 }
