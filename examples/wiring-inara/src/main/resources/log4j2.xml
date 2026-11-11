@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="error"><Loggers><Logger name="com.github.rocketraman" level="info" additivity="false"><AppenderRef ref="Console"/></Logger></Loggers></Configuration>

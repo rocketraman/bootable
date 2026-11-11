@@ -6,7 +6,7 @@ kotlin {
   jvmToolchain(25)
 }
 
-// The server, repository, table, migrations, config and resources shared by the vanilla, kodein, and metro apps. Only the
+// The server, repository, table, migrations, config and resources shared by the vanilla, kodein, metro, and inara apps. Only the
 // plain Bootable modules here; each app adds the DI flavor it wires with.
 dependencies {
   api(project(":boot"))
