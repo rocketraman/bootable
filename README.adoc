@@ -11,6 +11,7 @@ Bootable's core is plain Kotlin and embeds *no* dependency-injection framework.
 Its runtime takes two sets — your application services and your lifecycle controllers — and runs them; how you assemble those sets is entirely your choice.
 Wire them by hand, use a DI solution provided by Bootable as optional add-on artifacts, or bring your own DI.
 Bootable ships optional bindings for https://github.com/kosi-libs/Kodein[Kodein-DI] (clean DSL syntax but executes at runtime) and https://github.com/ZacSweers/metro[Metro] (complex annotation-based syntax, but executes and checks for a valid dependency graph at compile-time).
+Experimental bindings for https://kosi-libs.org/inara/[Inara], Kodein's compile-time successor, are available too.
 These are selectable per module, and you can just as easily integrate with any other DI, or none at all.
 
 == Why Not Spring Boot?
@@ -85,7 +86,7 @@ An application makes two choices, each its own dependency:
 ** `boot-db-jdbc-postgresql`: `PostgresqlConfig` takes a `host`, `port`, `database`, and credentials, plus typed driver settings such as `sslMode`, `currentSchema`, and `applicationName`.
 ** `boot-db-jdbc-mysql`: `MysqlConfig` takes a `host`, `port`, `database`, and credentials, plus typed driver settings such as `sslMode`, and defaults to Connector/J's prepared statement cache.
 * A *pool*, which supplies the `ConnectionPoolFactory`, configured with its own typed settings.
-** `boot-db-pool-hikari`: HikariCP, configured by `HikariPoolConfig`. For HikariCP settings it doesn't cover, add a `HikariConfigCustomizer` to its set binding (Kodein `inBindSet`, Metro `@IntoSet`).
+** `boot-db-pool-hikari`: HikariCP, configured by `HikariPoolConfig`. For HikariCP settings it doesn't cover, add a `HikariConfigCustomizer` to its set binding (Kodein `inBindSet`, Metro `@IntoSet`, Inara `@HikariConfigCustomizers`).
 `boot-db-pool-hikari-otel` adds one that records the pool's metrics through OpenTelemetry; see <<Telemetry>>.
 
 On top of the pool, two optional modules use its `DataSource`:
@@ -126,10 +127,10 @@ With Kodein, import `jdbcDataSourceModule`, a driver config module (`sqliteConfi
 With Metro, the `-metro` driver, pool, Flyway, and Exposed modules contribute everything; for the generic config, add `JdbcGenericConfigBindings` to your graph's `bindingContainers`; register tables with `@Provides @IntoSet fun myTable(): Table = MyTable`.
 A graph without a driver or a pool fails to compile with a missing binding.
 
-To wrap the pool's `DataSource`, so that everything using it goes through the wrapper, give `JdbcDataSourceService` a `DataSourceWrapper`, or add one to its set binding (Kodein `inBindSet`, Metro `@IntoSet`).
+To wrap the pool's `DataSource`, so that everything using it goes through the wrapper, give `JdbcDataSourceService` a `DataSourceWrapper`, or add one to its set binding (Kodein `inBindSet`, Metro `@IntoSet`, Inara `@DataSourceWrappers`).
 `boot-db-jdbc-otel` adds one that traces each query through OpenTelemetry; see <<Telemetry>>.
 
-See link:./examples/server-ktor-db[examples/server-ktor-db] for a small Ktor server that keeps entries in a SQLite database, through a HikariCP pool, with its schema created by a Flyway migration and its queries written with Exposed. Its server code is shared, and it is wired three ways: `vanilla`, `kodein`, and `metro`, each a runnable app, e.g. `./gradlew :examples:server-ktor-db:metro:run`.
+See link:./examples/server-ktor-db[examples/server-ktor-db] for a small Ktor server that keeps entries in a SQLite database, through a HikariCP pool, with its schema created by a Flyway migration and its queries written with Exposed. Its server code is shared, and it is wired four ways: `vanilla`, `kodein`, `metro`, and the experimental `inara`, each a runnable app, e.g. `./gradlew :examples:server-ktor-db:metro:run`.
 
 === Environment
 
@@ -221,8 +222,8 @@ health {
 ----
 
 A listener of their own starts first and stops last, so liveness is answered while the other services start, such as during long migrations, and readiness is down until the application is running.
-With Kodein, `ktorHealthModule` (from `boot-server-http-ktor-kodein`) provides `KtorHealth`; with Metro, `boot-server-http-ktor-metro` contributes it.
-Either also adds the listener of their own to the application's services, on the application's `KtorServerEngine`, which an engine module's flavor provides (see <<KtorEngine>>); without `hostPort`, that listener is a service that does nothing, and needs no engine.
+With Kodein, `ktorHealthModule` (from `boot-server-http-ktor-kodein`) provides `KtorHealth`; with Metro, `boot-server-http-ktor-metro` contributes it; with Inara, compose `ktorHealthModule()` (from `boot-server-http-ktor-inara`).
+Each also adds the listener of their own to the application's services, on the application's `KtorServerEngine`, which an engine module's flavor provides (see <<KtorEngine>>); without `hostPort`, that listener is a service that does nothing, and needs no engine.
 Without DI, add `KtorHealth.listener(engine)` to the application's services yourself, such as `ktorHealth.listener(CIO)`.
 
 `KtorHealth` also serves the application's `BuildInfo` at `/health/info`: always `200`, with a JSON body of its `version`, `revision`, and `attributes`, each only if it is set.
@@ -575,7 +576,7 @@ A start that fails records the exception, and an error status, on the service's 
 Add it to the lifecycle controllers: `defaultLifecycleControllers() + ServiceStartTracing(openTelemetry)` with vanilla wiring, `serviceStartTracingModule` with Kodein, and `ServiceStartTracingBindings` in the graph's `bindingContainers` with Metro.
 The span is current on the thread that calls `start`: a `start` that runs coroutines carries it into them with `runBlocking(Context.current().asContextElement()) { … }`.
 The SDK times its spans and measurements, and `ServiceStartTracing` its root span, with a `kotlin.time.Clock`: `Clock.System` unless one is given to `OpenTelemetryService` and `ServiceStartTracing`, or bound, with Kodein or Metro, such as a fixed clock in a test.
-For SDK settings the config doesn't cover, such as a span processor, a metric view, or another sampler, add an `OpenTelemetryCustomizer` to its set binding (Kodein `inBindSet`, Metro `@IntoSet`); this is also how the modules below plug in.
+For SDK settings the config doesn't cover, such as a span processor, a metric view, or another sampler, add an `OpenTelemetryCustomizer` to its set binding (Kodein `inBindSet`, Metro `@IntoSet`, Inara `@OpenTelemetryCustomizers`); this is also how the modules below plug in.
 `excludeUrlPathsFromTraces(paths)` is one, which keeps requests such as health checks out of the traces.
 
 [cols="3,2,3,6"]
@@ -596,7 +597,7 @@ For SDK settings the config doesn't cover, such as a span processor, a metric vi
 It also serves a pulled backend's scrape at `/metrics`, and keeps those scrapes out of the traces.
 Call `installTelemetry(telemetry)` in your server's `module()`; the request's span is current while its route runs, so `withSpan` in a route starts a child of it.
 To keep the scrape off a public server, set `telemetry.ktor.hostPort`: the scrape is then served on a listener of its own.
-The Kodein `ktorTelemetryModule` and the Metro bindings add that listener to the application's services, on the application's `KtorServerEngine`, which an engine module's flavor provides (see <<KtorEngine>>).
+The Kodein `ktorTelemetryModule`, the Metro bindings, and the Inara `ktorTelemetryModule()` add that listener to the application's services, on the application's `KtorServerEngine`, which an engine module's flavor provides (see <<KtorEngine>>).
 Without DI, add `telemetry.listener(CIO)` (or another engine) to the application's services yourself.
 Without `hostPort`, that listener is a service that does nothing, and needs no engine, so it can be added either way.
 
@@ -731,7 +732,7 @@ class MyServer(config: ServerConfig) : CioKtorService("my-server", config) {
 Any other engine, such as Jetty, works too: depend on `boot-server-http-ktor` and that engine, and extend `KtorService` with the engine's factory, e.g. `KtorService<JettyApplicationEngine, JettyApplicationEngineBase.Configuration>("my-server", config, Jetty)`.
 
 The listeners that other modules start on their own, those of the health probes and the metrics scrape when their `hostPort` is set, run on the application's `KtorServerEngine`.
-Each engine module's flavor provides it, for that engine: with Kodein, import `ktorServerCioEngineModule` (from `boot-server-http-ktor-cio-kodein`) or `ktorServerNettyEngineModule` (from `boot-server-http-ktor-netty-kodein`); with Metro, `boot-server-http-ktor-cio-metro` or `boot-server-http-ktor-netty-metro` contributes it.
+Each engine module's flavor provides it, for that engine: with Kodein, import `ktorServerCioEngineModule` (from `boot-server-http-ktor-cio-kodein`) or `ktorServerNettyEngineModule` (from `boot-server-http-ktor-netty-kodein`); with Metro, `boot-server-http-ktor-cio-metro` or `boot-server-http-ktor-netty-metro` contributes it; with Inara, compose `ktorServerCioEngineModule()` (from `boot-server-http-ktor-cio-inara`) or `ktorServerNettyEngineModule()` as the `KtorServerEngineModule`, which the Inara health and telemetry modules require, or `NoKtorServerEngineModule` for none.
 Use one engine module's flavor: two would be two bindings of `KtorServerEngine`.
 For any other engine, bind your own, such as `KtorServerEngine(Jetty)`.
 An application whose health probes and scrape are served on its own server needs no `KtorServerEngine`; one with a `hostPort` set and no engine fails to start, saying so.
@@ -814,7 +815,7 @@ The certificate is presented whatever certificate authorities the server asks fo
 
 A named client takes every setting it leaves unset from the default client, adding to its headers, and taking `retry` and `tls` whole: an empty `tls {}` turns off a client certificate the default client has.
 
-A module that calls a service of its own can contribute its named client's default settings with a `KtorClientDefaults`, in the service's `defaults` or its set binding (Kodein `inBindSet`, Metro `@IntoSet`): e.g. a trust store of the platform's mounted CA certificate, so the application needn't configure one.
+A module that calls a service of its own can contribute its named client's default settings with a `KtorClientDefaults`, in the service's `defaults` or its set binding (Kodein `inBindSet`, Metro `@IntoSet`, Inara `@NamedClientDefaults`): e.g. a trust store of the platform's mounted CA certificate, so the application needn't configure one.
 The client exists whether or not the application configures it, and the application's `http.client.named.<name>` settings override the contributed ones the same way, field by field, with `tls` taken whole.
 Two modules that default the same client fail the boot.
 
@@ -834,7 +835,7 @@ Between them they cover native images and TLS 1.3, so Bootable has no module for
 For those, such as for the finer connection pool control of Apache HttpClient, or any other engine, give the service a `KtorClientEngine` of your own, a few lines that create the engine from its `KtorClientSpec`, applying its `tls.sslContext`.
 A `KtorClientEngine` is also the seam for tests: one that returns Ktor's `MockEngine`, `KtorClientEngine { MockEngine { respond("hello") } }`, answers every client's requests, with no other change to the wiring.
 
-For anything else, such as a plugin, add a `KtorClientCustomizer` to the service's customizers, or to its set binding (Kodein `inBindSet`, Metro `@IntoSet`).
+For anything else, such as a plugin, add a `KtorClientCustomizer` to the service's customizers, or to its set binding (Kodein `inBindSet`, Metro `@IntoSet`, Inara `@KtorClientCustomizers`).
 It runs for each client after the typed settings, with the client's name, or `default`, and Ktor's own `HttpClientConfig`.
 Bootable installs no `ContentNegotiation`, since which serialization library, and which `Json` settings, are the application's choice:
 
@@ -935,6 +936,8 @@ To use a DI framework, depend on the `-kodein` or `-metro` artifact of each modu
 
 * *Kodein* (runtime): import the provided `bootableModule` / `hopliteConfigModule` / `environmentModule`, contribute your services with `bindAppService { … }`, and pass the resolved sets to `boot`.
 * *Metro* (compile-time): declare a `@DependencyGraph` that extends `BootableGraph`, contribute your services with `@ContributesIntoSet`, and `boot { createGraph<AppGraph>().bootable }`.
+* *Inara* (compile-time, experimental): compose `hopliteConfigModule()`, `bootableModule()`, and the parts of the other modules you use (`jdbcDataSourceModule(SqliteConfigSource)`, `hikariPoolModule()`, …) into a `@DIModule(composed = true)`, mark your own services `@AppServices`, and `boot { app.bootable }`.
+See link:docs/wiring.adoc[Wiring Bootable].
 
 == Faster Start: the JVM AOT Cache
 
@@ -1178,6 +1181,10 @@ Bootable is designed to be DI independent -- combine it with whichever DI you li
 That being said, Bootable ships with bindings for two popular options: https://zacsweers.github.io/metro/[Metro] and https://kosi-libs.org/kodein/[Kodein].
 Simply pull in the `-metro` or `-kodein` suffixed variants of each module to use them.
 
+The authors of Kodein are https://kodein-koders.com/en/blog/inara-inject-your-dependencies-at-compile-time/[sunsetting it] in favour of https://kosi-libs.org/inara/[Inara], a compile-time successor.
+Bootable has experimental Inara bindings, as `-inara` suffixed variants.
+If they work out, the Kodein bindings will be deprecated in their favour.
+
 ==== Which DI Should I Use?
 
 The heavy-weight nature of DI frameworks like Spring has given DI a bit of a bad rap, and many people argue it is unnecessary in Kotlin — that constructor injection and https://kotlinlang.org/docs/context-parameters.html[context parameters] are enough.
@@ -1201,6 +1208,7 @@ See these three wiring options for example code:
 * link:./examples/wiring-vanilla[examples/wiring-vanilla]
 * link:./examples/wiring-kodein[examples/wiring-kodein]
 * link:./examples/wiring-metro[examples/wiring-metro]
+* link:./examples/wiring-inara[examples/wiring-inara] (experimental)
 
 ==== How Do I Integrate Random DI with Bootable?
 
