@@ -1,0 +1,11 @@
+{
+  "reflection": [
+    {
+      "type": "kotlin.time.Duration",
+      "methods": [
+        { "name": "box-impl", "parameterTypes": ["long"] },
+        { "name": "unbox-impl", "parameterTypes": [] }
+      ]
+    }
+  ]
+}
