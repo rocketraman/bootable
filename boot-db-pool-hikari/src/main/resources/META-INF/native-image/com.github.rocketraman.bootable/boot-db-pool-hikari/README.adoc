@@ -1,0 +1,7 @@
+= GraalVM native-image metadata
+
+The `HikariConnectionPoolFactory` and `HikariConnectionPoolFactory$Companion` entries in `reachability-metadata.json` are a *temporary workaround*.
+`HikariConnectionPoolFactory` holds a log4j-api-kotlin `logger()` in its companion, which resolves the logger's name with kotlin-reflect, so a native image fails when the class is initialized, with `KotlinReflectionInternalError: Unresolved class`, unless both classes are registered for reflection.
+Delete those two entries once Bootable depends on a log4j-api-kotlin release that resolves the name without kotlin-reflect; see the `boot` module's `README.md` next to its own metadata.
+
+The other entries are permanent: they are the config classes Hoplite decodes, which it constructs through kotlin-reflect.

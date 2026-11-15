@@ -1,0 +1,22 @@
+{
+  "reflection": [
+    {
+      "type": "com.github.rocketraman.bootable.db.exposed.ExposedConfig",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.db.exposed.SchemaVerificationService",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.db.exposed.SchemaVerificationService$Companion",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    }
+  ]
+}

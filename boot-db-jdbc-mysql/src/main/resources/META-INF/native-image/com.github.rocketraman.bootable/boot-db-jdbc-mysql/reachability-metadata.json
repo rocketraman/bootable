@@ -1,0 +1,10 @@
+{
+  "reflection": [
+    {
+      "type": "com.github.rocketraman.bootable.db.jdbc.MysqlConfig",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    }
+  ]
+}
