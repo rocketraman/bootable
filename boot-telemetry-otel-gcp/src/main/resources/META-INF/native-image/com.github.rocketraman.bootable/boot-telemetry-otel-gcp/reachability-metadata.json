@@ -1,0 +1,10 @@
+{
+  "reflection": [
+    {
+      "type": "com.github.rocketraman.bootable.telemetry.otel.GcpTelemetryConfig",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    }
+  ]
+}
