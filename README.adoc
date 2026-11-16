@@ -205,6 +205,27 @@ To use a DI framework, depend on the `-kodein` or `-metro` artifact of each modu
 
 == Design
 
+=== Non-Goals
+
+Bootable provides useful capabilities on top of well-chosen libraries, not an abstraction over them.
+
+* *Interchangeable libraries.*
+Bootable doesn't aim to make the libraries it builds on, such as Hoplite for configuration, or Exposed and HikariCP for databases, interchangeable with others.
+Use their types and APIs directly: Bootable exposes them rather than wrapping them.
+That includes dependency injection: Bootable provides bindings for Kodein and Metro, not an abstraction over them, and an application uses its chosen DI directly.
+* *Every feature of every library.*
+Bootable's modules set up the common case.
+For anything more, configure the library itself, through the hooks a module provides, such as `HikariConfigCustomizer`, `ExposedConfigCustomizer`, or ``hopliteConfigBinder``'s parameters.
+* *Requiring Bootable's modules.*
+Use Bootable's modules, or integrate the library directly, or use a different library if it fits your use case better.
+Bootable's core is just application lifecycle management.
+
+This philosophy is quite different from Spring Boot's, which attempts to abstract away libraries with common Spring Boot factories and APIs.
+Users then have to understand two abstractions: the library's own, as well as Spring Boot's.
+It makes leveraging each library's unique capabilities more difficult than necessary.
+These capabilities are either unavailable or only exposed via a complex set of ostensibly library-independent customizers and injectors.
+Swapping in your own component is difficult -- other components of Spring Boot assume you are using and configuring their abstraction.
+
 === Dependency Injection
 
 Everyone has their own preferences: no DI at all, relying solely on constructor injection and context parameters, compile-time annotation-based frameworks like https://zacsweers.github.io/metro/[Metro], https://dagger.dev/[Dagger] or https://github.com/evant/kotlin-inject[kotlin-inject], or runtime DSL based options like https://kosi-libs.org/kodein/[Kodein] and https://insert-koin.io/[Koin].
