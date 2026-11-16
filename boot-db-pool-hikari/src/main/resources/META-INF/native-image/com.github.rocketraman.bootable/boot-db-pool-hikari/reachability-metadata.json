@@ -1,0 +1,22 @@
+{
+  "reflection": [
+    {
+      "type": "com.github.rocketraman.bootable.db.jdbc.HikariPoolConfig",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.db.jdbc.HikariConnectionPoolFactory",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.db.jdbc.HikariConnectionPoolFactory$Companion",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    }
+  ]
+}
