@@ -164,6 +164,8 @@ Logs go through `boot-logging-log4j2` as usual, with the trace and span ids abov
 Ship them with the platform's log collection, such as Cloud Logging's, or an OpenTelemetry collector that reads the application's output.
 
 `Tracer.withSpan(name) { span -> … }` runs a suspending block in a child span of the current one, which stays current across dispatchers, and records an exception as the span's error.
+A span from `withSpan` is expected to have a parent: without one, it starts a trace of its own and logs a warning, once for each span name, since its caller's trace context usually didn't reach it, such as across a new `CoroutineScope` or a Java callback.
+To start a trace on purpose, such as for a scheduled job or a consumed message, use `Tracer.withRootSpan(name) { span -> … }`, which can also link the trace to the operation that kicked it off.
 For SDK settings the config doesn't cover, such as a span processor, a metric view, or another sampler, add an `OpenTelemetryCustomizer` to its set binding (Kodein `inBindSet`, Metro `@IntoSet`); this is also how the modules below plug in.
 `excludeUrlPathsFromTraces(paths)` is one, which keeps requests such as health checks out of the traces.
 
@@ -184,7 +186,7 @@ Call `installTelemetry(telemetry)` in your server's `module()`; the request's sp
 To keep the scrape off a public server, set `telemetry.ktor.hostPort`: the scrape is then served on a listener of its own, `telemetry.listener(CIO)` (or another engine), which you add to the application's services.
 Without `hostPort`, that listener is a service that does nothing, so it can be added either way.
 
-Bootable doesn't instrument other libraries for you: hand the application's `openTelemetry` to each library's OpenTelemetry instrumentation yourself, where you build that library's client.
+For a library without a Bootable module that instruments it, such as `boot-server-http-ktor-otel` does Ktor, hand the application's `openTelemetry` to the library's OpenTelemetry instrumentation yourself, where you build its client.
 For HikariCP's pool metrics, for example, add `io.opentelemetry.instrumentation:opentelemetry-hikaricp-3.0`, and give `HikariConnectionPoolFactory` a `HikariConfigCustomizer` that sets `metricsTrackerFactory = HikariTelemetry.create(openTelemetry).createMetricsTrackerFactory()`.
 link:./examples/server-ktor-db[examples/server-ktor-db] does this, wired each of the three ways.
 
