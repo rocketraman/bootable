@@ -1,7 +1,6 @@
 package com.github.rocketraman.bootable.boot
 
 import com.github.rocketraman.bootable.common.Ignore
-import kotlin.time.TimeMark
 
 /**
  * The application's services, for a [LifecycleController] to start and stop.
@@ -53,13 +52,13 @@ interface LifecycleController {
    * is running, or throws if a service failed to start. An implementation must call [start] once, on the calling
    * thread, and let what it throws propagate.
    *
-   * [startupMark] marks when the application began booting: with [boot], before logging was initialized and the
-   * [Bootable] built, so the time since it includes building the application, such as decoding its config.
+   * [timeline] is the application's boot so far: when it began, with [boot] before logging was initialized and the
+   * [Bootable] built, and the stages since, such as building the application, which includes decoding its config.
    *
    * Each controller wraps the start of the controllers of lower [priority], so the highest priority's code is
    * outermost. The default runs [start] alone.
    */
-  fun aroundAppStart(serviceContext: ServiceContext, startupMark: TimeMark, start: () -> Unit) = start()
+  fun aroundAppStart(serviceContext: ServiceContext, timeline: StartupTimeline, start: () -> Unit) = start()
 
   /**
    * When a service is started, lifecycle controllers may vote on whether it is allowed to start or not. This may

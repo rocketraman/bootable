@@ -3,13 +3,16 @@ package com.github.rocketraman.bootable.telemetry.otel
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.LifecycleController
 import com.github.rocketraman.bootable.boot.ServiceContext
+import com.github.rocketraman.bootable.boot.StartupTimeline
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanBuilder
 import io.opentelemetry.api.trace.StatusCode
 import io.opentelemetry.api.trace.Tracer
+import java.time.Instant
 import kotlin.time.Clock
-import kotlin.time.TimeMark
+import kotlin.time.ComparableTimeMark
+import kotlin.time.TimeSource
 import kotlin.time.toJavaInstant
 
 /**
@@ -18,6 +21,11 @@ import kotlin.time.toJavaInstant
  * What a service does as it starts is traced within its span, such as the queries of a database migration, traced by
  * `boot-db-jdbc-otel`. A start that throws has the exception recorded on its span, with an error status, and so does
  * the root span, when that stops the application's start.
+ *
+ * The root span has a child span for each stage of the boot before the services start, from the [StartupTimeline]:
+ * `initialize JVM classes for logging and configuration`, `plan start`, and `initialize`, so the time before the first
+ * service starts is accounted for too. The SDK doesn't exist yet in those stages, so their spans are recorded
+ * afterwards, with the times the timeline marked.
  *
  * The root span begins when the application began booting: with Bootable's `boot`, before logging is initialized and
  * the application built, so it covers building the application, such as decoding its config and creating its
@@ -54,9 +62,19 @@ class ServiceStartTracing(
 ) : LifecycleController {
   private val tracer: Tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE)
 
-  override fun aroundAppStart(serviceContext: ServiceContext, startupMark: TimeMark, start: () -> Unit) {
-    val startedAt = (clock.now() - startupMark.elapsedNow()).toJavaInstant()
-    tracer.spanBuilder(APP_START_SPAN).setNoParent().setStartTimestamp(startedAt).runInSpan(start)
+  override fun aroundAppStart(serviceContext: ServiceContext, timeline: StartupTimeline, start: () -> Unit) {
+    // the wall-clock time of each mark, relative to one reading of the clock, so the spans are consistent
+    val reference = TimeSource.Monotonic.markNow()
+    val now = clock.now()
+    fun at(mark: ComparableTimeMark): Instant = (now - (reference - mark)).toJavaInstant()
+
+    tracer.spanBuilder(APP_START_SPAN).setNoParent().setStartTimestamp(at(timeline.start))
+      .runInSpan {
+        timeline.stages.forEach { stage ->
+          tracer.spanBuilder(stage.name).setStartTimestamp(at(stage.start)).startSpan().end(at(stage.end))
+        }
+        start()
+      }
   }
 
   override fun aroundServiceStart(appService: AppService, start: () -> Unit) {

@@ -50,21 +50,33 @@ class Bootable(
   /**
    * This is internal as it is intended to be used only from the [com.github.rocketraman.bootable.boot] helper function.
    */
-  internal fun boot(startupMark: TimeMark = TimeSource.Monotonic.markNow(), maxShutdownTime: Long = 30) {
-    exit(run(startupMark, maxShutdownTime))
+  internal fun boot(
+    timeline: StartupTimeline = StartupTimeline(TimeSource.Monotonic.markNow()),
+    maxShutdownTime: Long = 30,
+  ) {
+    exit(run(timeline, maxShutdownTime))
   }
 
-  /** Runs the application until it terminates, and returns the exit code. */
-  internal fun run(startupMark: TimeMark = TimeSource.Monotonic.markNow(), maxShutdownTime: Long = 30): Int {
+  /**
+   * Runs the application until it terminates, and returns the exit code. [boot] is the timeline so far: with the
+   * [boot] function, its first stages; this adds the planning and initialization.
+   */
+  internal fun run(
+    boot: StartupTimeline = StartupTimeline(TimeSource.Monotonic.markNow()),
+    maxShutdownTime: Long = 30,
+  ): Int {
+    val startupMark = boot.start
     appPlan()
+    val planned = boot.then(StartupTimeline.PLAN_START)
 
     log.info("=> Initializing (${startupMark.elapsedNow()})…")
     appInit()
+    val timeline = planned.then(StartupTimeline.INITIALIZE)
 
     log.info("=> Starting (${startupMark.elapsedNow()})…")
     @Suppress("TooGenericExceptionCaught")
     try {
-      appStart(startupMark)
+      appStart(timeline)
     } catch (e: Exception) {
       log.fatal(e) { "Failed to start application, stopping the services that started…" }
       running = false
@@ -109,9 +121,9 @@ class Bootable(
     }
   }
 
-  private fun appStart(startupMark: TimeMark) {
+  private fun appStart(timeline: StartupTimeline) {
     val start = lifecycleControllers.sortedBy { it.priority() }.fold<LifecycleController, () -> Unit>(::startControllers) { inner, controller ->
-      { controller.aroundAppStart(serviceContext, startupMark, inner) }
+      { controller.aroundAppStart(serviceContext, timeline, inner) }
     }
     start()
   }
@@ -236,7 +248,7 @@ fun boot(
   loggingType: LoggingType? = null,
   bootable: () -> Bootable,
 ) {
-  val startupMark = TimeSource.Monotonic.markNow()
+  val booting = StartupTimeline(TimeSource.Monotonic.markNow())
 
   loggingInit(loggingType = loggingType)
   val log = logger("Bootable")
@@ -244,7 +256,8 @@ fun boot(
   @Suppress("TooGenericExceptionCaught")
   try {
     log.info("=> Creating application")
-    bootable().boot(startupMark, maxShutdownTime)
+    val application = bootable()
+    application.boot(booting.then(StartupTimeline.INITIALIZE_JVM_CLASSES), maxShutdownTime)
   } catch (e: Exception) {
     log.fatal(e) { "Failed to start application. Exiting..." }
     exitProcess(-1)

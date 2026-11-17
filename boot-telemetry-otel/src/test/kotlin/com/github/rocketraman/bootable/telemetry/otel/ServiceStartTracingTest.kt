@@ -7,6 +7,8 @@ import com.github.rocketraman.bootable.boot.DefaultPhase
 import com.github.rocketraman.bootable.boot.LifecycleController
 import com.github.rocketraman.bootable.boot.Ordering
 import com.github.rocketraman.bootable.boot.ServiceContext
+import com.github.rocketraman.bootable.boot.StartupStage
+import com.github.rocketraman.bootable.boot.StartupTimeline
 import com.github.rocketraman.bootable.boot.bootableModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import de.infix.testBalloon.framework.core.testSuite
@@ -89,11 +91,14 @@ private object SampleAll : OpenTelemetryCustomizer {
   override fun customizeSampler(sampler: Sampler): Sampler = Sampler.alwaysOn()
 }
 
+/** A timeline that began a second ago, with no stages, as of a [Bootable] run without [boot] that took no time. */
+private fun aSecondAgo() = StartupTimeline(TimeSource.Monotonic.markNow() - 1.seconds)
+
 private val Long.startInstant: KotlinInstant get() = KotlinInstant.fromEpochSeconds(0, this)
 
 /** Runs a start with one service, traced by [tracing], and returns the root span's start and the service span's. */
 private fun traceStart(tracing: ServiceStartTracing, telemetry: InMemoryTelemetry): Pair<KotlinInstant, KotlinInstant> {
-  tracing.aroundAppStart(ServiceContext(emptySet(), emptyList(), {}, {}), TimeSource.Monotonic.markNow() - 1.seconds) {
+  tracing.aroundAppStart(ServiceContext(emptySet(), emptyList(), {}, {}), aSecondAgo()) {
     val pool = object : AppService {
       override fun name() = "pool"
       override fun start() = Unit
@@ -133,7 +138,7 @@ val ServiceStartTracingTest by testSuite {
     val context = ServiceContext(emptySet(), emptyList(), {}, {})
     try {
       val beforeBoot = Instant.now().minusSeconds(2)
-      tracing.aroundAppStart(context, TimeSource.Monotonic.markNow() - 1.seconds) {
+      tracing.aroundAppStart(context, aSecondAgo()) {
         val pool = WorkingService("pool", DefaultPhase.Infrastructure, openTelemetry)
         tracing.aroundServiceStart(pool, pool::start)
         val app = WorkingService("app", DefaultPhase.Application, openTelemetry)
@@ -159,6 +164,32 @@ val ServiceStartTracingTest by testSuite {
     }
   }
 
+  test("each stage of the boot before the services start is a span, at the times the timeline marked") {
+    val clock = FixedClock()
+    val telemetry = InMemoryTelemetry()
+    val service = OpenTelemetryService(testConfig(), listOf(telemetry), clock)
+    val tracing = ServiceStartTracing(service.openTelemetry, clock)
+    try {
+      val began = TimeSource.Monotonic.markNow() - 3.seconds
+      val stages = listOf(
+        StartupStage(StartupTimeline.INITIALIZE_JVM_CLASSES, began, began + 1.seconds),
+        StartupStage(StartupTimeline.PLAN_START, began + 1.seconds, began + 2.seconds),
+      )
+      tracing.aroundAppStart(ServiceContext(emptySet(), emptyList(), {}, {}), StartupTimeline(began, stages)) {}
+      val spans = telemetry.spans.finishedSpanItems
+      val root = spans.single { it.name == ServiceStartTracing.APP_START_SPAN }
+      val classes = spans.single { it.name == StartupTimeline.INITIALIZE_JVM_CLASSES }
+      val plan = spans.single { it.name == StartupTimeline.PLAN_START }
+      assert(classes.parentSpanId == root.spanId && plan.parentSpanId == root.spanId)
+      // the first stage begins with the root, and each stage where the one before it ended
+      assert(classes.startEpochNanos == root.startEpochNanos)
+      assert(plan.startEpochNanos == classes.endEpochNanos)
+      assert(plan.endEpochNanos - plan.startEpochNanos == 1.seconds.inWholeNanoseconds)
+    } finally {
+      service.shutdown()
+    }
+  }
+
   test("a service whose start fails has an error status, as does the application's start") {
     val telemetry = InMemoryTelemetry()
     val service = OpenTelemetryService(testConfig(), listOf(telemetry))
@@ -166,7 +197,7 @@ val ServiceStartTracingTest by testSuite {
     val tracing = ServiceStartTracing(openTelemetry)
     try {
       val failure = runCatching {
-        tracing.aroundAppStart(ServiceContext(emptySet(), emptyList(), {}, {}), TimeSource.Monotonic.markNow()) {
+        tracing.aroundAppStart(ServiceContext(emptySet(), emptyList(), {}, {}), StartupTimeline(TimeSource.Monotonic.markNow())) {
           val migrate = WorkingService("migrate", DefaultPhase.Initialization, openTelemetry, fail = true)
           tracing.aroundServiceStart(migrate, migrate::start)
         }

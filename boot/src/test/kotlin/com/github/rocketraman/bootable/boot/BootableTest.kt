@@ -5,7 +5,8 @@ import com.github.rocketraman.bootable.boot.DefaultPhase.Infrastructure
 import com.github.rocketraman.bootable.boot.DefaultPhase.Initialization
 import com.github.rocketraman.bootable.boot.DefaultPhase.Serving
 import de.infix.testBalloon.framework.core.testSuite
-import kotlin.time.TimeMark
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 private class RecordingService(
   private val name: String,
@@ -43,7 +44,7 @@ private class Around(
 ) : LifecycleController {
   override fun priority() = priority
 
-  override fun aroundAppStart(serviceContext: ServiceContext, startupMark: TimeMark, start: () -> Unit) {
+  override fun aroundAppStart(serviceContext: ServiceContext, timeline: StartupTimeline, start: () -> Unit) {
     events += "$name{"
     try {
       start()
@@ -102,5 +103,33 @@ val BootableTest by testSuite {
         "stop pool",
       )
     )
+  }
+
+  test("the controllers get the timeline of the boot, with the planning and initialization added to its stages") {
+    var captured: StartupTimeline? = null
+    val capture = object : LifecycleController {
+      override fun aroundAppStart(serviceContext: ServiceContext, timeline: StartupTimeline, start: () -> Unit) {
+        captured = timeline
+        start()
+      }
+    }
+    val started = TimeSource.Monotonic.markNow() - 1.seconds
+    val booted = StartupTimeline(started).then(StartupTimeline.INITIALIZE_JVM_CLASSES, started + 0.5.seconds)
+    val bootable = Bootable(
+      setOf(RecordingService("pool", Infrastructure, mutableListOf(), failStart = true)),
+      setOf(AppStartStopLifecycleController(), capture),
+    )
+
+    assert(bootable.run(booted, maxShutdownTime = 1_000_000) == -1)
+    val timeline = captured!!
+    val stages = timeline.stages
+    assert(timeline.start == started)
+    assert(
+      stages.map { it.name } ==
+        listOf(StartupTimeline.INITIALIZE_JVM_CLASSES, StartupTimeline.PLAN_START, StartupTimeline.INITIALIZE),
+    )
+    // each stage begins where the one before it ended
+    assert(stages.zipWithNext().all { (before, after) -> before.end == after.start })
+    assert(stages.first().start == started)
   }
 }
