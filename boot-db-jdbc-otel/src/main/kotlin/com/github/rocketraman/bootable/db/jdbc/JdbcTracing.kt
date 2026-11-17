@@ -22,8 +22,8 @@ import io.opentelemetry.instrumentation.jdbc.datasource.JdbcTelemetryBuilder
  * The span's parent is OpenTelemetry's current context on the thread the statement runs on. Within a Ktor request
  * traced by `boot-server-http-ktor-otel`, or a `withSpan` from `boot-telemetry-otel`, that is the coroutine's span, on
  * whichever thread it runs, Exposed's `withTransaction` dispatcher included: the context is a coroutine context element,
- * which a coroutine's children inherit. A statement run outside any span, such as by a migration at startup, starts a
- * trace of its own.
+ * which a coroutine's children inherit. A statement run outside any span starts a trace of its own: at startup, such as
+ * a migration's, `ServiceStartTracing` from `boot-telemetry-otel` traces the application's start as one trace.
  */
 fun jdbcTracing(
   openTelemetry: OpenTelemetry,

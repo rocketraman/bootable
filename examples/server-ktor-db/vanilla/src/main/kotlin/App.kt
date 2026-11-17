@@ -1,6 +1,7 @@
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.Bootable
 import com.github.rocketraman.bootable.boot.boot
+import com.github.rocketraman.bootable.boot.defaultLifecycleControllers
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
@@ -17,6 +18,7 @@ import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetryConfig
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
 import com.github.rocketraman.bootable.telemetry.otel.PrometheusTelemetry
+import com.github.rocketraman.bootable.telemetry.otel.ServiceStartTracing
 import com.github.rocketraman.bootable.telemetry.otel.telemetryConfig
 import io.ktor.server.cio.*
 
@@ -66,5 +68,9 @@ fun appServices(binder: ConfigBinder): Set<AppService> {
 }
 
 fun main() = boot {
-  Bootable(appServices = appServices(hopliteConfigBinder()))
+  val services = appServices(hopliteConfigBinder())
+  val telemetry = services.filterIsInstance<OpenTelemetryService>().single()
+  // the start is one trace, with a span for each service's start, and the queries of the migrations and the sample
+  // entries within those, rather than a trace each
+  Bootable(services, defaultLifecycleControllers() + ServiceStartTracing(telemetry.openTelemetry))
 }

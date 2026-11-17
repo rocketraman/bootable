@@ -41,6 +41,7 @@ Shuffling is useful in `application-local.conf` and test config, to surface serv
 An app can pass its own `StartOrder` to add phases; see link:./examples/start-order[examples/start-order], which adds a phase after `Serving` for a service that announces the app is ready once its server is listening.
 Another basic implementation, intended to be used in conjunction with `AppStartStopLifecycleController`, is the `StopSignalHandlerLifecycleController`, which registers signal handlers, which, when received, cleanly shuts the system down.
 Other implementations are possible: for example starting/stopping services at runtime based on a command system, like start/stop messages from RPCs or web requests.
+A controller can also run code around the application's start, and each service's, by overriding `aroundAppStart` and `aroundServiceStart`, as `ServiceStartTracing` does to trace them.
 
 == Modules
 
@@ -170,6 +171,11 @@ Ship them with the platform's log collection, such as Cloud Logging's, or an Ope
 `Tracer.withSpan(name) { span -> … }` runs a suspending block in a child span of the current one, which stays current across dispatchers, and records an exception as the span's error.
 A span from `withSpan` is expected to have a parent: without one, it starts a trace of its own and logs a warning, once for each span name, since its caller's trace context usually didn't reach it, such as across a new `CoroutineScope` or a Java callback.
 To start a trace on purpose, such as for a scheduled job or a consumed message, use `Tracer.withRootSpan(name) { span -> … }`, which can also link the trace to the operation that kicked it off.
+`ServiceStartTracing(openTelemetry)` is a lifecycle controller that traces the application's start as one trace, so its total time, and each service's share of it, can be seen: a root span, `start application`, with a child span for each service's start, such as `start FlywayMigrationService`, within which is what the service does as it starts, such as its queries.
+The root span begins when `boot` was called, so it covers building the application, such as decoding its config, as well as starting its services, and ends when the application is running; it doesn't cover the JVM's own startup, before `main`.
+A start that fails records the exception, and an error status, on the service's span and on the root span.
+Add it to the lifecycle controllers: `defaultLifecycleControllers() + ServiceStartTracing(openTelemetry)` with vanilla wiring, `serviceStartTracingModule` with Kodein, and `ServiceStartTracingBindings` in the graph's `bindingContainers` with Metro.
+The span is current on the thread that calls `start`: a `start` that runs coroutines carries it into them with `runBlocking(Context.current().asContextElement()) { … }`.
 For SDK settings the config doesn't cover, such as a span processor, a metric view, or another sampler, add an `OpenTelemetryCustomizer` to its set binding (Kodein `inBindSet`, Metro `@IntoSet`); this is also how the modules below plug in.
 `excludeUrlPathsFromTraces(paths)` is one, which keeps requests such as health checks out of the traces.
 
@@ -194,7 +200,7 @@ Without `hostPort`, that listener is a service that does nothing, so it can be a
 
 `jdbcTracing`, from `boot-db-jdbc-otel`, wraps the pool's `DataSource` so that each statement is a client span, named for its operation, database, and table, such as `SELECT mydb.entry`.
 The span's parent is the span current on the thread that runs the statement: within a request, or a `withSpan`, that is the coroutine's span, across Exposed's `withTransaction` dispatcher too, since a coroutine's children inherit its trace context.
-A statement outside any span, such as Flyway's migrations, the schema verification, and other work at startup, starts a trace of its own.
+A statement outside any span starts a trace of its own: at startup, such as Flyway's migrations, unless `ServiceStartTracing`, above, traces the start as one trace.
 The query text is sanitized, with its literals replaced by `?`, and the parameters aren't recorded; `jdbcTracing(openTelemetry) { setCaptureQueryParameters(true) }` changes the instrumentation's defaults, but mind what that puts in the traces.
 The query text is in `db.statement`, of the semantic conventions' older database attributes, unless `OTEL_SEMCONV_STABILITY_OPT_IN=database` opts the JVM into the stable ones, such as `db.query.text`.
 The `DataSource` the pool's consumers get is the instrumentation's wrapper, so reach the pool's own, such as a `HikariDataSource`, with `dataSource.unwrap(HikariDataSource::class.java)` rather than a cast.

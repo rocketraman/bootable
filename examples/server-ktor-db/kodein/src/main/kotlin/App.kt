@@ -16,6 +16,7 @@ import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.server.http.ktor.ktorTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.openTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.prometheusTelemetryModule
+import com.github.rocketraman.bootable.telemetry.otel.serviceStartTracingModule
 import io.ktor.server.cio.*
 import org.kodein.di.DI
 import org.kodein.di.bindSingleton
@@ -48,12 +49,15 @@ val entriesModule by DI.Module {
  * the Exposed `Database` and verifies the schema against the registered tables (`db.exposed`). Telemetry goes through
  * the application's OpenTelemetry SDK (`openTelemetryModule`), exposed for Prometheus (`prometheusTelemetryModule`),
  * the server traces and measures its requests and serves the scrape (`ktorTelemetryModule`), and each query is a span
- * within its request's trace (`jdbcTracingModule`).
+ * within its request's trace (`jdbcTracingModule`). The application's start is one trace, with a span for each
+ * service's start (`serviceStartTracingModule`), so the queries of the migrations and the sample entries are within
+ * those.
  */
 fun appDI() = DI {
   import(bootableModule)
   import(hopliteConfigModule)
   import(openTelemetryModule)
+  import(serviceStartTracingModule)
   import(prometheusTelemetryModule)
   import(ktorTelemetryModule)
   import(jdbcDataSourceModule)
