@@ -2,6 +2,11 @@
 
 == 3.1.0 (unreleased)
 
+=== Kotlin 2.3 or later
+
+Bootable's modules are compiled for Kotlin API 2.3, rather than 2.1, so an application needs Kotlin 2.3 or later: Bootable supports the last two Kotlin versions.
+The Metro flavors already required it.
+
 === Service start order: phases and milestones replace priorities
 
 Services no longer order themselves with a global `priority()` number.

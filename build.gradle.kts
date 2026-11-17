@@ -5,7 +5,6 @@ import com.vanniktech.maven.publish.SourcesJar
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
-import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import org.jetbrains.kotlin.powerassert.gradle.PowerAssertGradleExtension
 import dev.zacsweers.metro.gradle.MetroPluginExtension
 import org.gradle.api.artifacts.ExternalModuleDependency
@@ -121,8 +120,9 @@ configure(subprojects.filter { it.path !in multiplatformProjects }) {
       // target 17 for max compatibility
       jvmTarget.set(JvmTarget.JVM_17)
       freeCompilerArgs.addAll(jvmTarget.map { listOf("-Xjdk-release=${it.target}") })
-      apiVersion.set(KotlinVersion.KOTLIN_2_1)
-      languageVersion.set(KotlinVersion.KOTLIN_2_1)
+      // the last two Kotlin versions: 2.3, which Metro needs, and kotlin.time.Clock is stable from, and 2.4
+      apiVersion.set(KotlinVersion.KOTLIN_2_3)
+      languageVersion.set(KotlinVersion.KOTLIN_2_3)
     }
   }
 
@@ -218,11 +218,6 @@ project("boot") {
     runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
   }
 
-  kotlin {
-    compilerOptions {
-      optIn.add("kotlin.time.ExperimentalTime")
-    }
-  }
 }
 
 project("boot-common") {
@@ -738,12 +733,6 @@ fun Project.configureDiVariants() {
     // but it stays off the published/runtime classpath of the non-metro artifacts.
     dependencies.add("compileOnly", metroRuntime)
     dependencies.add("testCompileOnly", metroRuntime)
-    extensions.configure<KotlinJvmProjectExtension> {
-      compilerOptions {
-        apiVersion.set(KotlinVersion.KOTLIN_2_3)
-        languageVersion.set(KotlinVersion.KOTLIN_2_3)
-      }
-    }
   }
 
   val main = sourceSets["main"]
