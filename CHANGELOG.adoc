@@ -52,6 +52,7 @@ Its exemplars carry only the trace and span ids, within OpenMetrics's 128-charac
 * `boot-telemetry-otel-signoz`: OTLP export to SigNoz, authenticated for SigNoz Cloud, optionally with delta temporality.
 * `boot-telemetry-otel-micrometer-bridge`: a Micrometer `MeterRegistry` that records into the SDK.
 * `boot-server-http-ktor-otel`: traces and measures a Ktor server's requests, and serves the metrics scrape, on the server or a listener of its own.
+* `boot-db-pool-hikari-otel`: records HikariCP's pool metrics through the application's OpenTelemetry, as a `HikariConfigCustomizer` the Kodein and Metro flavors add to the pool's customizers.
 
 === Masked config values
 

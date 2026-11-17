@@ -42,6 +42,7 @@ dependencies {
   dokka(project(":boot-db-jdbc-postgresql"))
   dokka(project(":boot-db-jdbc-sqlite"))
   dokka(project(":boot-db-pool-hikari"))
+  dokka(project(":boot-db-pool-hikari-otel"))
   dokka(project(":boot-env"))
   dokka(project(":boot-logging"))
   dokka(project(":boot-logging-log4j2"))
@@ -280,6 +281,44 @@ project("boot-db-pool-hikari") {
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
     testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    testImplementation(project(":boot-logging-log4j2"))
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+  }
+}
+
+// HikariCP's pool metrics through the application's OpenTelemetry, as a HikariConfigCustomizer for the pool
+project("boot-db-pool-hikari-otel") {
+  configureDiVariants()
+  dependencies {
+    api(project(":boot-db-pool-hikari"))
+    // the customizer only needs an OpenTelemetry, whichever SDK built it
+    api(rootProject.libs.opentelemetry.api)
+    api(rootProject.libs.opentelemetry.instrumentation.hikaricp)
+    // each flavor adds to the pool's customizers, over the OpenTelemetry of boot-telemetry-otel's SDK, so it brings
+    // both modules' matching flavors
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+    "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+
+    testImplementation(rootProject.libs.sqlite.jdbc)
+    testImplementation(rootProject.libs.opentelemetry.sdk.testing)
+    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
     testImplementation(project(":boot-logging-log4j2"))
   }
 

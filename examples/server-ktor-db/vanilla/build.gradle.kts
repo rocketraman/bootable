@@ -21,8 +21,8 @@ dependencies {
   implementation(project(":boot-telemetry-otel"))
   implementation(project(":boot-telemetry-otel-prometheus"))
   implementation(project(":boot-server-http-ktor-otel"))
-  // HikariCP's pool metrics, through OpenTelemetry's HikariCP instrumentation
-  implementation(libs.opentelemetry.instrumentation.hikaricp)
+  // HikariCP's pool metrics, through the application's OpenTelemetry
+  implementation(project(":boot-db-pool-hikari-otel"))
 }
 
 application {

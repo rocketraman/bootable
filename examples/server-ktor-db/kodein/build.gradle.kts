@@ -24,8 +24,8 @@ dependencies {
   implementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
   implementation(project(path = ":boot-telemetry-otel-prometheus", configuration = "kodeinElements"))
   implementation(project(path = ":boot-server-http-ktor-otel", configuration = "kodeinElements"))
-  // HikariCP's pool metrics, through OpenTelemetry's HikariCP instrumentation
-  implementation(libs.opentelemetry.instrumentation.hikaricp)
+  // HikariCP's pool metrics, through the application's OpenTelemetry
+  implementation(project(path = ":boot-db-pool-hikari-otel", configuration = "kodeinElements"))
 }
 
 application {
