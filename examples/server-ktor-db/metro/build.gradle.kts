@@ -25,6 +25,8 @@ dependencies {
   // the two database choices: a driver (SQLite) and a pool (HikariCP)
   implementation(project(path = ":boot-db-jdbc-sqlite", configuration = "metroElements"))
   implementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
+  // each query traced, under the request's span, through the application's OpenTelemetry
+  implementation(project(path = ":boot-db-jdbc-otel", configuration = "metroElements"))
   // migrations, and Exposed with schema verification
   implementation(project(path = ":boot-db-flyway", configuration = "metroElements"))
   implementation(project(path = ":boot-db-exposed", configuration = "metroElements"))

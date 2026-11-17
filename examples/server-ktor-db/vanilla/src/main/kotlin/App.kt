@@ -12,6 +12,7 @@ import com.github.rocketraman.bootable.db.jdbc.HikariConnectionPoolFactory
 import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
 import com.github.rocketraman.bootable.db.jdbc.hikariPoolMetrics
 import com.github.rocketraman.bootable.db.jdbc.SqliteConfig
+import com.github.rocketraman.bootable.db.jdbc.jdbcTracing
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetryConfig
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
@@ -25,8 +26,8 @@ import io.ktor.server.cio.*
  * `dataSource`, and the repository uses it through an Exposed `Database`, whose tables are verified against the
  * migrated schema.
  *
- * Telemetry goes through the application's `OpenTelemetryService`: the server traces and measures its requests, the
- * pool records its metrics, and the server serves the metrics for Prometheus to scrape (`telemetry.sdk`,
+ * Telemetry goes through the application's `OpenTelemetryService`: the server traces and measures its requests, each
+ * query is a span within its request's trace, the pool records its metrics, and the server serves the metrics for Prometheus to scrape (`telemetry.sdk`,
  * `telemetry.prometheus`, `telemetry.ktor`).
  *
  * Bootable starts the services phase by phase: the OpenTelemetry SDK first, then the pool (validating a connection),
@@ -45,6 +46,8 @@ fun appServices(binder: ConfigBinder): Set<AppService> {
     binder.config<SqliteConfig>("db.jdbc"),
     // HikariCP records its pool metrics through OpenTelemetry
     HikariConnectionPoolFactory(binder.config("db.pool"), hikariPoolMetrics(telemetry.openTelemetry)),
+    // each query is a span, under the request's
+    jdbcTracing(telemetry.openTelemetry),
   )
   val exposedConfig = binder.config<ExposedConfig>("db.exposed")
   val exposed = ExposedDatabaseService(database.dataSource, exposedConfig)

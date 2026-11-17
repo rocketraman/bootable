@@ -49,7 +49,8 @@ interface EntriesBindings : ConfigBinderProvider {
  * pool, `boot-db-flyway-metro` migrates the schema (`db.flyway`), and `boot-db-exposed-metro` provides the Exposed
  * `Database` and verifies the schema against the contributed tables (`db.exposed`). The `-metro` telemetry modules
  * contribute the application's OpenTelemetry SDK, its Prometheus export, the Ktor instrumentation the server
- * installs, and the pool's metrics (`boot-db-pool-hikari-otel-metro`).
+ * installs, and the pool's metrics (`boot-db-pool-hikari-otel-metro`). `boot-db-jdbc-otel-metro` makes each query a
+ * span within its request's trace.
  */
 @DependencyGraph(AppScope::class, additionalScopes = [BootScope::class])
 interface AppGraph : BootableGraph

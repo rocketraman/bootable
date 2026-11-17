@@ -86,6 +86,7 @@ opentelemetry-exporter-sender-jdk = { module = "io.opentelemetry:opentelemetry-e
 opentelemetry-extension-kotlin = { module = "io.opentelemetry:opentelemetry-extension-kotlin", version.ref = "opentelemetry" }
 opentelemetry-gcp-resources = { module = "io.opentelemetry.contrib:opentelemetry-gcp-resources", version.ref = "opentelemetry-contrib-alpha" }
 opentelemetry-instrumentation-hikaricp = { module = "io.opentelemetry.instrumentation:opentelemetry-hikaricp-3.0", version.ref = "opentelemetry-instrumentation-alpha" }
+opentelemetry-instrumentation-jdbc = { module = "io.opentelemetry.instrumentation:opentelemetry-jdbc", version.ref = "opentelemetry-instrumentation-alpha" }
 opentelemetry-instrumentation-ktor = { module = "io.opentelemetry.instrumentation:opentelemetry-ktor-3.0", version.ref = "opentelemetry-instrumentation-alpha" }
 opentelemetry-instrumentation-log4j-context-data = { module = "io.opentelemetry.instrumentation:opentelemetry-log4j-context-data-2.17-autoconfigure", version.ref = "opentelemetry-instrumentation-alpha" }
 opentelemetry-instrumentation-micrometer = { module = "io.opentelemetry.instrumentation:opentelemetry-micrometer-1.5", version.ref = "opentelemetry-instrumentation-alpha" }

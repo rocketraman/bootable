@@ -39,6 +39,7 @@ dependencies {
   dokka(project(":boot-db-flyway"))
   dokka(project(":boot-db-jdbc"))
   dokka(project(":boot-db-jdbc-mysql"))
+  dokka(project(":boot-db-jdbc-otel"))
   dokka(project(":boot-db-jdbc-postgresql"))
   dokka(project(":boot-db-jdbc-sqlite"))
   dokka(project(":boot-db-pool-hikari"))
@@ -258,6 +259,49 @@ project("boot-db-jdbc") {
 
     // a real driver, so the lifecycle tests run against a real database
     testImplementation(rootProject.libs.sqlite.jdbc)
+  }
+}
+
+// traces each JDBC query through the application's OpenTelemetry, as a DataSourceWrapper for boot-db-jdbc
+project("boot-db-jdbc-otel") {
+  configureDiVariants()
+  dependencies {
+    api(project(":boot-db-jdbc"))
+    // the wrapper only needs an OpenTelemetry, whichever SDK built it
+    api(rootProject.libs.opentelemetry.api)
+    api(rootProject.libs.opentelemetry.instrumentation.jdbc)
+    // each flavor adds to boot-db-jdbc's wrappers, over the OpenTelemetry of boot-telemetry-otel's SDK, so it brings
+    // both modules' matching flavors
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+
+    testImplementation(rootProject.libs.sqlite.jdbc)
+    testImplementation(rootProject.libs.opentelemetry.sdk.testing)
+    // a real pool, and Exposed, whose transactions run on its own dispatcher, to check the spans' parents across it
+    testImplementation(project(":boot-db-pool-hikari"))
+    testImplementation(project(":boot-db-exposed"))
+    // withSpan, for the enclosing span
+    testImplementation(project(":boot-telemetry-otel"))
+    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+    testImplementation(project(":boot-logging-log4j2"))
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
   }
 }
 

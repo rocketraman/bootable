@@ -37,7 +37,8 @@ val AppTest by testSuite {
       )
     )
     assert(di.instance<JdbcConfig>() is SqliteConfig)
-    assert(di.instance<DataSource>() is HikariDataSource)
+    // the pool is HikariCP, under the JDBC tracing
+    assert(di.instance<DataSource>().isWrapperFor(HikariDataSource::class.java))
     assert(di.instance<Set<Table>>() == setOf(EntryTable))
   }
 }

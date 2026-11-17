@@ -10,6 +10,7 @@ import com.github.rocketraman.bootable.db.flyway.flywayMigrationModule
 import com.github.rocketraman.bootable.db.jdbc.hikariPoolMetricsModule
 import com.github.rocketraman.bootable.db.jdbc.hikariPoolModule
 import com.github.rocketraman.bootable.db.jdbc.jdbcDataSourceModule
+import com.github.rocketraman.bootable.db.jdbc.jdbcTracingModule
 import com.github.rocketraman.bootable.db.jdbc.sqliteConfigModule
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.server.http.ktor.ktorTelemetryModule
@@ -46,7 +47,8 @@ val entriesModule by DI.Module {
  * On top of the pool, `flywayMigrationModule` migrates the schema (`db.flyway`), and `exposedDatabaseModule` provides
  * the Exposed `Database` and verifies the schema against the registered tables (`db.exposed`). Telemetry goes through
  * the application's OpenTelemetry SDK (`openTelemetryModule`), exposed for Prometheus (`prometheusTelemetryModule`),
- * and the server traces and measures its requests and serves the scrape (`ktorTelemetryModule`).
+ * the server traces and measures its requests and serves the scrape (`ktorTelemetryModule`), and each query is a span
+ * within its request's trace (`jdbcTracingModule`).
  */
 fun appDI() = DI {
   import(bootableModule)
@@ -55,6 +57,7 @@ fun appDI() = DI {
   import(prometheusTelemetryModule)
   import(ktorTelemetryModule)
   import(jdbcDataSourceModule)
+  import(jdbcTracingModule)
   import(sqliteConfigModule)
   import(hikariPoolModule)
   import(hikariPoolMetricsModule)
