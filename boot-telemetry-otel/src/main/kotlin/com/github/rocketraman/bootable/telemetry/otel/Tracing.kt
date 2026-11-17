@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.telemetry.otel
 
+import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanContext
 import io.opentelemetry.api.trace.SpanKind
@@ -64,6 +65,9 @@ suspend fun <T> Tracer.withSpan(
  * A trace started for work that another operation kicked off but doesn't wait for, such as a background task started
  * by a request, can say so with [links] to that operation's span, rather than being its child.
  *
+ * [sample] is whether the trace is sampled as the SDK's sampler decides, such as at the configured `sampleRatio`, or
+ * always, with [Sample.Always], for a trace too rare or too valuable to lose, such as a nightly job's.
+ *
  * ```
  * suspend fun purge() = tracer.withRootSpan("orders.purge") {
  *   repository.purgeExpired()
@@ -74,13 +78,35 @@ suspend fun <T> Tracer.withRootSpan(
   name: String,
   kind: SpanKind = SpanKind.INTERNAL,
   links: Collection<SpanContext> = emptyList(),
+  sample: Sample = Sample.BySampler,
   block: suspend (Span) -> T,
 ): T {
   val span = spanBuilder(name).setNoParent().setSpanKind(kind)
     .apply { links.forEach { addLink(it) } }
+    .apply { if (sample == Sample.Always) setAttribute(ALWAYS_SAMPLE, true) }
     .startSpan()
   return runInSpan(currentContext(), span, block)
 }
+
+/** How a trace that [withRootSpan] starts is sampled. */
+enum class Sample {
+  /** As the SDK's sampler decides, such as at the configured `sampleRatio`. */
+  BySampler,
+
+  /**
+   * Always, whatever the SDK's sampler would decide. The root span carries [ALWAYS_SAMPLE], which the sampler of
+   * [OpenTelemetryService]'s SDK honors; the spans within the trace follow the root, as long as the sampler samples by
+   * the parent, as the default does. Under the OpenTelemetry Java agent, whose SDK is its own, it has no effect.
+   */
+  Always,
+}
+
+/**
+ * Marks a root span whose trace [OpenTelemetryService]'s sampler always samples, as [withRootSpan] does with
+ * [Sample.Always], and [ServiceStartTracing] does for the application's start. Set it on a span builder, before the
+ * span starts: the sampler sees only the attributes the span starts with.
+ */
+val ALWAYS_SAMPLE: AttributeKey<Boolean> = AttributeKey.booleanKey("bootable.sample.always")
 
 /** The coroutine's context, which a traced server's request span is in, falling back to the thread's. */
 private suspend fun currentContext(): Context =

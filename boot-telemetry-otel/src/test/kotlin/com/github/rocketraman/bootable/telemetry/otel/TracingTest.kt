@@ -138,6 +138,18 @@ val TracingTest by testSuite {
       assert(spans.getValue("job.step").parentSpanId == spans.getValue("job").spanId)
     }
 
+    test("with Sample.Always, samples the trace whatever the ratio, and only then") {
+      val (service, telemetry) = tracing(sampleRatio = 0.0)
+      val tracer = service.openTelemetry.getTracer("test")
+      tracer.withRootSpan("nightly", sample = Sample.Always) {
+        tracer.withSpan("nightly.step") { }
+      }
+      tracer.withRootSpan("routine") {
+        tracer.withSpan("routine.step") { }
+      }
+      assert(telemetry.spans.finishedSpanItems.map { it.name }.toSet() == setOf("nightly", "nightly.step"))
+    }
+
     test("links the trace to the spans it is given") {
       val (service, telemetry) = tracing()
       val tracer = service.openTelemetry.getTracer("test")

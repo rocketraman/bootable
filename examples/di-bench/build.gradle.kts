@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
-
 plugins {
   kotlin("jvm")
   id("dev.zacsweers.metro")
@@ -8,10 +6,6 @@ plugins {
 
 kotlin {
   jvmToolchain(25)
-  compilerOptions {
-    apiVersion.set(KotlinVersion.KOTLIN_2_3)
-    languageVersion.set(KotlinVersion.KOTLIN_2_3)
-  }
 }
 
 dependencies {

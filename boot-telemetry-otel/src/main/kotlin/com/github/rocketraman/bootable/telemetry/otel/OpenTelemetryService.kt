@@ -8,22 +8,28 @@ import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.baggage.propagation.W3CBaggagePropagator
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
+import io.opentelemetry.api.trace.SpanKind
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator
+import io.opentelemetry.context.Context
 import io.opentelemetry.context.propagation.ContextPropagators
 import io.opentelemetry.context.propagation.TextMapPropagator
 import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter
 import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter
 import io.opentelemetry.instrumentation.runtimetelemetry.RuntimeTelemetry
 import io.opentelemetry.sdk.OpenTelemetrySdk
+import io.opentelemetry.sdk.common.Clock as OtelClock
 import io.opentelemetry.sdk.metrics.SdkMeterProvider
 import io.opentelemetry.sdk.metrics.export.PeriodicMetricReader
 import io.opentelemetry.sdk.resources.Resource
 import io.opentelemetry.sdk.trace.SdkTracerProvider
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor
+import io.opentelemetry.sdk.trace.data.LinkData
 import io.opentelemetry.sdk.trace.samplers.Sampler
+import io.opentelemetry.sdk.trace.samplers.SamplingResult
 import org.apache.logging.log4j.kotlin.logger
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import kotlin.time.Clock
 import kotlin.time.toJavaDuration
 
 /**
@@ -37,12 +43,22 @@ import kotlin.time.toJavaDuration
  * When the OpenTelemetry Java agent is attached, it has already built and registered the process's SDK, and owns its
  * lifecycle; [openTelemetry] is then the agent's, and [config] and the [customizers] are ignored.
  *
+ * Traces are sampled at [TracesConfig.sampleRatio], or as the customizers' sampler decides, except a trace whose root
+ * span carries [ALWAYS_SAMPLE], which is always sampled: the application's start, as [ServiceStartTracing] traces it,
+ * which happens once per process, and a [withRootSpan] with [Sample.Always].
+ *
+ * The SDK takes the time of its spans and measurements from [clock], so a test can fix it, and [ServiceStartTracing],
+ * given the same clock, dates its spans consistently with them. With [Clock.System], the default, the SDK keeps its
+ * own clock, which measures durations with the JVM's monotonic `System.nanoTime`. Any other clock is the SDK's
+ * source of both the time and durations.
+ *
  * The service is in the [DefaultPhase.Telemetry] phase, so every other service, the database pool included, starts
  * after the SDK and shuts down before it, and its last spans and measurements are in the final export.
  */
 class OpenTelemetryService(
   private val config: TelemetryConfig = TelemetryConfig(),
   customizers: Collection<OpenTelemetryCustomizer> = emptyList(),
+  clock: Clock = Clock.System,
 ) : AppService {
 
   // the agent has already built and registered the process's SDK
@@ -62,7 +78,7 @@ class OpenTelemetryService(
 
   private val sdk: OpenTelemetrySdk? =
     if (agentAttached) null
-    else buildSdk(config, customizers, resource).also { if (config.registerGlobal) registerGlobal(it) }
+    else buildSdk(config, customizers, resource, clock).also { if (config.registerGlobal) registerGlobal(it) }
 
   /** The application's OpenTelemetry: get tracers and meters from it, and hand it to instrumentation. */
   val openTelemetry: OpenTelemetry = sdk ?: GlobalOpenTelemetry.get()
@@ -128,7 +144,10 @@ private fun buildSdk(
   config: TelemetryConfig,
   customizers: Collection<OpenTelemetryCustomizer>,
   resource: Resource,
+  clock: Clock,
 ): OpenTelemetrySdk {
+  // the SDK's own clock, unless another was given
+  val sdkClock = if (clock === Clock.System) null else SdkClock(clock)
   val endpoint = config.otlp.endpoint?.trimEnd('/')
   val headers = config.otlp.headers
   val builder = OpenTelemetrySdk.builder().setPropagators(
@@ -138,10 +157,13 @@ private fun buildSdk(
   )
 
   if (config.traces.enabled) {
-    val sampler = customizers.fold(Sampler.parentBased(Sampler.traceIdRatioBased(config.traces.sampleRatio))) { sampler, customizer ->
-      customizer.customizeSampler(sampler)
-    }
+    val sampler = SampleMarked(
+      customizers.fold(Sampler.parentBased(Sampler.traceIdRatioBased(config.traces.sampleRatio))) { sampler, customizer ->
+        customizer.customizeSampler(sampler)
+      }
+    )
     val tracerProvider = SdkTracerProvider.builder().setResource(resource).setSampler(sampler)
+    sdkClock?.let { tracerProvider.setClock(it) }
     if (endpoint != null && config.traces.otlp) {
       val url = "$endpoint/v1/traces"
       val exporter = OtlpHttpSpanExporter.builder().setEndpoint(url).apply {
@@ -162,6 +184,7 @@ private fun buildSdk(
 
   if (config.metrics.enabled) {
     val meterProvider = SdkMeterProvider.builder().setResource(resource)
+    sdkClock?.let { meterProvider.setClock(it) }
     if (endpoint != null && config.metrics.otlp) {
       val url = "$endpoint/v1/metrics"
       val exporter = OtlpHttpMetricExporter.builder().setEndpoint(url).apply {
@@ -190,4 +213,32 @@ private fun exportHeaders(
   val suppliers = customizers.mapNotNull { it.exportHeaders(endpoint) }
   if (suppliers.isEmpty()) return null
   return { suppliers.fold(emptyMap()) { headers, supplier -> headers + supplier() } }
+}
+
+/** [clock] as the SDK's clock, for both the time and durations, in nanoseconds. */
+private class SdkClock(private val clock: Clock) : OtelClock {
+  override fun now(): Long = clock.now().let { it.epochSeconds * NANOS_PER_SECOND + it.nanosecondsOfSecond }
+
+  override fun nanoTime(): Long = now()
+}
+
+private const val NANOS_PER_SECOND = 1_000_000_000L
+
+/**
+ * Samples a span marked [ALWAYS_SAMPLE], such as the application's start, and leaves every other span to [delegate].
+ * The spans within its trace follow it if [delegate] samples by the parent, as the default sampler does.
+ */
+private class SampleMarked(private val delegate: Sampler) : Sampler {
+  override fun shouldSample(
+    parentContext: Context,
+    traceId: String,
+    name: String,
+    spanKind: SpanKind,
+    attributes: Attributes,
+    parentLinks: List<LinkData>,
+  ): SamplingResult =
+    if (attributes.get(ALWAYS_SAMPLE) == true) SamplingResult.recordAndSample()
+    else delegate.shouldSample(parentContext, traceId, name, spanKind, attributes, parentLinks)
+
+  override fun getDescription(): String = "SampleMarked{${delegate.description}}"
 }
