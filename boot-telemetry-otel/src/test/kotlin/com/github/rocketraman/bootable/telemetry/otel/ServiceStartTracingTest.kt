@@ -20,7 +20,6 @@ import dev.zacsweers.metro.SingleIn
 import dev.zacsweers.metro.createGraph
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.trace.StatusCode
-import io.opentelemetry.sdk.trace.samplers.Sampler
 import org.kodein.di.DI
 import org.kodein.di.bindInstance
 import org.kodein.di.inBindSet
@@ -61,8 +60,6 @@ object ClockedTestBindings {
   @Provides @SingleIn(ClockedTestScope::class) fun inMemoryTelemetry(): InMemoryTelemetry = InMemoryTelemetry()
 
   @Provides @IntoSet fun inMemory(telemetry: InMemoryTelemetry): OpenTelemetryCustomizer = telemetry
-
-  @Provides @IntoSet fun sampleAll(): OpenTelemetryCustomizer = SampleAll
 }
 
 /** Does traced work as it starts, as a migration's queries would be, and fails to start if [fail]. */
@@ -84,11 +81,6 @@ private class WorkingService(
 /** A clock stopped at [at], far from now, so a span timed by it can't be mistaken for one timed by the system clock. */
 private class FixedClock(private val at: KotlinInstant = KotlinInstant.parse("2030-01-01T00:00:00Z")) : Clock {
   override fun now() = at
-}
-
-/** Samples every trace, overriding the test config's `sampleRatio`, so a test's spans are always recorded. */
-private object SampleAll : OpenTelemetryCustomizer {
-  override fun customizeSampler(sampler: Sampler): Sampler = Sampler.alwaysOn()
 }
 
 /** A timeline that began a second ago, with no stages, as of a [Bootable] run without [boot] that took no time. */
@@ -190,6 +182,24 @@ val ServiceStartTracingTest by testSuite {
     }
   }
 
+  test("the start's trace is always sampled, whatever the configured ratio") {
+    val telemetry = InMemoryTelemetry()
+    val service = OpenTelemetryService(testConfig(traces = TracesConfig(sampleRatio = 0.0)), listOf(telemetry))
+    val openTelemetry = service.openTelemetry
+    val tracing = ServiceStartTracing(openTelemetry)
+    try {
+      tracing.aroundAppStart(ServiceContext(emptySet(), emptyList(), {}, {}), aSecondAgo()) {
+        val pool = WorkingService("pool", DefaultPhase.Infrastructure, openTelemetry)
+        tracing.aroundServiceStart(pool, pool::start)
+      }
+      openTelemetry.getTracer("test").spanBuilder("request").startSpan().end()
+      val names = telemetry.spans.finishedSpanItems.map { it.name }.toSet()
+      assert(names == setOf(ServiceStartTracing.APP_START_SPAN, "start pool", "pool.work"))
+    } finally {
+      service.shutdown()
+    }
+  }
+
   test("a service whose start fails has an error status, as does the application's start") {
     val telemetry = InMemoryTelemetry()
     val service = OpenTelemetryService(testConfig(), listOf(telemetry))
@@ -248,7 +258,6 @@ val ServiceStartTracingTest by testSuite {
         import(serviceStartTracingModule)
         bindInstance<Clock> { clock }
         inBindSet<OpenTelemetryCustomizer> { add { singleton { telemetry } } }
-        inBindSet<OpenTelemetryCustomizer> { add { singleton { SampleAll } } }
       }.direct
       val tracing = di.instance<Set<LifecycleController>>().filterIsInstance<ServiceStartTracing>().single()
       try {

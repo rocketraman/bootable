@@ -27,6 +27,9 @@ import kotlin.time.toJavaInstant
  * service starts is accounted for too. The SDK doesn't exist yet in those stages, so their spans are recorded
  * afterwards, with the times the timeline marked.
  *
+ * [OpenTelemetryService]'s sampler always samples the start's trace, whatever the configured ratio, so a start is
+ * never missing from the traces: the root span carries [ALWAYS_SAMPLE], which the sampler looks for.
+ *
  * The root span begins when the application began booting: with Bootable's `boot`, before logging is initialized and
  * the application built, so it covers building the application, such as decoding its config and creating its
  * services, as well as starting them, the telemetry phase's included. It ends once every service has started, when
@@ -68,7 +71,8 @@ class ServiceStartTracing(
     val now = clock.now()
     fun at(mark: ComparableTimeMark): Instant = (now - (reference - mark)).toJavaInstant()
 
-    tracer.spanBuilder(APP_START_SPAN).setNoParent().setStartTimestamp(at(timeline.start))
+    tracer.spanBuilder(APP_START_SPAN).setNoParent().setAttribute(ALWAYS_SAMPLE, true)
+      .setStartTimestamp(at(timeline.start))
       .runInSpan {
         timeline.stages.forEach { stage ->
           tracer.spanBuilder(stage.name).setStartTimestamp(at(stage.start)).startSpan().end(at(stage.end))
