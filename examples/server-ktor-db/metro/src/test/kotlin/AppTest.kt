@@ -29,6 +29,7 @@ val AppTest by testSuite {
         noListener::class,
       )
     )
-    assert(services.filterIsInstance<JdbcDataSourceService>().single().dataSource is HikariDataSource)
+    // the pool is HikariCP, under the JDBC tracing
+    assert(services.filterIsInstance<JdbcDataSourceService>().single().dataSource.isWrapperFor(HikariDataSource::class.java))
   }
 }

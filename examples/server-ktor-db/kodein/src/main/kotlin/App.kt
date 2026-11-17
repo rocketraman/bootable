@@ -10,11 +10,13 @@ import com.github.rocketraman.bootable.db.flyway.flywayMigrationModule
 import com.github.rocketraman.bootable.db.jdbc.hikariPoolMetricsModule
 import com.github.rocketraman.bootable.db.jdbc.hikariPoolModule
 import com.github.rocketraman.bootable.db.jdbc.jdbcDataSourceModule
+import com.github.rocketraman.bootable.db.jdbc.jdbcTracingModule
 import com.github.rocketraman.bootable.db.jdbc.sqliteConfigModule
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.server.http.ktor.ktorTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.openTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.prometheusTelemetryModule
+import com.github.rocketraman.bootable.telemetry.otel.serviceStartTracingModule
 import io.ktor.server.cio.*
 import org.kodein.di.DI
 import org.kodein.di.bindSingleton
@@ -46,15 +48,22 @@ val entriesModule by DI.Module {
  * On top of the pool, `flywayMigrationModule` migrates the schema (`db.flyway`), and `exposedDatabaseModule` provides
  * the Exposed `Database` and verifies the schema against the registered tables (`db.exposed`). Telemetry goes through
  * the application's OpenTelemetry SDK (`openTelemetryModule`), exposed for Prometheus (`prometheusTelemetryModule`),
- * and the server traces and measures its requests and serves the scrape (`ktorTelemetryModule`).
+ * the server traces and measures its requests and serves the scrape (`ktorTelemetryModule`), and each query is a span
+ * within its request's trace, as is each connection taken from the pool (`jdbcTracingModule`). The application's start is one trace, with a span for each
+ * service's start (`serviceStartTracingModule`), so the queries of the migrations and the sample entries are within
+ * those.
  */
 fun appDI() = DI {
   import(bootableModule)
   import(hopliteConfigModule)
   import(openTelemetryModule)
+  import(serviceStartTracingModule)
   import(prometheusTelemetryModule)
   import(ktorTelemetryModule)
   import(jdbcDataSourceModule)
+  // a span for each connection taken from the pool too, which shows the pool's start and its first connection in the
+  // application's start
+  import(jdbcTracingModule { setDataSourceInstrumenterEnabled(true) })
   import(sqliteConfigModule)
   import(hikariPoolModule)
   import(hikariPoolMetricsModule)

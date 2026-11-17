@@ -17,6 +17,8 @@ dependencies {
   // the two database choices: a driver (SQLite) and a pool (HikariCP)
   implementation(project(path = ":boot-db-jdbc-sqlite", configuration = "kodeinElements"))
   implementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+  // each query traced, under the request's span, through the application's OpenTelemetry
+  implementation(project(path = ":boot-db-jdbc-otel", configuration = "kodeinElements"))
   // migrations, and Exposed with schema verification
   implementation(project(path = ":boot-db-flyway", configuration = "kodeinElements"))
   implementation(project(path = ":boot-db-exposed", configuration = "kodeinElements"))

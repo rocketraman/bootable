@@ -1,6 +1,7 @@
 package com.github.rocketraman.bootable.boot
 
 import com.github.rocketraman.bootable.common.Ignore
+import kotlin.time.TimeMark
 
 /**
  * The application's services, for a [LifecycleController] to start and stop.
@@ -47,6 +48,20 @@ interface LifecycleController {
   fun appStart(serviceContext: ServiceContext, normalStop: (exitCode: Int) -> Unit) { Ignore }
 
   /**
+   * Runs [start], the application's start, with this controller's code around it, such as a span that the whole start
+   * runs in. [start] calls every controller's [appStart], so it starts the services, and returns once the application
+   * is running, or throws if a service failed to start. An implementation must call [start] once, on the calling
+   * thread, and let what it throws propagate.
+   *
+   * [startupMark] marks when the application began booting: with [boot], before logging was initialized and the
+   * [Bootable] built, so the time since it includes building the application, such as decoding its config.
+   *
+   * Each controller wraps the start of the controllers of lower [priority], so the highest priority's code is
+   * outermost. The default runs [start] alone.
+   */
+  fun aroundAppStart(serviceContext: ServiceContext, startupMark: TimeMark, start: () -> Unit) = start()
+
+  /**
    * When a service is started, lifecycle controllers may vote on whether it is allowed to start or not. This may
    * be used, for example, for persistently disabling a given service via a controller. Note that, depending on
    * the priority of a controller, a controller may be asked to vote on the start of a service *before* [appStart]
@@ -54,6 +69,16 @@ interface LifecycleController {
    * during *it's* [appStart] call.
    */
   fun serviceStartVote(appService: AppService): ServiceStartVote = ServiceStartVote.YES
+
+  /**
+   * Runs [start], which starts [appService], with this controller's code around it, such as a span that the service's
+   * start runs in. It is called for each service that is allowed to start (see [serviceStartVote]), however the start
+   * was requested. An implementation must call [start] once, on the calling thread, and let what it throws propagate.
+   *
+   * Each controller wraps the start of the controllers of lower [priority], so the highest priority's code is
+   * outermost. The default runs [start] alone.
+   */
+  fun aroundServiceStart(appService: AppService, start: () -> Unit) = start()
 
   /**
    * Executed when the application is shutdown.
