@@ -482,6 +482,76 @@ With an OTLP endpoint, it started in 400 ms with the cache, as `boot-telemetry-o
 
 The JVM's choice of garbage collector, and so part of what the cache holds, depends on the container's memory and CPUs: train with the same limits the application runs with.
 
+=== In a CI pipeline, with Dagger
+
+The `server-ktor-db` https://dagger.io[Dagger] module, in `.dagger/modules/server-ktor-db/main.dang`, does the same as a CI pipeline, in containers, with nothing on the host but the `dagger` CLI and a container runtime.
+It is written in https://docs.dagger.io/reference/sdks/dang[Dang], Dagger's own language, and needs the Dagger 1.0 beta.
+It is one file, with no generated code and no package manager.
+
+Dagger needs a container runtime: Docker, or Podman with its socket enabled.
+`mise install` provides the Dagger CLI.
+The module needs the 1.0 beta, which the stable CLI downloads and runs when `DAGGER_X_RELEASE` names it; `.mise.toml` sets that variable.
+Without mise, install a stable CLI of 0.21.3 or later, and export `DAGGER_X_RELEASE=v1.0.0-beta.28`.
+Bootable sends no traces to Dagger Cloud unless you provide your own `DAGGER_CLOUD_TOKEN` or run `dagger login`.
+
+[source,bash]
+----
+dagger check
+dagger api call server-ktor-db image export --path=build/server-ktor-db.tar
+podman load -i build/server-ktor-db.tar
+----
+
+`dagger check` runs every function marked `@check`, which here is `check`.
+The other functions are called by name, as `dagger api call server-ktor-db <function>`.
+
+[cols="1,3"]
+|===
+|Function |What it does
+
+|`check`
+|The pull request check: builds the image, and runs `verify`.
+Publishes nothing.
+
+|`installed`
+|The app, from Gradle's `installDist`, built in `eclipse-temurin:25-jdk`, with Gradle's user home, and its build cache, in a cache volume.
+
+|`runtime`
+|The app installed in `eclipse-temurin:25-jre`, without a cache.
+
+|`aot-cache`
+|The cache, from a training run of `runtime`: the app started with `-XX:AOTCacheOutput`, then `+=> Running+`, the training requests, and SIGTERM.
+`--requests` and `--rounds` change the requests.
+
+|`image`
+|`runtime`, with the cache, and `-XX:AOTCache` in `JAVA_OPTS`.
+`image export --path=<file>.tar` writes it to disk.
+
+|`verify`
+|Starts `image`, and fails unless at least `--min-percent`, by default 90, of the classes it loads come from the cache.
+`verify stdout` says how many.
+
+|`dev`
+|`image`, on port 8001; `dagger start` runs it, and tunnels the port to `localhost`.
+
+|`env`
+|The build container before Gradle has run.
+`dagger api call server-ktor-db env terminal` opens a shell in it.
+|===
+
+The training runs in a container of `runtime`, and `image` adds the cache to that same container, so the JDK build, and the jars' sizes and modification times, are the training's by construction.
+`dagger.lock` pins the JDK and JRE images by digest, so the JDK build only changes when `dagger lock update` moves it, and the cache is trained again with it.
+
+Dagger sets `OTEL_*` variables in every container, for its own tracing, and forwards what they collect to Dagger Cloud when the CLI is logged in to it.
+The module unsets them before it starts the app, which would otherwise export its own telemetry there, and, by loading the OTLP exporter, train a cache unlike the one it uses in production.
+
+Its image used 8,253 of the 8,400 classes it loaded from its 64 MB cache, and started from launch to `+=> Running+` in a median of 385 ms with the cache, and 860 ms without it, over 7 starts, each in a new container.
+
+=== Which to use
+
+* The `aotCache` task, for an application shipped as its installed distribution, or to try the cache locally: it trains on the build's own JDK toolchain, and needs nothing else.
+* Jib, for a container image built by Gradle, without a Dockerfile: the training needs a container runtime, to run the image once.
+* Dagger, for a CI pipeline that runs the same way on a laptop and on any CI service, where the build, the training and the image are each a cached, containerized step: the host needs only Dagger and a container runtime, not a JDK, and the training runs on the runtime image's JDK by construction.
+
 == Design
 
 === Non-Goals

@@ -1,0 +1,213 @@
+"""
+Builds the vanilla server-ktor-db example into a container image with its JVM AOT cache, as a CI pipeline.
+
+The training runs in a container of the runtime image, and the image adds the cache to that same container, so the
+JDK build and the jars' sizes and modification times, which the JVM checks before it uses the cache, are the
+training's. See the Faster Start section of `README.adoc`.
+"""
+type ServerKtorDb {
+  """
+  The Bootable checkout, minus build outputs and local caches.
+  """
+  pub source: Directory!
+
+  let requests: String!
+  let rounds: Int!
+
+  new(
+    ws: Workspace!,
+    """
+    The training run's requests, one per line: `METHOD PATH`, or `METHOD PATH BODY`, sent to the app's port.
+    They cover the request path, so the first requests are fast too, not just the start.
+    """
+    requests: String! = """
+      PUT /entries/trained by the AOT training run
+      GET /entries/trained
+      GET /entries
+      GET /
+      GET /metrics
+      DELETE /entries/trained
+      """,
+    """
+    How many times the training run sends the requests.
+    """
+    rounds: Int! = 20,
+  ) {
+    self.source = ws.directory("/", exclude: [
+      "**/build",
+      "**/.gradle",
+      "**/.kotlin",
+      "**/node_modules",
+      ".git",
+      ".idea",
+      ".claude",
+      ".dagger",
+    ])
+    self.requests = requests
+    self.rounds = rounds
+    self
+  }
+
+  # ---------------------------------------------------------------------------------------------------------------
+  # Build
+  # ---------------------------------------------------------------------------------------------------------------
+
+  """
+  The build environment with the source checked out, before any Gradle task has run: JDK 25, as `.mise.toml` and
+  the build's Java toolchain ask for.
+  """
+  pub env: Container! {
+    container
+      .from("eclipse-temurin:25-jdk")
+      .withEnvVariable("GRADLE_USER_HOME", "/cache/gradle")
+      .withMountedCache("/cache/gradle", cacheVolume("bootable-gradle-user-home"))
+      .withDirectory("/work/bootable", source)
+      .withWorkdir("/work/bootable")
+  }
+
+  """
+  The installed app, from Gradle's `installDist`: its start script in `bin`, and its jars in `lib`.
+  The build cache, in the Gradle user home's cache volume, reuses the task outputs of earlier builds.
+  """
+  pub installed: Directory! {
+    env
+      .withExec(["./gradlew", "--no-daemon", "--console=plain", "--build-cache", ":examples:server-ktor-db:vanilla:installDist"])
+      .directory("examples/server-ktor-db/vanilla/build/install/vanilla")
+  }
+
+  # ---------------------------------------------------------------------------------------------------------------
+  # Image
+  # ---------------------------------------------------------------------------------------------------------------
+
+  """
+  The app installed in the runtime image, a JRE, without an AOT cache.
+  """
+  pub runtime: Container! {
+    container
+      .from("eclipse-temurin:25-jre")
+      .withDirectory("/app", installed)
+      .withWorkdir("/app")
+      # the config's database path is relative to the working directory: keep it out of the app's directory
+      .withEnvVariable("DB_JDBC_PATH", "/tmp/entries.db")
+      .withExposedPort(8001)
+      .withDefaultArgs(["/app/bin/vanilla"])
+  }
+
+  """
+  Starts the app with JAVA_OPTS, waits for "=> Running", sends the training requests, and stops it with SIGTERM, so
+  the app shuts down as it would in production, and the JVM writes the AOT cache, if asked to, as it exits.
+
+  Dagger sets `OTEL_*` variables in every container, for its own tracing, and forwards what they collect to Dagger
+  Cloud when the CLI is logged in to it. The script unsets them, so the app exports no telemetry there, and runs with
+  only its own config: an app that loaded the OTLP exporter would train a cache unlike its production one.
+
+  The JRE image has no curl, so the requests go through bash's `/dev/tcp`.
+  The script has no brace expansions of shell variables, which Dang would read as its own interpolations.
+  """
+  let startAndStop(ctr: Container!, javaOpts: String!, requests: String!, rounds: Int!): Container! {
+    ctr
+      .withEnvVariable("JAVA_OPTS", javaOpts)
+      .withEnvVariable("TRAINING_REQUESTS", requests)
+      .withEnvVariable("TRAINING_ROUNDS", `${rounds}`)
+      .withNewFile("/run/start-and-stop.sh", """
+        set -euo pipefail
+        for var in $(compgen -e | grep -E '^(OTEL_|TRACEPARENT$|TRACESTATE$)' || true); do unset "$var"; done
+        log=/run/app.log
+        /app/bin/vanilla > "$log" 2>&1 &
+        pid=$!
+
+        for _ in $(seq 1200); do
+          grep -q '=> Running (' "$log" && break
+          if ! kill -0 "$pid" 2>/dev/null; then echo "the app exited before it was ready"; cat "$log"; exit 1; fi
+          sleep 0.1
+        done
+        grep -q '=> Running (' "$log" || { echo "the app wasn't ready within 2 minutes"; cat "$log"; exit 1; }
+
+        request() {
+          local method=$1 path=$2 body=$3 length
+          length=$(printf %s "$body" | wc -c)
+          exec 3<>/dev/tcp/127.0.0.1/8001
+          printf '%s %s HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\nContent-Length: %d\\r\\n\\r\\n%s' "$method" "$path" "$length" "$body" >&3
+          local status
+          read -r _ status _ <&3
+          cat <&3 > /dev/null
+          exec 3<&-
+          if [ "$status" -ge 400 ]; then echo "$method $path returned $status"; kill -KILL "$pid"; exit 1; fi
+        }
+
+        for _ in $(seq "$TRAINING_ROUNDS"); do
+          # read puts the rest of the line, the body, in its last variable
+          while read -r method path body; do
+            [ -n "$method" ] || continue
+            request "$method" "$path" "$body"
+          done <<< "$TRAINING_REQUESTS"
+        done
+
+        kill -TERM "$pid"
+        wait "$pid" || true
+        cat "$log"
+        """)
+      .withExec(["bash", "/run/start-and-stop.sh"])
+  }
+
+  """
+  The AOT cache, from a training run of the runtime: the app started with `-XX:AOTCacheOutput`, the training
+  requests, and SIGTERM.
+  """
+  pub aotCache: File! {
+    startAndStop(runtime, "-XX:AOTCacheOutput=/run/vanilla.aot", requests, rounds).file("/run/vanilla.aot")
+  }
+
+  """
+  The image: the runtime, with the AOT cache at `/app/aot/vanilla.aot`, and `-XX:AOTCache` in `JAVA_OPTS`.
+  `image export --path=server-ktor-db.tar` writes it to disk; nothing here publishes it.
+  """
+  pub image: Container! {
+    runtime
+      .withFile("/app/aot/vanilla.aot", aotCache)
+      .withEnvVariable("JAVA_OPTS", "-XX:AOTCache=/app/aot/vanilla.aot")
+  }
+
+  """
+  Starts the image once, and fails unless the JVM loaded at least `minPercent` of the classes of its start from the
+  AOT cache: a JDK build or class path that doesn't match the training's loads them all anew.
+  Its `stdout` says how many it loaded from the cache.
+  """
+  pub verify(
+    minPercent: Int! = 90,
+  ): Container! {
+    startAndStop(image, "-XX:AOTCache=/app/aot/vanilla.aot -Xlog:class+load=info:file=/run/class-load.log", "", 0)
+      .withEnvVariable("MIN_PERCENT", `${minPercent}`)
+      .withExec(["sh", "-c", """
+        shared=$(grep -c 'source: shared objects file' /run/class-load.log)
+        total=$(grep -c 'class,load' /run/class-load.log)
+        echo "$shared of $total classes loaded from the AOT cache"
+        [ $((shared * 100)) -ge $((total * MIN_PERCENT)) ] || { echo "below $MIN_PERCENT%"; exit 1; }
+        """])
+  }
+
+  """
+  The pull request check: builds the image, and verifies that it uses its AOT cache. It publishes nothing.
+  """
+  pub check: Void @check {
+    verify.sync
+    null
+  }
+
+  # ---------------------------------------------------------------------------------------------------------------
+  # Local run
+  # ---------------------------------------------------------------------------------------------------------------
+
+  """
+  The image, on port 8001. `dagger start` runs it and tunnels the port to `localhost`.
+  """
+  @up
+  pub dev: Service! {
+    image
+      .withExposedPort(8001)
+      .asService(args: ["bash", "-c", """
+        for var in $(compgen -e | grep -E '^(OTEL_|TRACEPARENT$|TRACESTATE$)' || true); do unset "$var"; done
+        exec /app/bin/vanilla
+        """])
+  }
+}
