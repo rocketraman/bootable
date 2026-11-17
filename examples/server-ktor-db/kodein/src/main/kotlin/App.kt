@@ -49,7 +49,7 @@ val entriesModule by DI.Module {
  * the Exposed `Database` and verifies the schema against the registered tables (`db.exposed`). Telemetry goes through
  * the application's OpenTelemetry SDK (`openTelemetryModule`), exposed for Prometheus (`prometheusTelemetryModule`),
  * the server traces and measures its requests and serves the scrape (`ktorTelemetryModule`), and each query is a span
- * within its request's trace (`jdbcTracingModule`). The application's start is one trace, with a span for each
+ * within its request's trace, as is each connection taken from the pool (`jdbcTracingModule`). The application's start is one trace, with a span for each
  * service's start (`serviceStartTracingModule`), so the queries of the migrations and the sample entries are within
  * those.
  */
@@ -61,7 +61,9 @@ fun appDI() = DI {
   import(prometheusTelemetryModule)
   import(ktorTelemetryModule)
   import(jdbcDataSourceModule)
-  import(jdbcTracingModule)
+  // a span for each connection taken from the pool too, which shows the pool's start and its first connection in the
+  // application's start
+  import(jdbcTracingModule { setDataSourceInstrumenterEnabled(true) })
   import(sqliteConfigModule)
   import(hikariPoolModule)
   import(hikariPoolMetricsModule)

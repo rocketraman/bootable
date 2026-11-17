@@ -4,6 +4,7 @@ import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.config.ConfigBinderProvider
 import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.db.jdbc.JdbcTelemetryConfigurer
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.telemetry.otel.ServiceStartTracingBindings
 import dev.zacsweers.metro.ContributesTo
@@ -39,6 +40,14 @@ interface EntriesBindings : ConfigBinderProvider {
   fun entryServer(config: ServerConfig, entries: EntryRepository, telemetry: KtorTelemetry): AppService =
     EntryServer(config, entries, telemetry, "metro")
 
+  /**
+   * A span for each connection taken from the pool too, as well as each query, which shows the pool's start and its
+   * first connection in the application's start.
+   */
+  @Provides
+  fun jdbcTelemetryConfigurer(): JdbcTelemetryConfigurer =
+    JdbcTelemetryConfigurer { setDataSourceInstrumenterEnabled(true) }
+
   /** The scrape's own listener when `telemetry.ktor.hostPort` is set; otherwise it does nothing. */
   @Provides @IntoSet fun metricsListener(telemetry: KtorTelemetry): AppService = telemetry.listener(CIO)
 }
@@ -51,7 +60,7 @@ interface EntriesBindings : ConfigBinderProvider {
  * `Database` and verifies the schema against the contributed tables (`db.exposed`). The `-metro` telemetry modules
  * contribute the application's OpenTelemetry SDK, its Prometheus export, the Ktor instrumentation the server
  * installs, and the pool's metrics (`boot-db-pool-hikari-otel-metro`). `boot-db-jdbc-otel-metro` makes each query a
- * span within its request's trace.
+ * span within its request's trace, as is each connection taken from the pool (`JdbcTelemetryConfigurer`).
  */
 @DependencyGraph(
   AppScope::class,
