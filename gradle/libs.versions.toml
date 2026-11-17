@@ -28,7 +28,7 @@ opentelemetry-instrumentation-alpha = "2.32.0-alpha"
 postgresql = "42.7.14"
 # the version opentelemetry-exporter-prometheus is built against
 prometheus-metrics = "1.8.0"
-sqlite-jdbc = "3.53.4.0"
+sqlite-jdbc = "3.54.1.0"
 testcontainers = "2.0.5"
 testBalloon = "1.1.0"
 vanniktech-publish = "0.37.0"
