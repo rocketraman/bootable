@@ -48,8 +48,9 @@ fun appServices(binder: ConfigBinder): Set<AppService> {
     binder.config<SqliteConfig>("db.jdbc"),
     // HikariCP records its pool metrics through OpenTelemetry
     HikariConnectionPoolFactory(binder.config("db.pool"), hikariPoolMetrics(telemetry.openTelemetry)),
-    // each query is a span, under the request's
-    jdbcTracing(telemetry.openTelemetry),
+    // each query is a span, under the request's, and so is each connection taken from the pool, which shows the
+    // pool's start and its first connection in the application's start
+    jdbcTracing(telemetry.openTelemetry) { setDataSourceInstrumenterEnabled(true) },
   )
   val exposedConfig = binder.config<ExposedConfig>("db.exposed")
   val exposed = ExposedDatabaseService(database.dataSource, exposedConfig)
