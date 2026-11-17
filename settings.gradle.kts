@@ -1,5 +1,10 @@
 rootProject.name = "bootable"
 
+pluginManagement {
+  // plugins for the examples, such as bootable.aot-cache
+  includeBuild("build-logic")
+}
+
 dependencyResolutionManagement {
   @Suppress("UnstableApiUsage")
   repositories {

@@ -1,6 +1,8 @@
 plugins {
   kotlin("jvm")
   application
+  // aotCache: a training run of the installed app, which writes its JVM AOT cache
+  id("bootable.aot-cache")
 }
 
 kotlin {
@@ -29,4 +31,19 @@ dependencies {
 
 application {
   mainClass.set("AppKt")
+}
+
+// The training run serves a few requests too, so the cache covers the request path, not just the start. It listens
+// on a port of its own, and keeps its database under build/aot.
+val trainingHostPort = "127.0.0.1:18001"
+
+tasks.aotCache {
+  environment.put("SERVER_HOSTPORT", trainingHostPort)
+  request("PUT", "http://$trainingHostPort/entries/trained", "by the AOT training run")
+  request("GET", "http://$trainingHostPort/entries/trained")
+  request("GET", "http://$trainingHostPort/entries")
+  request("GET", "http://$trainingHostPort/")
+  request("GET", "http://$trainingHostPort/metrics")
+  request("DELETE", "http://$trainingHostPort/entries/trained")
+  rounds = 20
 }
