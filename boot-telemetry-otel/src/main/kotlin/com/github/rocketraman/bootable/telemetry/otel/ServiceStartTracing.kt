@@ -8,9 +8,9 @@ import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanBuilder
 import io.opentelemetry.api.trace.StatusCode
 import io.opentelemetry.api.trace.Tracer
-import java.time.Instant
+import kotlin.time.Clock
 import kotlin.time.TimeMark
-import kotlin.time.toJavaDuration
+import kotlin.time.toJavaInstant
 
 /**
  * A [LifecycleController] that traces the application's start as one trace: a root span, `start application`, with a
@@ -23,6 +23,10 @@ import kotlin.time.toJavaDuration
  * the application built, so it covers building the application, such as decoding its config and creating its
  * services, as well as starting them, the telemetry phase's included. It ends once every service has started, when
  * the application is running. It doesn't cover the JVM's own startup, before `main`.
+ *
+ * The root span's start time is [clock]'s time, less how long the application has been booting, as measured by the
+ * JVM's monotonic clock. Give it the clock [OpenTelemetryService] has, so its time is consistent with the SDK's time
+ * for the other spans; both default to [Clock.System].
  *
  * Add it to the application's lifecycle controllers:
  *
@@ -44,11 +48,14 @@ import kotlin.time.toJavaDuration
  * A service started later, outside the application's start, such as by a controller that starts services on command,
  * gets a span of its own, a child of whatever span is current then.
  */
-class ServiceStartTracing(openTelemetry: OpenTelemetry) : LifecycleController {
+class ServiceStartTracing(
+  openTelemetry: OpenTelemetry,
+  private val clock: Clock = Clock.System,
+) : LifecycleController {
   private val tracer: Tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE)
 
   override fun aroundAppStart(serviceContext: ServiceContext, startupMark: TimeMark, start: () -> Unit) {
-    val startedAt = Instant.now().minus(startupMark.elapsedNow().toJavaDuration())
+    val startedAt = (clock.now() - startupMark.elapsedNow()).toJavaInstant()
     tracer.spanBuilder(APP_START_SPAN).setNoParent().setStartTimestamp(startedAt).runInSpan(start)
   }
 

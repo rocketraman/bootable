@@ -176,6 +176,7 @@ The root span begins when `boot` was called, so it covers building the applicati
 A start that fails records the exception, and an error status, on the service's span and on the root span.
 Add it to the lifecycle controllers: `defaultLifecycleControllers() + ServiceStartTracing(openTelemetry)` with vanilla wiring, `serviceStartTracingModule` with Kodein, and `ServiceStartTracingBindings` in the graph's `bindingContainers` with Metro.
 The span is current on the thread that calls `start`: a `start` that runs coroutines carries it into them with `runBlocking(Context.current().asContextElement()) { … }`.
+The SDK times its spans and measurements, and `ServiceStartTracing` its root span, with a `kotlin.time.Clock`: `Clock.System` unless one is given to `OpenTelemetryService` and `ServiceStartTracing`, or bound, with Kodein or Metro, such as a fixed clock in a test.
 For SDK settings the config doesn't cover, such as a span processor, a metric view, or another sampler, add an `OpenTelemetryCustomizer` to its set binding (Kodein `inBindSet`, Metro `@IntoSet`); this is also how the modules below plug in.
 `excludeUrlPathsFromTraces(paths)` is one, which keeps requests such as health checks out of the traces.
 
