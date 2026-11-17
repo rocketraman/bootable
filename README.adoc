@@ -189,7 +189,7 @@ For SDK settings the config doesn't cover, such as a span processor, a metric vi
 | `boot-telemetry-otel-micrometer-bridge` | Metrics | | A Micrometer `MeterRegistry` that bridges the metrics of libraries that report only to Micrometer, such as the Temporal SDK, to the application's OpenTelemetry SDK, which exports them with the rest.
 | `boot-server-http-ktor-otel` | Traces, metrics | `KtorTelemetryConfig` | Ktor server instrumentation, and the metrics scrape for a pulling backend; see below.
 | `boot-db-pool-hikari-otel` | Metrics | | HikariCP's pool metrics, such as `db.client.connections.usage` and `db.client.connections.wait_time`, through OpenTelemetry's HikariCP instrumentation: `hikariPoolMetrics(openTelemetry)` is a `HikariConfigCustomizer` to give `HikariConnectionPoolFactory`, and the Kodein `hikariPoolMetricsModule` (imported after `hikariPoolModule`) and the Metro bindings add it to the pool's customizers.
-| `boot-db-jdbc-otel` | Traces | | Each JDBC query as a client span, through OpenTelemetry's JDBC instrumentation: `jdbcTracing(openTelemetry)` is a `DataSourceWrapper` to give `JdbcDataSourceService`, and the Kodein `jdbcTracingModule` (imported after `jdbcDataSourceModule`) and the Metro bindings add it to the pool's wrappers; see below.
+| `boot-db-jdbc-otel` | Traces | | Each JDBC query as a client span, through OpenTelemetry's JDBC instrumentation: `jdbcTracing(openTelemetry)` is a `DataSourceWrapper` to give `JdbcDataSourceService`, and the Kodein `jdbcTracingModule()` (imported after `jdbcDataSourceModule`) and the Metro bindings add it to the pool's wrappers; see below.
 |===
 
 `KtorTelemetry`, from `boot-server-http-ktor-otel`, installs OpenTelemetry's Ktor instrumentation, which traces every request, continuing the caller's trace when the request carries one, and records the standard HTTP server metrics, such as `http.server.request.duration`.
@@ -202,6 +202,8 @@ Without `hostPort`, that listener is a service that does nothing, so it can be a
 The span's parent is the span current on the thread that runs the statement: within a request, or a `withSpan`, that is the coroutine's span, across Exposed's `withTransaction` dispatcher too, since a coroutine's children inherit its trace context.
 A statement outside any span starts a trace of its own: at startup, such as Flyway's migrations, unless `ServiceStartTracing`, above, traces the start as one trace.
 The query text is sanitized, with its literals replaced by `?`, and the parameters aren't recorded; `jdbcTracing(openTelemetry) { setCaptureQueryParameters(true) }` changes the instrumentation's defaults, but mind what that puts in the traces.
+With Kodein, `jdbcTracingModule { ... }` takes the same configuration, and with Metro, a `JdbcTelemetryConfigurer { ... }` binding in the graph.
+For example, `setDataSourceInstrumenterEnabled(true)` adds a span for each connection taken from the pool, which shows, in the start's trace, how long the pool takes to start and open its first connection.
 The query text is in `db.statement`, of the semantic conventions' older database attributes, unless `OTEL_SEMCONV_STABILITY_OPT_IN=database` opts the JVM into the stable ones, such as `db.query.text`.
 The `DataSource` the pool's consumers get is the instrumentation's wrapper, so reach the pool's own, such as a `HikariDataSource`, with `dataSource.unwrap(HikariDataSource::class.java)` rather than a cast.
 

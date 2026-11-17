@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.db.jdbc
 
+import io.opentelemetry.instrumentation.jdbc.datasource.JdbcTelemetryBuilder
 import org.kodein.di.DI
 import org.kodein.di.inBindSet
 import org.kodein.di.instance
@@ -10,7 +11,11 @@ import org.kodein.di.singleton
  * the [DataSourceWrapper] set of `jdbcDataSourceModule` (from boot-db-jdbc-kodein). Import it after
  * `jdbcDataSourceModule`, which opens that set, alongside `openTelemetryModule` (from boot-telemetry-otel-kodein),
  * which provides the `OpenTelemetry`.
+ *
+ * [configure] changes the instrumentation's defaults, as [jdbcTracing]'s does, e.g.
+ * `import(jdbcTracingModule { setDataSourceInstrumenterEnabled(true) })` for a span for each connection taken from the
+ * pool.
  */
-val jdbcTracingModule by DI.Module {
-  inBindSet<DataSourceWrapper> { add { singleton { jdbcTracing(instance()) } } }
+fun jdbcTracingModule(configure: JdbcTelemetryBuilder.() -> Unit = {}): DI.Module = DI.Module("jdbcTracingModule") {
+  inBindSet<DataSourceWrapper> { add { singleton { jdbcTracing(instance(), configure) } } }
 }

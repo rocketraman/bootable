@@ -138,6 +138,27 @@ interface TestGraph : BootableGraph {
   val inMemorySpans: InMemorySpans
 }
 
+sealed interface ConfiguredTestScope
+
+@DependencyGraph(
+  ConfiguredTestScope::class,
+  additionalScopes = [BootScope::class],
+  bindingContainers = [JdbcGenericConfigBindings::class, ConfiguredTestBindings::class],
+)
+interface ConfiguredTestGraph : BootableGraph {
+  val dataSource: DataSource
+  val inMemorySpans: InMemorySpans
+}
+
+@BindingContainer
+object ConfiguredTestBindings {
+  @Provides @SingleIn(ConfiguredTestScope::class) fun inMemorySpans(): InMemorySpans = InMemorySpans()
+
+  @Provides @IntoSet fun inMemory(spans: InMemorySpans): OpenTelemetryCustomizer = spans
+
+  @Provides fun jdbcTelemetryConfigurer(): JdbcTelemetryConfigurer = JdbcTelemetryConfigurer { setQuerySanitizationEnabled(false) }
+}
+
 @BindingContainer
 object TestBindings {
   @Provides @SingleIn(TestScope::class) fun inMemorySpans(): InMemorySpans = InMemorySpans()
@@ -221,7 +242,7 @@ val JdbcTracingTest by testSuite {
         import(jdbcDataSourceModule)
         import(jdbcGenericConfigModule)
         import(hikariPoolModule)
-        import(jdbcTracingModule)
+        import(jdbcTracingModule())
       }.direct
 
       assert(di.instance<Set<DataSourceWrapper>>().size == 1)
@@ -231,6 +252,37 @@ val JdbcTracingTest by testSuite {
         di.instance<OpenTelemetry>().checkQueryUnderSpan(spans) {
           withContext(Dispatchers.IO) { dataSource.selectSecret() }
         }
+      }
+    }
+
+    test("kodein, configured") {
+      val spans = InMemorySpans()
+      val di = DI {
+        import(bootableModule)
+        import(hopliteConfigModule)
+        import(openTelemetryModule)
+        inBindSet<OpenTelemetryCustomizer> { add { singleton { spans } } }
+        import(jdbcDataSourceModule)
+        import(jdbcGenericConfigModule)
+        import(hikariPoolModule)
+        import(jdbcTracingModule { setQuerySanitizationEnabled(false) })
+      }.direct
+
+      val dataSource = di.instance<DataSource>()
+      di.instance<Set<AppService>>().running {
+        dataSource.createEntries()
+        dataSource.selectSecret()
+        // within running: shutting the SDK down clears the exporter
+        assert(spans.spans.query("FROM entry WHERE").attributes.get(DB_STATEMENT)!!.contains(SECRET))
+      }
+    }
+
+    test("metro, configured") {
+      val graph = createGraph<ConfiguredTestGraph>()
+      graph.appServices.running {
+        graph.dataSource.createEntries()
+        graph.dataSource.selectSecret()
+        assert(graph.inMemorySpans.spans.query("FROM entry WHERE").attributes.get(DB_STATEMENT)!!.contains(SECRET))
       }
     }
 
