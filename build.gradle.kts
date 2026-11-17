@@ -17,6 +17,7 @@ plugins {
   alias(libs.plugins.kotlin.jvm)
   alias(libs.plugins.dokka)
   alias(libs.plugins.dokka.javadoc)
+  alias(libs.plugins.jib) apply false
   alias(libs.plugins.kilua) apply false
   alias(libs.plugins.metro) apply false
   alias(libs.plugins.kotlin.compose) apply false
