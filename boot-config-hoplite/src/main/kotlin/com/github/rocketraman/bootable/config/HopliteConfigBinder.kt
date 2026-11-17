@@ -3,6 +3,7 @@ package com.github.rocketraman.bootable.config
 import com.sksamuel.hoplite.*
 import com.sksamuel.hoplite.ConfigBinder as UpstreamConfigBinder
 import com.sksamuel.hoplite.decoder.Decoder
+import com.sksamuel.hoplite.secrets.CompositeSecretsPolicy
 import com.sksamuel.hoplite.secrets.Obfuscator
 import com.sksamuel.hoplite.secrets.SecretsPolicy
 import com.sksamuel.hoplite.secrets.StandardSecretsPolicy
@@ -53,8 +54,9 @@ private val shellPromptEnvVars = setOf("PS1", "PS2", "PS4", "PROMPT_COMMAND")
  * - stage3
  *
  * If report is true (the default), a report of all config keys and values is enabled. All sensitive values should
- * be of type `Secret` to avoid leaking them in the report, named with "secret", "credential", or "pass" in the
- * name, or have pre-processor metadata that identifies the value as a secret. Configure this via [secretsPolicy].
+ * be of type [Masked] (or Hoplite's `Secret`) to avoid leaking them in the report, named with "secret",
+ * "credential", or "pass" in the name, or have pre-processor metadata that identifies the value as a secret.
+ * Configure this via [secretsPolicy]; a [Masked] value is masked whatever the policy.
  *
  * [environmentVariables] supplies the environment variables to read (defaults to [System.getenv]).
  *
@@ -85,6 +87,7 @@ fun hopliteConfigBinder(
   @OptIn(ExperimentalHoplite::class)
   val upstream = ConfigLoaderBuilder.empty()
     .addDefaultDecoders()
+    .addDecoder(MaskedDecoder())
     .addDecoders(decoders)
     .addDefaultPreprocessors()
     .addDefaultNodeTransformers()
@@ -104,7 +107,7 @@ fun hopliteConfigBinder(
     .apply {
       if (report) {
         withReport()
-        withSecretsPolicy(secretsPolicy)
+        withSecretsPolicy(CompositeSecretsPolicy(setOf(MaskedSecretsPolicy, secretsPolicy)))
         withObfuscator(obfuscator)
       }
       if (strict) {

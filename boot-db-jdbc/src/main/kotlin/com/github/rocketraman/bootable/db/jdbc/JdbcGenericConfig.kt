@@ -1,5 +1,7 @@
 package com.github.rocketraman.bootable.db.jdbc
 
+import com.github.rocketraman.bootable.config.Masked
+
 /**
  * A [JdbcConfig] for any database, configured by JDBC URL. The JDBC driver must be on the classpath.
  *
@@ -18,11 +20,6 @@ data class JdbcGenericConfig(
   override val jdbcUrl: String,
   override val driverClassName: String? = null,
   override val username: String? = null,
-  override val password: String? = null,
+  override val password: Masked? = null,
   override val dataSourceProperties: Map<String, String> = emptyMap(),
-) : JdbcConfig {
-  // keep the password out of logs and exception messages
-  override fun toString() =
-    "JdbcGenericConfig(jdbcUrl=$jdbcUrl, driverClassName=$driverClassName, username=$username, " +
-      "password=${password?.let { "****" }}, dataSourceProperties=$dataSourceProperties)"
-}
+) : JdbcConfig

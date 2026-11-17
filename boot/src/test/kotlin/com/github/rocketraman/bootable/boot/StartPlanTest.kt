@@ -60,7 +60,7 @@ val StartPlanTest by testSuite {
       assert(
         setOf(Service("secrets", Ordering(AppPhase.Secrets))).problems() == listOf(
           "secrets is in phase Secrets, which is not one of the start order's phases: " +
-            "[Infrastructure, Initialization, Application, Serving]. Pass Bootable a StartOrder that includes Secrets."
+            "[Telemetry, Infrastructure, Initialization, Application, Serving]. Pass Bootable a StartOrder that includes Secrets."
         )
       )
     }

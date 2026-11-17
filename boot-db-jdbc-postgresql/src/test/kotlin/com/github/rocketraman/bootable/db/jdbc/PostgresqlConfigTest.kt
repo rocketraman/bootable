@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.db.jdbc
 
+import com.github.rocketraman.bootable.config.Masked
 import de.infix.testBalloon.framework.core.testSuite
 import kotlin.time.Duration.Companion.seconds
 
@@ -41,7 +42,7 @@ val PostgresqlConfigTest by testSuite {
   }
 
   test("toString masks the password") {
-    val string = PostgresqlConfig(database = "app", username = "app", password = "secret").toString()
+    val string = PostgresqlConfig(database = "app", username = "app", password = Masked("secret")).toString()
     assert("secret" !in string && "password=****" in string && "username=app" in string)
   }
 }

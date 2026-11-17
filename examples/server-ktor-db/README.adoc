@@ -1,0 +1,75 @@
+= Server with a database example
+
+A Ktor server that stores entries in a SQLite database, through a HikariCP pool, Flyway migrations, and Exposed, and traces and measures itself with OpenTelemetry.
+It is wired three ways, with the same server and config in `common`: `vanilla`, `kodein`, and `metro`.
+See the Database and Telemetry sections of the link:../../README.adoc[README] for the modules it uses.
+
+== Running it
+
+From the repository root:
+
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:vanilla:run
+----
+
+It serves http://localhost:8001, whose index lists the endpoints.
+Store an entry with:
+
+[source,shell]
+----
+curl -X PUT --data 'hello' http://localhost:8001/entries/greeting
+----
+
+The config is in `common/src/main/resources/application.conf`.
+
+== Seeing it locally
+
+=== Metrics
+
+Metrics are pulled, so they need nothing else running: Prometheus's scrape is at http://localhost:8001/metrics.
+After a few requests, it has the server's request metrics, the pool's, the JVM's, and the example's own counter:
+
+[source,shell]
+----
+curl -s http://localhost:8001/metrics | grep -E 'entries_stored|http_server_request_duration_seconds_count|db_client_connections_usage'
+----
+
+=== Traces and metrics, with Grafana
+
+Traces are pushed, so they need somewhere to go; see Push and pull in the link:../../README.adoc[README].
+Grafana's `otel-lgtm` image runs everything in one container: an OpenTelemetry collector, receiving OTLP on port 4318, with Prometheus, Tempo for traces, Loki for logs, and Grafana in front of them.
+
+[source,shell]
+----
+podman run --rm -p 3000:3000 -p 4318:4318 docker.io/grafana/otel-lgtm
+----
+
+Then run the example with its OTLP endpoint, exporting metrics every 5 seconds rather than every minute:
+
+[source,shell]
+----
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 TELEMETRY_SDK_METRICS_INTERVAL=5s ./gradlew :examples:server-ktor-db:vanilla:run
+----
+
+After a few requests, open Grafana at http://localhost:3000, and in Explore:
+
+* choose Tempo, and search for the service `entries`: each request is a trace, such as `PUT /entries/{name}`, with a span for the database operation within it, such as `entries.put`;
+* choose Prometheus, and query the same metrics as the scrape, such as `entries_stored_total`, pushed over OTLP.
+
+Spans are exported in batches, every few seconds, and whatever is still buffered is exported when the example stops.
+
+=== Traces only, with Jaeger
+
+Jaeger takes OTLP directly, and shows the traces at http://localhost:16686:
+
+[source,shell]
+----
+podman run --rm -p 16686:16686 -p 4318:4318 docker.io/jaegertracing/jaeger:latest
+----
+
+Run the example with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318`, as above.
+
+=== Traces in the logs
+
+Log lines written within a request carry its trace: the console shows `trace_id` and `span_id` among each line's context data, matching the trace in Tempo or Jaeger.

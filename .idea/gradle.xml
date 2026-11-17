@@ -27,6 +27,12 @@
             <option value="$PROJECT_DIR$/boot-server-http-ktor-cio" />
             <option value="$PROJECT_DIR$/boot-server-http-ktor-jetty" />
             <option value="$PROJECT_DIR$/boot-server-http-ktor-netty" />
+            <option value="$PROJECT_DIR$/boot-server-http-ktor-otel" />
+            <option value="$PROJECT_DIR$/boot-telemetry-otel" />
+            <option value="$PROJECT_DIR$/boot-telemetry-otel-gcp" />
+            <option value="$PROJECT_DIR$/boot-telemetry-otel-micrometer-bridge" />
+            <option value="$PROJECT_DIR$/boot-telemetry-otel-prometheus" />
+            <option value="$PROJECT_DIR$/boot-telemetry-otel-signoz" />
             <option value="$PROJECT_DIR$/examples" />
             <option value="$PROJECT_DIR$/examples/compose-html" />
             <option value="$PROJECT_DIR$/examples/compose-html/client" />

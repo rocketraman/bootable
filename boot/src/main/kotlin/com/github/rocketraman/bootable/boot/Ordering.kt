@@ -52,9 +52,15 @@ data class Ordering(
 /** Bootable's default phases, in start order. See [DefaultStartOrder]. */
 enum class DefaultPhase : Phase {
   /**
+   * What everything else records into: tracing and metrics SDKs, and their exporters. It starts first and stops
+   * last, so every other service can record from its first moment, and the last of what they record while stopping,
+   * the database pool's included, is still exported.
+   */
+  Telemetry,
+
+  /**
    * Connections to the systems the app needs, and the plumbing everything else relies on: database pools, clients
-   * for other services, caches, telemetry. It starts first and stops last, so pools close once nothing uses them,
-   * and telemetry can flush what the other phases recorded while stopping.
+   * for other services, caches. It stops after the phases that use it, so pools close once nothing uses them.
    */
   Infrastructure,
 

@@ -35,7 +35,7 @@ NOTE: Importing the Metro DI artifact does bring annotations to your application
 * Manages the lifecycle of application services.
 * Allows registration of lifecycle controllers, which can be used to control the lifecycle of application services in various ways.
 The basic built-in implementation of this is the `AppStartStopLifecycleController` which starts application services on app start, and shuts them down on app close, in reverse.
-Services start phase by phase (infrastructure, initialization, application, serving), and, within a phase, after the milestones they declare; see link:docs/service-ordering.adoc[Service ordering].
+Services start phase by phase (telemetry, infrastructure, initialization, application, serving), and, within a phase, after the milestones they declare; see link:docs/service-ordering.adoc[Service ordering].
 Services left unordered start by name, or shuffled with `boot.service.order.tiebreaker._type = Shuffled` in config (or `BOOT_SERVICE_ORDER_TIEBREAKER=Shuffled`).
 Shuffling is useful in `application-local.conf` and test config, to surface services that rely on an order they don't declare.
 An app can pass its own `StartOrder` to add phases; see link:./examples/start-order[examples/start-order], which adds a phase after `Serving` for a service that announces the app is ready once its server is listening.
@@ -50,6 +50,13 @@ Add additional modules as you wish.
 
 [[Configuration]]
 === Configuration
+
+Bootable's own modules declare a config property that holds a secret, such as a password, an API key, or an auth header, as `Masked`, from `boot-config-common`, rather than `String`.
+Their config classes don't depend on a config library, so they can't use the library's own type, such as Hoplite's `Secret`.
+`Masked` has a masked `toString`, so a config class can be logged or printed safely, and `boot-config-hoplite` masks it in its config report.
+
+Bootable doesn't aim to make config libraries interchangeable.
+In your own config classes, declare secrets with your config library's type, such as Hoplite's `Secret`.
 
 ==== Hoplite
 
@@ -134,10 +141,143 @@ This module provides all the necessary imports to configure Log4j2 as the loggin
 It provides good default logging layouts, and supports multiple output types e.g. plain (both color and not), JSON, and GCloud.
 See https://github.com/rocketraman/bootable/blob/HEAD/boot-logging-log4j2/src/main/kotlin/com/github/rocketraman/bootable/logging/log4j2/LoggingType.kt[LoggingType].
 
+[[Telemetry]]
+=== Telemetry (OpenTelemetry)
+
+`boot-telemetry-otel` provides the application's https://opentelemetry.io/[OpenTelemetry] SDK, for traces and metrics, tied to the application lifecycle.
+`OpenTelemetryService` internally manages the OpenTelemetry SDK, so its `openTelemetry` property can be handed to instrumentation right away, and shuts it down when the application stops, after exporting the spans and metrics still buffered, so the last interval isn't lost.
+It is in the `Telemetry` phase, so every other service, the database pool included, starts after it and stops before it.
+
+* The resource names the application: `serviceName`, `serviceVersion`, and `environment` (as `deployment.environment.name`), plus any other `resourceAttributes`.
+`environment` defaults to `env.environment`, the key `boot-env` reads, so an application using `boot-env` gets it without depending on it here.
+Each instance is told apart by its `service.instance.id`: `serviceInstanceId`, where the platform has a stable name for it, such as a pod's, which the Kubernetes downward API can set as `TELEMETRY_SDK_SERVICEINSTANCEID`, and otherwise a random one at each start.
+* Traces and metrics are pushed over OTLP (HTTP and protobuf) to `otlp.endpoint`, such as an OpenTelemetry collector, Jaeger, or Google Cloud; see <<TelemetryPushPull>>.
+Without an endpoint there is no OTLP export, so a local run sends nothing anywhere.
+Each signal can be turned off, or kept off OTLP, and `traces.sampleRatio` samples traces, keeping a caller's sampling decision.
+* It records the JVM's runtime metrics (memory, garbage collection, threads, classes, CPU) unless `metrics.runtime` is off.
+* Log events within a span carry its `trace_id` and `span_id` in their context data, which `boot-logging-log4j2`'s layouts print: the plain layouts with the rest of the context, the JSON layout as labels, and the GCloud layout as the fields Cloud Logging links to the trace.
+* Four of the standard `OTEL_*` environment variables fill in what the config leaves unset; see <<TelemetryOtelEnvironment>>.
+* When the OpenTelemetry Java agent is attached, the service uses the agent's SDK instead of building its own, and leaves its lifecycle to the agent.
+
+Logs aren't exported over OpenTelemetry for now: the SDK that `OpenTelemetryService` builds has no logger provider.
+Logs go through `boot-logging-log4j2` as usual, with the trace and span ids above, so a backend can link them to their traces.
+Ship them with the platform's log collection, such as Cloud Logging's, or an OpenTelemetry collector that reads the application's output.
+
+`Tracer.withSpan(name) { span -> … }` runs a suspending block in a child span of the current one, which stays current across dispatchers, and records an exception as the span's error.
+A span from `withSpan` is expected to have a parent: without one, it starts a trace of its own and logs a warning, once for each span name, since its caller's trace context usually didn't reach it, such as across a new `CoroutineScope` or a Java callback.
+To start a trace on purpose, such as for a scheduled job or a consumed message, use `Tracer.withRootSpan(name) { span -> … }`, which can also link the trace to the operation that kicked it off.
+For SDK settings the config doesn't cover, such as a span processor, a metric view, or another sampler, add an `OpenTelemetryCustomizer` to its set binding (Kodein `inBindSet`, Metro `@IntoSet`); this is also how the modules below plug in.
+`excludeUrlPathsFromTraces(paths)` is one, which keeps requests such as health checks out of the traces.
+
+[cols="3,2,3,6"]
+|===
+| Module | Signals | Config | What it adds
+
+| `boot-telemetry-otel-prometheus` | Metrics | `PrometheusTelemetryConfig` | Prometheus export: `PrometheusTelemetry` registers a metric reader with the SDK, and renders the scrape, in the OpenMetrics or Prometheus text format, for an HTTP integration to serve.
+| `boot-telemetry-otel-gcp` | Traces, metrics | `GcpTelemetryConfig` | Google Cloud: the GCP platform's resource attributes (the Cloud Run service and revision, or the GKE cluster, namespace, and pod), and authentication of OTLP export to Google's OTLP endpoint, `https://telemetry.googleapis.com`, which writes traces to Cloud Trace and metrics to Cloud Monitoring, without a collector.
+| `boot-telemetry-otel-signoz` | Traces, metrics | `SigNozTelemetryConfig` | https://signoz.io/[SigNoz], which ingests OTLP itself, at `https://ingest.<region>.signoz.cloud:443` for SigNoz Cloud, or a self-hosted SigNoz's collector on port 4318: the ingestion key on export to SigNoz Cloud, the environment also as `deployment.environment`, which SigNoz's filters read, and, optionally, delta temporality for counters and histograms, which SigNoz suggests to cut the samples it stores.
+| `boot-telemetry-otel-micrometer-bridge` | Metrics | | A Micrometer `MeterRegistry` that bridges the metrics of libraries that report only to Micrometer, such as the Temporal SDK, to the application's OpenTelemetry SDK, which exports them with the rest.
+| `boot-server-http-ktor-otel` | Traces, metrics | `KtorTelemetryConfig` | Ktor server instrumentation, and the metrics scrape for a pulling backend; see below.
+|===
+
+`KtorTelemetry`, from `boot-server-http-ktor-otel`, installs OpenTelemetry's Ktor instrumentation, which traces every request, continuing the caller's trace when the request carries one, and records the standard HTTP server metrics, such as `http.server.request.duration`.
+It also serves a pulled backend's scrape at `/metrics`, and keeps those scrapes out of the traces.
+Call `installTelemetry(telemetry)` in your server's `module()`; the request's span is current while its route runs, so `withSpan` in a route starts a child of it.
+To keep the scrape off a public server, set `telemetry.ktor.hostPort`: the scrape is then served on a listener of its own, `telemetry.listener(CIO)` (or another engine), which you add to the application's services.
+Without `hostPort`, that listener is a service that does nothing, so it can be added either way.
+
+For a library without a Bootable module that instruments it, such as `boot-server-http-ktor-otel` does Ktor, hand the application's `openTelemetry` to the library's OpenTelemetry instrumentation yourself, where you build its client.
+For HikariCP's pool metrics, for example, add `io.opentelemetry.instrumentation:opentelemetry-hikaricp-3.0`, and give `HikariConnectionPoolFactory` a `HikariConfigCustomizer` that sets `metricsTrackerFactory = HikariTelemetry.create(openTelemetry).createMetricsTrackerFactory()`.
+link:./examples/server-ktor-db[examples/server-ktor-db] does this, wired each of the three ways.
+
+Each module reads its own subsection of `telemetry`:
+
+[source,hocon]
+----
+telemetry {
+  sdk {
+    serviceName = my-service
+    otlp { endpoint = "http://otel-collector:4318" }
+    traces { sampleRatio = 0.1 }
+    metrics { interval = 30s }
+  }
+  prometheus {
+    resourceAttributesAsLabels = [service.name]
+  }
+  gcp {
+    projectId = my-project
+  }
+  signoz {
+    ingestionKey = ${?SIGNOZ_INGESTION_KEY}
+  }
+  ktor {
+    hostPort = ":9090"
+  }
+}
+----
+
+With vanilla wiring, build the customizers, then an `OpenTelemetryService(telemetryConfig(binder), listOf(prometheus, ktorConfig.excludeScrapeFromTraces()))`, pass it to `boot` as an app service, and hand its `openTelemetry` to whatever records telemetry: e.g. `KtorTelemetry(telemetry.openTelemetry, setOf(prometheus), ktorConfig)`.
+With Kodein, import `openTelemetryModule`, then `prometheusTelemetryModule`, `gcpTelemetryModule`, `sigNozTelemetryModule`, `micrometerBridgeModule`, and `ktorTelemetryModule` as needed, and bind `OpenTelemetry` and `KtorTelemetry` where needed.
+With Metro, the `-metro` modules contribute everything.
+
+link:./examples/server-ktor-db[examples/server-ktor-db] traces its requests, with a span for each database operation within them, records its request, pool, and runtime metrics and a counter of its own, and serves them at http://localhost:8001/metrics, wired each of the three ways.
+Its metrics are pulled, so they need nothing else running, but its traces are pushed: to see them, point `OTEL_EXPORTER_OTLP_ENDPOINT` at an OpenTelemetry collector or Jaeger (see <<TelemetryPushPull>>).
+Its link:./examples/server-ktor-db/README.adoc[README] shows how to see both locally, with Grafana or Jaeger in a container.
+
+[[TelemetryPushPull]]
+==== Push and pull
+
+Telemetry reaches a backend in one of two ways.
+With push, the application sends it: the SDK exports spans as they finish, and metrics every `metrics.interval`, over OTLP to `otlp.endpoint`.
+With pull, the backend fetches it: a scraper, such as Prometheus or VictoriaMetrics, fetches the application's `/metrics` on its own schedule, and the application only keeps each metric's current value.
+
+Push over OTLP is OpenTelemetry's own model, and the only supported approach for traces.
+Metrics can go either way: pushed over OTLP, pulled in the Prometheus format with `boot-telemetry-otel-prometheus`, or both at once.
+
+Each has its strengths.
+Pull keeps the application ignorant of where its metrics go, needs no credentials in it, and tells the backend when a target is down, because the scrape fails.
+Push works where nothing can reach the application to scrape it: short-lived jobs, instances behind NAT, and platforms such as Cloud Run, whose instances have no stable address and stop when idle.
+
+The application usually pushes to an OpenTelemetry collector beside it, such as a sidecar or a node agent, rather than straight to the backend.
+The collector batches, retries, samples, and holds the backend's credentials, so the application needs only its address.
+A collector can also scrape Prometheus endpoints, so the two models mix.
+Some backends take OTLP directly, without a collector: Jaeger, for one, Google Cloud, with `boot-telemetry-otel-gcp`, and SigNoz, with `boot-telemetry-otel-signoz`.
+
+Recommendations that work for most cases:
+
+* With a pulling backend, such as Prometheus, already in place, let it pull the metrics, and push the traces over OTLP.
+* With a collector, or a hosted backend, push both over OTLP, and leave Prometheus out.
+* Locally, nothing needs to be running: without an endpoint nothing is pushed, and the metrics can still be pulled.
+
+[[TelemetryOtelEnvironment]]
+==== The standard environment variables
+
+OpenTelemetry defines environment variables that platforms and tools set, such as the OpenTelemetry operator for Kubernetes, and that other OpenTelemetry SDKs read.
+Settings are configured explicitly in `telemetry.sdk`, which `telemetryConfig` decodes, and Bootable falls back to four of the standard variables for the settings not explicitly configured:
+
+[cols="2,2,3"]
+|===
+| Variable | Explicit configuration | When both are set
+
+| `OTEL_SERVICE_NAME` | `serviceName` | The explicit `serviceName` wins. `OTEL_SERVICE_NAME` wins over a `service.name` in `resourceAttributes`, as it does in other SDKs.
+| `OTEL_RESOURCE_ATTRIBUTES` | `resourceAttributes` | Merged by key; the explicit value wins for a key in both.
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `otlp.endpoint` | The explicit `endpoint` wins.
+| `OTEL_EXPORTER_OTLP_HEADERS` | `otlp.headers` | Merged by header name; the explicit value wins for a header in both.
+|===
+
+The variables take their standard format, described in OpenTelemetry's https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/[SDK environment variables] and https://opentelemetry.io/docs/specs/otel/protocol/exporter/[OTLP exporter] specifications.
+Explicit configuration comes from any of Hoplite's sources, so a `TELEMETRY_SDK_*` environment variable, such as `TELEMETRY_SDK_SERVICENAME`, is explicit too, and wins over the matching `OTEL_*` one.
+The values end up in the `TelemetryConfig` that `telemetryConfig` returns, with the headers `Masked`, but not in Hoplite's config report, which only lists what Hoplite decoded.
+
+If you build a `TelemetryConfig` in code instead of with `telemetryConfig`, such as in a test, the variables are ignored, so it doesn't depend on the environment it runs in.
+To apply them to it, call `withOtelEnvironment()` on it.
+No other `OTEL_*` variable is read, such as `OTEL_TRACES_SAMPLER` or `OTEL_METRIC_EXPORT_INTERVAL`: set the matching config instead, which a HOCON substitution can take from any environment variable, e.g. `sampleRatio = ${?TRACES_SAMPLE_RATIO}`.
+
 === Server HTTP (Ktor)
 
 Provides a basic Ktor service abstraction with Bootable lifecycle integration i.e. the server starts and stops with the application.
 Does not attempt to configure Ktor in any significant way — this is left to the user.
+To trace and measure requests, and serve a metrics scrape, see `boot-server-http-ktor-otel` under <<Telemetry>>.
 See https://github.com/rocketraman/bootable/blob/HEAD/boot-server-http-ktor/src/main/kotlin/com/github/rocketraman/bootable/server/http/ktor/KtorService.kt[KtorService].
 
 The Ktor engine is your choice.

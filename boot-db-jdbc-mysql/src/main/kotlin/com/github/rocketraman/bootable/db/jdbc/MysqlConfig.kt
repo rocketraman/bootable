@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.db.jdbc
 
+import com.github.rocketraman.bootable.config.Masked
 import kotlin.time.Duration
 
 /**
@@ -51,7 +52,7 @@ data class MysqlConfig(
   val port: Int = 3306,
   val database: String,
   override val username: String? = null,
-  override val password: String? = null,
+  override val password: Masked? = null,
   val sslMode: MysqlSslMode? = null,
   val allowPublicKeyRetrieval: Boolean? = null,
   val connectTimeout: Duration? = null,
@@ -77,14 +78,6 @@ data class MysqlConfig(
         put("prepStmtCacheSqlLimit", prepStmtCacheSqlLimit.toString())
       }
     }
-
-  // keep the password out of logs and exception messages
-  override fun toString() =
-    "MysqlConfig(host=$host, port=$port, database=$database, username=$username, " +
-      "password=${password?.let { "****" }}, sslMode=$sslMode, allowPublicKeyRetrieval=$allowPublicKeyRetrieval, " +
-      "connectTimeout=$connectTimeout, socketTimeout=$socketTimeout, " +
-      "rewriteBatchedStatements=$rewriteBatchedStatements, cachePrepStmts=$cachePrepStmts, " +
-      "prepStmtCacheSize=$prepStmtCacheSize, prepStmtCacheSqlLimit=$prepStmtCacheSqlLimit)"
 }
 
 /**

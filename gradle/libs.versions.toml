@@ -3,6 +3,7 @@ compose-multiplatform = "1.12.2"
 dokka = "2.2.0"
 exposed = "1.6.0"
 flyway = "13.11.1"
+google-auth = "1.54.0"
 graalvm-buildtools = "0.11.5"
 hikari = "7.1.0"
 hoplite = "3.0.5"
@@ -17,8 +18,16 @@ ktor = "3.6.0"
 log4j = "2.26.1"
 log4j-kotlin-api = "1.5.0"
 metro = "1.4.5"
+micrometer = "1.17.1"
 mysql-connector-j = "26.10.0"
+# the instrumentation libraries are built against this SDK release; keep the two in step
+opentelemetry = "1.66.0"
+opentelemetry-alpha = "1.66.0-alpha"
+opentelemetry-contrib-alpha = "1.61.0-alpha"
+opentelemetry-instrumentation-alpha = "2.32.0-alpha"
 postgresql = "42.7.14"
+# the version opentelemetry-exporter-prometheus is built against
+prometheus-metrics = "1.8.0"
 sqlite-jdbc = "3.53.4.0"
 testcontainers = "2.0.5"
 testBalloon = "1.1.0"
@@ -46,6 +55,8 @@ flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 flyway-mysql = { module = "org.flywaydb:flyway-mysql", version.ref = "flyway" }
 
+google-auth-library-oauth2-http = { module = "com.google.auth:google-auth-library-oauth2-http", version.ref = "google-auth" }
+
 hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
 
 hoplite-core = { module = "com.sksamuel.hoplite:hoplite-core", version.ref = "hoplite" }
@@ -66,6 +77,23 @@ ktor-server-jetty-jakarta = { module = "io.ktor:ktor-server-jetty-jakarta", vers
 ktor-server-metrics-micrometer = { module = "io.ktor:ktor-server-metrics-micrometer", version.ref = "ktor" }
 ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
 
+micrometer-core = { module = "io.micrometer:micrometer-core", version.ref = "micrometer" }
+
+opentelemetry-api = { module = "io.opentelemetry:opentelemetry-api", version.ref = "opentelemetry" }
+opentelemetry-exporter-otlp = { module = "io.opentelemetry:opentelemetry-exporter-otlp", version.ref = "opentelemetry" }
+opentelemetry-exporter-prometheus = { module = "io.opentelemetry:opentelemetry-exporter-prometheus", version.ref = "opentelemetry-alpha" }
+opentelemetry-exporter-sender-jdk = { module = "io.opentelemetry:opentelemetry-exporter-sender-jdk", version.ref = "opentelemetry" }
+opentelemetry-extension-kotlin = { module = "io.opentelemetry:opentelemetry-extension-kotlin", version.ref = "opentelemetry" }
+opentelemetry-gcp-resources = { module = "io.opentelemetry.contrib:opentelemetry-gcp-resources", version.ref = "opentelemetry-contrib-alpha" }
+opentelemetry-instrumentation-hikaricp = { module = "io.opentelemetry.instrumentation:opentelemetry-hikaricp-3.0", version.ref = "opentelemetry-instrumentation-alpha" }
+opentelemetry-instrumentation-ktor = { module = "io.opentelemetry.instrumentation:opentelemetry-ktor-3.0", version.ref = "opentelemetry-instrumentation-alpha" }
+opentelemetry-instrumentation-log4j-context-data = { module = "io.opentelemetry.instrumentation:opentelemetry-log4j-context-data-2.17-autoconfigure", version.ref = "opentelemetry-instrumentation-alpha" }
+opentelemetry-instrumentation-micrometer = { module = "io.opentelemetry.instrumentation:opentelemetry-micrometer-1.5", version.ref = "opentelemetry-instrumentation-alpha" }
+opentelemetry-instrumentation-runtime-telemetry = { module = "io.opentelemetry.instrumentation:opentelemetry-runtime-telemetry", version.ref = "opentelemetry-instrumentation-alpha" }
+opentelemetry-sdk = { module = "io.opentelemetry:opentelemetry-sdk", version.ref = "opentelemetry" }
+opentelemetry-sdk-extension-autoconfigure-spi = { module = "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi", version.ref = "opentelemetry" }
+opentelemetry-sdk-testing = { module = "io.opentelemetry:opentelemetry-sdk-testing", version.ref = "opentelemetry" }
+
 log4j-api = { module = "org.apache.logging.log4j:log4j-api", version.ref = "log4j" }
 log4j-api-kotlin = { module = "org.apache.logging.log4j:log4j-api-kotlin", version.ref = "log4j-kotlin-api" }
 log4j-bom = { module = "org.apache.logging.log4j:log4j-bom", version.ref = "log4j" }
@@ -77,6 +105,7 @@ log4j-slf4j-impl = { module = "org.apache.logging.log4j:log4j-slf4j2-impl", vers
 
 mysql-connector-j = { module = "com.mysql:mysql-connector-j", version.ref = "mysql-connector-j" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+prometheus-metrics-exposition-textformats = { module = "io.prometheus:prometheus-metrics-exposition-textformats", version.ref = "prometheus-metrics" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 
 # below here, only used for the samples

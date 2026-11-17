@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.db.jdbc
 
+import com.github.rocketraman.bootable.config.Masked
 import kotlin.time.Duration
 
 /**
@@ -43,7 +44,7 @@ data class PostgresqlConfig(
   val port: Int = 5432,
   val database: String,
   override val username: String? = null,
-  override val password: String? = null,
+  override val password: Masked? = null,
   val currentSchema: String? = null,
   val applicationName: String? = null,
   val sslMode: PostgresqlSslMode? = null,
@@ -63,13 +64,6 @@ data class PostgresqlConfig(
       socketTimeout?.let { put("socketTimeout", it.inWholeSeconds.toString()) }
       reWriteBatchedInserts?.let { put("reWriteBatchedInserts", it.toString()) }
     }
-
-  // keep the password out of logs and exception messages
-  override fun toString() =
-    "PostgresqlConfig(host=$host, port=$port, database=$database, username=$username, " +
-      "password=${password?.let { "****" }}, currentSchema=$currentSchema, applicationName=$applicationName, " +
-      "sslMode=$sslMode, connectTimeout=$connectTimeout, socketTimeout=$socketTimeout, " +
-      "reWriteBatchedInserts=$reWriteBatchedInserts)"
 }
 
 /**

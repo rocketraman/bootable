@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.db.jdbc
 
+import com.github.rocketraman.bootable.config.Masked
 import de.infix.testBalloon.framework.core.testSuite
 import java.nio.file.Path
 import kotlin.io.path.ExperimentalPathApi
@@ -14,7 +15,7 @@ private data class TestJdbcConfig(
 ) : JdbcConfig {
   override val driverClassName: String? get() = null
   override val username: String? get() = null
-  override val password: String? get() = null
+  override val password: Masked? get() = null
 }
 
 val HikariConnectionPoolFactoryTest by testSuite {

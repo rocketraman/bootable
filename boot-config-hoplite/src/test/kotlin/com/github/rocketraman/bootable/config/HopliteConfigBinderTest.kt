@@ -4,8 +4,14 @@ import com.github.rocketraman.bootable.boot.ServiceOrderConfig
 import com.github.rocketraman.bootable.boot.StartOrder
 import com.github.rocketraman.bootable.boot.serviceOrderConfig
 import com.sksamuel.hoplite.ConfigException
+import com.sksamuel.hoplite.Node
 import com.sksamuel.hoplite.PropertySource
+import com.sksamuel.hoplite.secrets.SecretsPolicy
+import com.sksamuel.hoplite.secrets.StandardSecretsPolicy
 import de.infix.testBalloon.framework.core.testSuite
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
+import kotlin.reflect.KType
 
 // public: hoplite constructs it reflectively
 data class ServerConfig(val host: String, val port: Int)
@@ -18,7 +24,63 @@ data class SpeedConfig(val speed: Speed)
 private fun binder(env: Map<String, String>): ConfigBinder =
   hopliteConfigBinder(report = false, environmentVariables = { env })
 
+// public: hoplite constructs it reflectively
+data class ApiConfig(val url: String, val apiKey: Masked, val port: Masked, val headers: Map<String, Masked>)
+
+/** What the config report prints while [block] runs. */
+private fun report(block: () -> Unit): String {
+  val out = System.out
+  val captured = ByteArrayOutputStream()
+  System.setOut(PrintStream(captured, true))
+  try {
+    block()
+  } finally {
+    System.setOut(out)
+  }
+  return captured.toString()
+}
+
+private val apiConf = "api { url = \"https://api.example\", apiKey = key-123, port = 8443, headers { x-tenant = tenant-789, tenant = plain-321 } }"
+
+private fun apiBinder(secretsPolicy: SecretsPolicy = StandardSecretsPolicy) = hopliteConfigBinder(
+  withConfigStage3 = { addPropertySource(PropertySource.string(apiConf, "conf")) },
+  environmentVariables = { emptyMap() },
+  secretsPolicy = secretsPolicy,
+)
+
+private object NothingSecret : SecretsPolicy {
+  override fun isSecret(node: Node, type: KType?) = false
+}
+
 val HopliteConfigBinderTest by testSuite {
+  test("decodes Masked values in strict mode, maps' included") {
+    val binder = hopliteConfigBinder(
+      report = false,
+      strict = true,
+      withConfigStage3 = { addPropertySource(PropertySource.string(apiConf, "conf")) },
+      environmentVariables = { emptyMap() },
+    )
+    assert(binder.config<ApiConfig>("api").headers.getValue("x-tenant") == Masked("tenant-789"))
+  }
+
+  test("decodes Masked values, from strings and numbers, and in maps") {
+    val config = apiBinder().config<ApiConfig>("api")
+    assert(config == ApiConfig("https://api.example", Masked("key-123"), Masked("8443"), mapOf("x-tenant" to Masked("tenant-789"), "tenant" to Masked("plain-321"))))
+    assert("key-123" !in config.toString() && "tenant-789" !in config.toString())
+  }
+
+  test("masks Masked values in the config report, and shows the rest") {
+    val printed = report { apiBinder().config<ApiConfig>("api") }
+    assert("https://api.example" in printed)
+    assert(listOf("key-123", "8443", "tenant-789", "plain-321").none { it in printed })
+    assert("Unused keys: none" in printed)
+  }
+
+  test("masks Masked values in the config report whatever the secrets policy") {
+    val printed = report { apiBinder(secretsPolicy = NothingSecret).config<ApiConfig>("api") }
+    assert("https://api.example" in printed && "key-123" !in printed && "tenant-789" !in printed)
+  }
+
   test("exported bash functions in the environment are ignored") {
     // what `export -f` / Lmod put in the environment
     val env = mapOf("BASH_FUNC_module%%" to "() {  if [ -z \"\${LMOD_SH_DBG_ON+x}\" ]; then :; fi\n}")

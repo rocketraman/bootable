@@ -9,7 +9,8 @@ Each service declares an `ordering()`: a *phase*, and, within that phase, the *m
 Bootable computes a start plan from them before anything starts, logs it, and fails the boot if it can't be met.
 See link:docs/service-ordering.adoc[Service ordering] for the design.
 
-* Services start phase by phase, in the order `Infrastructure`, `Initialization`, `Application`, `Serving`, and stop in the reverse order.
+* Services start phase by phase, in the order `Telemetry`, `Infrastructure`, `Initialization`, `Application`, `Serving`, and stop in the reverse order.
+`Telemetry` holds what everything else records into, so it starts first and stops last, and exports what the other phases record while they stop.
 A service that declares nothing is in `Application`.
 * `Ordering(phase, provides, after, requires)` orders a service within its phase against a `Milestone`, a role, rather than against another module's classes or numbers.
 `after` is satisfied when nothing provides the milestone; `requires` fails the boot then.
@@ -37,6 +38,27 @@ With Kodein, `bootableModule` uses `StartOrder` and `StartOrder.Tiebreaker` bind
 * `boot` now depends on `boot-config-common`, as an API dependency, for `ServiceOrderConfig`.
 
 `LifecycleController.priority()` is unchanged.
+
+=== Telemetry with OpenTelemetry
+
+New modules record traces and metrics with the OpenTelemetry SDK, tied to the application lifecycle; see the Telemetry section of the README.
+
+* `boot-telemetry-otel`: `OpenTelemetryService` builds the SDK from `telemetry.sdk`, exports over OTLP, and, in the `Telemetry` phase, shuts down last, exporting what is still buffered.
+Log events within a span carry its trace and span ids, which `boot-logging-log4j2`'s layouts print.
+`OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` fill in what `telemetry.sdk` leaves unset.
+* `boot-telemetry-otel-prometheus`: Prometheus export, and its scrape.
+Its exemplars carry only the trace and span ids, within OpenMetrics's 128-character limit for an exemplar's labels.
+* `boot-telemetry-otel-gcp`: GCP resource detection, and authenticated OTLP export to Google Cloud Trace and Cloud Monitoring.
+* `boot-telemetry-otel-signoz`: OTLP export to SigNoz, authenticated for SigNoz Cloud, optionally with delta temporality.
+* `boot-telemetry-otel-micrometer-bridge`: a Micrometer `MeterRegistry` that records into the SDK.
+* `boot-server-http-ktor-otel`: traces and measures a Ktor server's requests, and serves the metrics scrape, on the server or a listener of its own.
+
+=== Masked config values
+
+`boot-config-common` adds `Masked`, for a config property of a Bootable module that holds a secret, such as a password, an API key, or an auth header.
+Those modules' config classes don't depend on a config library, so they can't use Hoplite's `Secret`; an application's own config classes should.
+Its `toString` is masked, and `hopliteConfigBinder` decodes it from a string or a number and masks it in its config report, whatever the secrets policy, including in a map, whose values Hoplite's report would otherwise list as unused, in plain text.
+The JDBC modules' `password` is `Masked`.
 
 === Config enum values and sealed subtype names match in any case
 

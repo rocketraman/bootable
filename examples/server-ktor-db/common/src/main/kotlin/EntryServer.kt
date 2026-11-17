@@ -1,5 +1,8 @@
 import com.github.rocketraman.bootable.config.common.HostPort
 import com.github.rocketraman.bootable.server.http.ktor.CioKtorService
+import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
+import com.github.rocketraman.bootable.server.http.ktor.installTelemetry
+import com.github.rocketraman.bootable.telemetry.otel.withSpan
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.html.*
@@ -50,6 +53,7 @@ fun HTML.index(entries: Map<String, String>, bindings: String) {
       li { code { +"GET /entries/{name}" }; +" returns an entry's value" }
       li { code { +"PUT /entries/{name}" }; +" stores the request body as the value" }
       li { code { +"DELETE /entries/{name}" }; +" removes an entry" }
+      li { code { +"GET /metrics" }; +" the application's metrics, for Prometheus to scrape" }
     }
     p {
       +"For example: "
@@ -133,44 +137,55 @@ document.addEventListener('click', event => {
  * - `GET /entries/{name}` returns the value, or 404
  * - `PUT /entries/{name}` stores the request body as the value
  * - `DELETE /entries/{name}` removes the entry, or 404
+ *
+ * [telemetry] traces and measures every request, and serves the Prometheus scrape at `/metrics`, unless
+ * `telemetry.ktor.hostPort` puts it on a port of its own. Each database operation is a span of its own, within the
+ * request's, and the server counts the entries it stores, as `entries.stored`.
  */
 class EntryServer(
   config: ServerConfig,
   private val entries: EntryRepository,
+  private val telemetry: KtorTelemetry,
   private val bindings: String,
 ) : CioKtorService("entries", config) {
   private val logger = logger()
+  private val tracer = telemetry.openTelemetry.getTracer("entries")
+  private val stored = telemetry.openTelemetry.getMeter("entries").counterBuilder("entries.stored")
+    .setDescription("Entries stored, new or replaced")
+    .build()
 
   override fun Application.module() {
+    installTelemetry(telemetry)
     routing {
       get("/") {
-        val all = entries.all()
+        val all = tracer.withSpan("entries.all") { entries.all() }
         call.respondHtml(HttpStatusCode.OK) { index(all, bindings) }
       }
 
       route("/entries") {
         get {
-          val all = entries.all()
+          val all = tracer.withSpan("entries.all") { entries.all() }
           call.respondText(all.entries.joinToString("") { (name, value) -> "$name=$value\n" })
         }
 
         get("/{name}") {
           val name = call.parameters["name"]!!
-          val value = entries.get(name)
+          val value = tracer.withSpan("entries.get") { entries.get(name) }
           if (value == null) call.respond(HttpStatusCode.NotFound) else call.respondText(value)
         }
 
         put("/{name}") {
           val name = call.parameters["name"]!!
           val value = call.receiveText()
-          entries.put(name, value)
+          tracer.withSpan("entries.put") { entries.put(name, value) }
+          stored.add(1)
           logger.info { "Stored entry $name" }
           call.respond(HttpStatusCode.NoContent)
         }
 
         delete("/{name}") {
           val name = call.parameters["name"]!!
-          val deleted = entries.delete(name)
+          val deleted = tracer.withSpan("entries.delete") { entries.delete(name) }
           call.respond(if (deleted) HttpStatusCode.NoContent else HttpStatusCode.NotFound)
         }
       }
