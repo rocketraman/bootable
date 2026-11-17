@@ -7,6 +7,7 @@ import com.github.rocketraman.bootable.config.config
 import dev.zacsweers.metro.BindingContainer
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.IntoSet
+import dev.zacsweers.metro.Multibinds
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
 import javax.sql.DataSource
@@ -27,17 +28,30 @@ import javax.sql.DataSource
  * - the pool's [ConnectionPoolFactory]: a pool module such as `boot-db-pool-hikari` contributes one.
  *
  * Without either, the graph fails to compile with a missing binding.
+ *
+ * To wrap the pool's [DataSource], contribute a [DataSourceWrapper], or depend on a module that does, such as
+ * `boot-db-jdbc-otel-metro`:
+ *
+ * ```
+ * @Provides @IntoSet fun myWrapper(): DataSourceWrapper = DataSourceWrapper { MyDataSource(it) }
+ * ```
  */
 @ContributesTo(BootScope::class)
-@BindingContainer
-object JdbcDataSourceBindings {
-  @Provides @SingleIn(BootScope::class)
-  fun jdbcDataSourceService(config: JdbcConfig, poolFactory: ConnectionPoolFactory): JdbcDataSourceService =
-    JdbcDataSourceService(config, poolFactory)
+interface JdbcDataSourceBindings {
+  @Multibinds(allowEmpty = true) val dataSourceWrappers: Set<DataSourceWrapper>
 
-  @Provides fun dataSource(service: JdbcDataSourceService): DataSource = service.dataSource
+  companion object {
+    @Provides @SingleIn(BootScope::class)
+    fun jdbcDataSourceService(
+      config: JdbcConfig,
+      poolFactory: ConnectionPoolFactory,
+      wrappers: Set<DataSourceWrapper>,
+    ): JdbcDataSourceService = JdbcDataSourceService(config, poolFactory, DataSourceWrapper.of(wrappers))
 
-  @Provides @IntoSet fun jdbcDataSourceAppService(service: JdbcDataSourceService): AppService = service
+    @Provides fun dataSource(service: JdbcDataSourceService): DataSource = service.dataSource
+
+    @Provides @IntoSet fun jdbcDataSourceAppService(service: JdbcDataSourceService): AppService = service
+  }
 }
 
 /**

@@ -4,6 +4,7 @@ import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.config
 import org.kodein.di.DI
+import org.kodein.di.bindSet
 import org.kodein.di.bindSingleton
 import org.kodein.di.inBindSet
 import org.kodein.di.instance
@@ -19,9 +20,19 @@ import javax.sql.DataSource
  *   `boot-db-jdbc-sqlite`, or [jdbcGenericConfigModule] for any database by URL.
  * - the pool's [ConnectionPoolFactory]: import a pool module such as `hikariPoolModule` from
  *   `boot-db-pool-hikari`.
+ *
+ * To wrap the pool's [DataSource], add a [DataSourceWrapper] to the set this module opens, or import a module that
+ * does, such as `jdbcTracingModule` from `boot-db-jdbc-otel`:
+ *
+ * ```
+ * inBindSet<DataSourceWrapper> { add { singleton { DataSourceWrapper { MyDataSource(it) } } } }
+ * ```
  */
 val jdbcDataSourceModule by DI.Module {
-  bindSingleton { JdbcDataSourceService(instance(), instance()) }
+  bindSet<DataSourceWrapper>()
+  bindSingleton {
+    JdbcDataSourceService(instance(), instance(), DataSourceWrapper.of(instance<Set<DataSourceWrapper>>()))
+  }
   bindSingleton<DataSource> { instance<JdbcDataSourceService>().dataSource }
   inBindSet<AppService> { add { singleton { instance<JdbcDataSourceService>() } } }
 }

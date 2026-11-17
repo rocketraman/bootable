@@ -17,7 +17,7 @@ val JdbcDataSourceServiceTest by testSuite {
     withTempDir { dir ->
       val config = JdbcGenericConfig(jdbcUrl = "jdbc:sqlite:${dir.resolve("config.db")}")
       var received: JdbcConfig? = null
-      JdbcDataSourceService(config) { received = it; TestPool(it) }
+      JdbcDataSourceService(config, { received = it; TestPool(it) })
       assert(received === config)
     }
   }
@@ -25,7 +25,7 @@ val JdbcDataSourceServiceTest by testSuite {
   test("no connection is opened until the service starts") {
     withTempDir { dir ->
       val pool = TestPool(JdbcGenericConfig(jdbcUrl = "jdbc:sqlite:${dir.resolve("lazy.db")}"))
-      val service = JdbcDataSourceService(pool.config) { pool }
+      val service = JdbcDataSourceService(pool.config, { pool })
       assert(pool.connectionsOpened == 0)
       service.start()
       assert(pool.connectionsOpened == 1)
@@ -43,7 +43,7 @@ val JdbcDataSourceServiceTest by testSuite {
         }
       }
       pool = TestPool(config)
-      val service = JdbcDataSourceService(config) { pool }
+      val service = JdbcDataSourceService(config, { pool })
       assert(events.isEmpty())
       service.start()
       assert(events == listOf("prepare (connections opened: 0)"))
@@ -55,7 +55,7 @@ val JdbcDataSourceServiceTest by testSuite {
   test("start fails when the database cannot be opened") {
     withTempDir { dir ->
       val pool = TestPool(JdbcGenericConfig(jdbcUrl = "jdbc:sqlite:${dir.resolve("missing-dir/test.db")}"))
-      val service = JdbcDataSourceService(pool.config) { pool }
+      val service = JdbcDataSourceService(pool.config, { pool })
       assert(runCatching { service.start() }.exceptionOrNull() is SQLException)
     }
   }
@@ -63,7 +63,7 @@ val JdbcDataSourceServiceTest by testSuite {
   test("shutdown closes the pool") {
     withTempDir { dir ->
       val pool = TestPool(JdbcGenericConfig(jdbcUrl = "jdbc:sqlite:${dir.resolve("close.db")}"))
-      val service = JdbcDataSourceService(pool.config) { pool }
+      val service = JdbcDataSourceService(pool.config, { pool })
       service.start()
       service.shutdown()
       assert(pool.closed)
@@ -73,9 +73,43 @@ val JdbcDataSourceServiceTest by testSuite {
   test("dataSource is the pool's") {
     withTempDir { dir ->
       val pool = TestPool(JdbcGenericConfig(jdbcUrl = "jdbc:sqlite:${dir.resolve("ds.db")}"))
-      assert(JdbcDataSourceService(pool.config) { pool }.dataSource === pool.dataSource)
+      assert(JdbcDataSourceService(pool.config, { pool }).dataSource === pool.dataSource)
     }
   }
+
+  test("dataSource is the pool's, as the wrapper wrapped it, and start validates through it") {
+    withTempDir { dir ->
+      val pool = TestPool(JdbcGenericConfig(jdbcUrl = "jdbc:sqlite:${dir.resolve("wrapped.db")}"))
+      val wrapped = mutableListOf<DataSource>()
+      val counting = CountingDataSource(pool.dataSource)
+      val service = JdbcDataSourceService(pool.config, { pool }) { wrapped += it; counting }
+      assert(wrapped == listOf(pool.dataSource))
+      assert(service.dataSource === counting)
+      assert(pool.connectionsOpened == 0)
+      service.start()
+      assert(counting.connections == 1)
+      service.shutdown()
+      assert(pool.closed)
+    }
+  }
+
+  test("DataSourceWrapper.of applies the wrappers in order, the last outermost") {
+    withTempDir { dir ->
+      val pool = TestPool(JdbcGenericConfig(jdbcUrl = "jdbc:sqlite:${dir.resolve("of.db")}"))
+      val wrapper = DataSourceWrapper.of(listOf(DataSourceWrapper(::CountingDataSource), DataSourceWrapper(::CountingDataSource)))
+      val outer = wrapper.wrap(pool.dataSource) as CountingDataSource
+      val inner = outer.delegate as CountingDataSource
+      assert(inner.delegate === pool.dataSource)
+      assert(DataSourceWrapper.of(emptyList()).wrap(pool.dataSource) === pool.dataSource)
+    }
+  }
+}
+
+/** A [DataSource] wrapper that counts the connections asked of it. */
+private class CountingDataSource(val delegate: DataSource) : DataSource by delegate {
+  var connections = 0
+
+  override fun getConnection(): Connection = delegate.connection.also { connections++ }
 }
 
 /** The least a [ConnectionPool] can be: a new driver connection per request, no pooling. */

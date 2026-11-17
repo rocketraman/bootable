@@ -7,7 +7,8 @@ import javax.sql.DataSource
 
 /**
  * Owns the application's connection pool and ties it to the application lifecycle. The pool itself comes from a
- * [ConnectionPoolFactory], supplied by a pool module such as `boot-db-pool-hikari`.
+ * [ConnectionPoolFactory], supplied by a pool module such as `boot-db-pool-hikari`. The [DataSourceWrapper], if any,
+ * wraps the pool's `DataSource`, e.g. to trace each query with `boot-db-jdbc-otel`; [dataSource] is the wrapped one.
  *
  * [dataSource] can be handed to other components as soon as this is constructed, but the pool only opens
  * connections when the service starts (or on first use, if something asks for a connection earlier). Starting
@@ -18,12 +19,19 @@ import javax.sql.DataSource
  * start after the pool and shut down before it. It provides [DbMilestones.DataSourceReady], for anything in the same
  * phase that must start after the pool.
  */
-class JdbcDataSourceService(private val config: JdbcConfig, poolFactory: ConnectionPoolFactory) : AppService {
+class JdbcDataSourceService(
+  private val config: JdbcConfig,
+  poolFactory: ConnectionPoolFactory,
+  dataSourceWrapper: DataSourceWrapper = DataSourceWrapper.None,
+) : AppService {
 
   private val pool: ConnectionPool = poolFactory.create(config)
 
-  /** The pooled [DataSource]. Bind this, not the service, into anything that needs connections. */
-  val dataSource: DataSource get() = pool.dataSource
+  /**
+   * The pooled [DataSource], as the [DataSourceWrapper] wrapped it. Bind this, not the service, into anything that
+   * needs connections.
+   */
+  val dataSource: DataSource = dataSourceWrapper.wrap(pool.dataSource)
 
   override fun start() {
     config.prepare()
