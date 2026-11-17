@@ -64,7 +64,7 @@ class Bootable(
     log.info("=> Starting (${startupMark.elapsedNow()})…")
     @Suppress("TooGenericExceptionCaught")
     try {
-      appStart()
+      appStart(startupMark)
     } catch (e: Exception) {
       log.fatal(e) { "Failed to start application, stopping the services that started…" }
       running = false
@@ -109,7 +109,14 @@ class Bootable(
     }
   }
 
-  private fun appStart() {
+  private fun appStart(startupMark: TimeMark) {
+    val start = lifecycleControllers.sortedBy { it.priority() }.fold<LifecycleController, () -> Unit>(::startControllers) { inner, controller ->
+      { controller.aroundAppStart(serviceContext, startupMark, inner) }
+    }
+    start()
+  }
+
+  private fun startControllers() {
     lifecycleControllers.sortedByDescending { it.priority() }.forEach {
       if(running) {
         it.appStart(serviceContext, ::appTerminate)
@@ -140,14 +147,20 @@ class Bootable(
     val votedNo = lifecycleControllers.filter { it.serviceStartVote(appService) == ServiceStartVote.NO }
     if (votedNo.isEmpty()) {
       log.info { "==> Starting ${appService.name()}…" }
-      if(appService is AdvancedAppService) {
-        appService.start { die(appService) }
-      } else {
-        appService.start()
-      }
+      val start = lifecycleControllers.sortedBy { it.priority() }
+        .fold({ startService(appService) }) { inner, controller -> { controller.aroundServiceStart(appService, inner) } }
+      start()
       startedServices += appService
     } else {
       log.warn { "==> Skipping start of ${appService.name()}, these controllers voted NO: ${votedNo.map { it.name() }}…" }
+    }
+  }
+
+  private fun startService(appService: AppService) {
+    if(appService is AdvancedAppService) {
+      appService.start { die(appService) }
+    } else {
+      appService.start()
     }
   }
 
