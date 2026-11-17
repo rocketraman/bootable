@@ -369,6 +369,119 @@ To use a DI framework, depend on the `-kodein` or `-metro` artifact of each modu
 * *Kodein* (runtime): import the provided `bootableModule` / `hopliteConfigModule` / `environmentModule`, contribute your services with `bindAppService { … }`, and pass the resolved sets to `boot`.
 * *Metro* (compile-time): declare a `@DependencyGraph` that extends `BootableGraph`, contribute your services with `@ContributesIntoSet`, and `boot { createGraph<AppGraph>().bootable }`.
 
+== Faster Start: the JVM AOT Cache
+
+On JDK 24 and later, an AOT cache (https://openjdk.org/jeps/483[JEP 483], with the one-step training of https://openjdk.org/jeps/514[JEP 514] in JDK 25) holds the classes an application loaded and linked during a training run, so the next start reads them from the cache instead of loading, verifying and linking them again.
+A Bootable application's start loads thousands of classes, from Log4j, Hoplite, the database and telemetry libraries, and Ktor, so it gains a lot from one.
+See Spring's https://docs.spring.io/spring-framework/reference/integration/aot-cache.html[guide to the AOT cache] for more on how it works.
+
+=== Producing the cache
+
+The training run starts the application with `-XX:AOTCacheOutput=<file>`, and the JVM writes the cache when the application exits.
+The `bootable.aot-cache` plugin in link:./build-logic[build-logic] adds an `aotCache` task to an application, which does that with the installed distribution (`installDist`), by its start script, on the project's Java toolchain:
+
+* it starts the application, and waits for Bootable's `+=> Running+` line, which it logs once every service has started;
+* it sends the application the requests given to it, if any, so the cache also covers the request path, not just the start;
+* it stops the application with SIGTERM, so it shuts down as it would in production, and the JVM writes the cache as it exits.
+
+[source,kotlin]
+----
+plugins {
+  application
+  id("bootable.aot-cache")
+}
+
+tasks.aotCache {
+  environment.put("SERVER_HOSTPORT", "127.0.0.1:18001")
+  request("PUT", "http://127.0.0.1:18001/entries/trained", "by the AOT training run")
+  request("GET", "http://127.0.0.1:18001/entries/trained")
+  rounds = 20
+}
+----
+
+The plugin is one file, `AotCache.kt`, with no dependencies but Gradle's own, so an application outside this repository can copy it into its own `buildSrc` or build logic.
+The task type, `AotCacheTraining`, runs any command that starts the application with `-XX:AOTCacheOutput`, such as a container, as the Jib example below does.
+The training needs a JVM that writes the cache as it exits, on SIGTERM, so it runs on Linux and macOS, not Windows.
+
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:vanilla:aotCache
+----
+
+writes `examples/server-ktor-db/vanilla/build/aot/vanilla.aot`, and the application's output during the training next to it, in `vanilla.aot.log`.
+The cache is about 66 MB for that example, or 60 MB for a training run that only starts it.
+
+=== Running with the cache
+
+Run the application with `-XX:AOTCache=<file>`, on the same JDK, from the same installed directory:
+
+[source,shell]
+----
+cd examples/server-ktor-db/vanilla
+JAVA_OPTS=-XX:AOTCache=build/aot/vanilla.aot build/install/vanilla/bin/vanilla
+----
+
+The JVM only uses the cache with the JDK build that wrote it, and the same class path, of the same jars, which it checks by their sizes and modification times.
+On any difference, it warns, such as `The AOT cache was created by a different version or build of HotSpot`, or `This file is not the one used while building the AOT cache`, and runs without the cache.
+So train with the application as it ships, and ship them together:
+
+* the installed directory can move, but a copy of it has to keep the files' modification times, as `cp -a`, `rsync -a` or a tar archive of it do; a rerun of `installDist` writes new ones, so `aotCache` runs again after it;
+* in a container image, train in a container of the image itself, as the Jib example below does.
+
+`-XX:AOTMode=on` makes the JVM fail to start rather than run without the cache, which shows a mismatch at once.
+`-Xlog:aot` logs whether the JVM opened the cache, and `-Xlog:class+load` logs each class that came from it with `source: shared objects file`.
+
+=== The gain
+
+On the vanilla link:./examples/server-ktor-db[examples/server-ktor-db] app, on JDK 25, the median of 7 starts:
+
+[cols="2,1,1"]
+|===
+| | Without the cache | With the cache
+
+| From launch to `+=> Running+`
+| 721 ms
+| 307 ms
+
+| From `boot` to `+=> Running+`
+| 690 ms
+| 229 ms
+
+| From `boot` to the services starting
+| 485 ms
+| 160 ms
+
+| The first `PUT /entries/{name}`
+| 44 ms
+| 12 ms
+|===
+
+The cache held 8,217 of the 8,368 classes the application loaded through its start and those first requests.
+A cache from a training run that only starts the application starts it as fast, but leaves the first request at 47 ms: the training's requests are what cover the request path.
+
+=== In a container image, with Jib
+
+link:./examples/server-ktor-db/jib[examples/server-ktor-db/jib] builds the vanilla app into a container image, with https://github.com/GoogleContainerTools/jib[Jib], with its AOT cache in it:
+
+. `jibBuildTar` builds the image without a cache, and the container runtime loads it;
+. `aotCache` runs that image once, in a container, with `-XX:AOTCacheOutput` in place of the image's `-XX:AOTCache`, and the cache's directory mounted from the build, so the training runs on the image's own JDK, with its class path, `-cp @/app/jib-classpath-file`;
+. `jibDockerBuild`, or `jib` to push to a registry, builds the final image, with the cache as one more layer, at `/app/aot/server-ktor-db.aot`, and `-XX:AOTCache` in its JVM flags.
+
+Jib's images are reproducible, with every file's modification time fixed, so the final image's jars are the same, to the JVM, as those the cache was trained with.
+Two settings make the cache usable at all: `containerizingMode = "packaged"`, which puts the application's own classes in a jar, as the JVM won't use a cache with a non-empty directory on the class path, as Jib's default `/app/classes` is; and the training's entrypoint, the image's own but for the cache's flag, as the JVM takes only one of `-XX:AOTCache` and `-XX:AOTCacheOutput`.
+
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:jib:jibDockerBuild -PcontainerCli=podman
+podman run --rm -p 8001:8001 bootable-examples/server-ktor-db-jib
+----
+
+`containerCli` is the container runtime's command, for loading and running the training image and for `jibDockerBuild`: `docker` by default, or `podman`.
+The cache adds a 68 MB layer to the image, which used 9,406 of the 9,550 classes the application had loaded once it was running, and started from launch to `+=> Running+` in a median of 399 ms with the cache, and 896 ms without it, over 7 starts, each in a new container.
+With an OTLP endpoint, it started in 400 ms with the cache, as `boot-telemetry-otel` creates the exporters' HTTP clients on their first export, after the start.
+
+The JVM's choice of garbage collector, and so part of what the cache holds, depends on the container's memory and CPUs: train with the same limits the application runs with.
+
 == Design
 
 === Non-Goals
