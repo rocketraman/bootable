@@ -80,6 +80,7 @@ An application makes two choices, each its own dependency:
 ** `boot-db-jdbc-mysql`: `MysqlConfig` takes a `host`, `port`, `database`, and credentials, plus typed driver settings such as `sslMode`, and defaults to Connector/J's prepared statement cache.
 * A *pool*, which supplies the `ConnectionPoolFactory`, configured with its own typed settings.
 ** `boot-db-pool-hikari`: HikariCP, configured by `HikariPoolConfig`. For HikariCP settings it doesn't cover, add a `HikariConfigCustomizer` to its set binding (Kodein `inBindSet`, Metro `@IntoSet`).
+`boot-db-pool-hikari-otel` adds one that records the pool's metrics through OpenTelemetry; see <<Telemetry>>.
 
 On top of the pool, two optional modules use its `DataSource`:
 
@@ -178,6 +179,7 @@ For SDK settings the config doesn't cover, such as a span processor, a metric vi
 | `boot-telemetry-otel-signoz` | Traces, metrics | `SigNozTelemetryConfig` | https://signoz.io/[SigNoz], which ingests OTLP itself, at `https://ingest.<region>.signoz.cloud:443` for SigNoz Cloud, or a self-hosted SigNoz's collector on port 4318: the ingestion key on export to SigNoz Cloud, the environment also as `deployment.environment`, which SigNoz's filters read, and, optionally, delta temporality for counters and histograms, which SigNoz suggests to cut the samples it stores.
 | `boot-telemetry-otel-micrometer-bridge` | Metrics | | A Micrometer `MeterRegistry` that bridges the metrics of libraries that report only to Micrometer, such as the Temporal SDK, to the application's OpenTelemetry SDK, which exports them with the rest.
 | `boot-server-http-ktor-otel` | Traces, metrics | `KtorTelemetryConfig` | Ktor server instrumentation, and the metrics scrape for a pulling backend; see below.
+| `boot-db-pool-hikari-otel` | Metrics | | HikariCP's pool metrics, such as `db.client.connections.usage` and `db.client.connections.wait_time`, through OpenTelemetry's HikariCP instrumentation: `hikariPoolMetrics(openTelemetry)` is a `HikariConfigCustomizer` to give `HikariConnectionPoolFactory`, and the Kodein `hikariPoolMetricsModule` (imported after `hikariPoolModule`) and the Metro bindings add it to the pool's customizers.
 |===
 
 `KtorTelemetry`, from `boot-server-http-ktor-otel`, installs OpenTelemetry's Ktor instrumentation, which traces every request, continuing the caller's trace when the request carries one, and records the standard HTTP server metrics, such as `http.server.request.duration`.
@@ -187,8 +189,7 @@ To keep the scrape off a public server, set `telemetry.ktor.hostPort`: the scrap
 Without `hostPort`, that listener is a service that does nothing, so it can be added either way.
 
 For a library without a Bootable module that instruments it, such as `boot-server-http-ktor-otel` does Ktor, hand the application's `openTelemetry` to the library's OpenTelemetry instrumentation yourself, where you build its client.
-For HikariCP's pool metrics, for example, add `io.opentelemetry.instrumentation:opentelemetry-hikaricp-3.0`, and give `HikariConnectionPoolFactory` a `HikariConfigCustomizer` that sets `metricsTrackerFactory = HikariTelemetry.create(openTelemetry).createMetricsTrackerFactory()`.
-link:./examples/server-ktor-db[examples/server-ktor-db] does this, wired each of the three ways.
+HikariCP's pool has such a module, `boot-db-pool-hikari-otel`, in the table above, which link:./examples/server-ktor-db[examples/server-ktor-db] uses, wired each of the three ways.
 
 Each module reads its own subsection of `telemetry`:
 

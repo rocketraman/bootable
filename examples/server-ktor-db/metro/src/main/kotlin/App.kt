@@ -4,7 +4,6 @@ import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.config.ConfigBinderProvider
 import com.github.rocketraman.bootable.config.config
-import com.github.rocketraman.bootable.db.jdbc.HikariConfigCustomizer
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.DependencyGraph
@@ -13,8 +12,6 @@ import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
 import dev.zacsweers.metro.createGraph
 import io.ktor.server.cio.*
-import io.opentelemetry.api.OpenTelemetry
-import io.opentelemetry.instrumentation.hikaricp.v3_0.HikariTelemetry
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.jdbc.Database
 
@@ -43,13 +40,6 @@ interface EntriesBindings : ConfigBinderProvider {
 
   /** The scrape's own listener when `telemetry.ktor.hostPort` is set; otherwise it does nothing. */
   @Provides @IntoSet fun metricsListener(telemetry: KtorTelemetry): AppService = telemetry.listener(CIO)
-
-  /** HikariCP records its pool metrics through OpenTelemetry. */
-  @Provides @IntoSet
-  fun hikariMetrics(openTelemetry: OpenTelemetry): HikariConfigCustomizer {
-    val hikariTelemetry = HikariTelemetry.create(openTelemetry)
-    return HikariConfigCustomizer { it.metricsTrackerFactory = hikariTelemetry.createMetricsTrackerFactory() }
-  }
 }
 
 /**
@@ -58,8 +48,8 @@ interface EntriesBindings : ConfigBinderProvider {
  * pool (HikariCP, from `db.pool`). Leaving out either choice fails compilation with a missing binding. On top of the
  * pool, `boot-db-flyway-metro` migrates the schema (`db.flyway`), and `boot-db-exposed-metro` provides the Exposed
  * `Database` and verifies the schema against the contributed tables (`db.exposed`). The `-metro` telemetry modules
- * contribute the application's OpenTelemetry SDK, its Prometheus export, and the Ktor instrumentation the server
- * installs.
+ * contribute the application's OpenTelemetry SDK, its Prometheus export, the Ktor instrumentation the server
+ * installs, and the pool's metrics (`boot-db-pool-hikari-otel-metro`).
  */
 @DependencyGraph(AppScope::class, additionalScopes = [BootScope::class])
 interface AppGraph : BootableGraph

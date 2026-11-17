@@ -10,6 +10,7 @@ import com.github.rocketraman.bootable.db.exposed.SchemaVerificationService
 import com.github.rocketraman.bootable.db.flyway.FlywayMigrationService
 import com.github.rocketraman.bootable.db.jdbc.HikariConnectionPoolFactory
 import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
+import com.github.rocketraman.bootable.db.jdbc.hikariPoolMetrics
 import com.github.rocketraman.bootable.db.jdbc.SqliteConfig
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetryConfig
@@ -17,7 +18,6 @@ import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
 import com.github.rocketraman.bootable.telemetry.otel.PrometheusTelemetry
 import com.github.rocketraman.bootable.telemetry.otel.telemetryConfig
 import io.ktor.server.cio.*
-import io.opentelemetry.instrumentation.hikaricp.v3_0.HikariTelemetry
 
 /**
  * Vanilla wiring of a database-backed server: the two database choices are a driver config (`SqliteConfig`, from
@@ -41,11 +41,10 @@ fun appServices(binder: ConfigBinder): Set<AppService> {
   val telemetry = OpenTelemetryService(telemetryConfig(binder), listOf(prometheus, ktorConfig.excludeScrapeFromTraces()))
   val ktorTelemetry = KtorTelemetry(telemetry.openTelemetry, setOf(prometheus), ktorConfig)
 
-  val hikariTelemetry = HikariTelemetry.create(telemetry.openTelemetry)
   val database = JdbcDataSourceService(
     binder.config<SqliteConfig>("db.jdbc"),
     // HikariCP records its pool metrics through OpenTelemetry
-    HikariConnectionPoolFactory(binder.config("db.pool")) { it.metricsTrackerFactory = hikariTelemetry.createMetricsTrackerFactory() },
+    HikariConnectionPoolFactory(binder.config("db.pool"), hikariPoolMetrics(telemetry.openTelemetry)),
   )
   val exposedConfig = binder.config<ExposedConfig>("db.exposed")
   val exposed = ExposedDatabaseService(database.dataSource, exposedConfig)
