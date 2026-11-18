@@ -1,9 +1,10 @@
 """
-Builds the vanilla server-ktor-db example into a container image with its JVM AOT cache, as a CI pipeline.
+Builds the server-ktor-db example's Jib image with its JVM AOT cache, as a CI pipeline.
 
-The training runs in a container of the runtime image, and the image adds the cache to that same container, so the
-JDK build and the jars' sizes and modification times, which the JVM checks before it uses the cache, are the
-training's. See the Faster Start section of `README.adoc`.
+Gradle's Jib build makes the image, as a tarball, without a container runtime, and the module imports it, trains the
+cache in a container of it, and adds the cache to that same container, so the JDK build and the jars' sizes and
+modification times, which the JVM checks before it uses the cache, are the training's. The image is the one the Jib
+example builds; see the Faster Start section of `README.adoc`.
 """
 type ServerKtorDb {
   """
@@ -61,18 +62,20 @@ type ServerKtorDb {
       .from("eclipse-temurin:25-jdk")
       .withEnvVariable("GRADLE_USER_HOME", "/cache/gradle")
       .withMountedCache("/cache/gradle", cacheVolume("bootable-gradle-user-home"))
+      # Jib's cache of the base image's layers
+      .withMountedCache("/root/.cache/google-cloud-tools-java", cacheVolume("bootable-jib-cache"))
       .withDirectory("/work/bootable", source)
       .withWorkdir("/work/bootable")
   }
 
   """
-  The installed app, from Gradle's `installDist`: its start script in `bin`, and its jars in `lib`.
+  The Jib image, without an AOT cache, as a tarball, from Gradle's `jibBuildTar`, which needs no container runtime.
   The build cache, in the Gradle user home's cache volume, reuses the task outputs of earlier builds.
   """
-  pub installed: Directory! {
+  pub jibImage: File! {
     env
-      .withExec(["./gradlew", "--no-daemon", "--console=plain", "--build-cache", ":examples:server-ktor-db:vanilla:installDist"])
-      .directory("examples/server-ktor-db/vanilla/build/install/vanilla")
+      .withExec(["./gradlew", "--no-daemon", "--console=plain", "--build-cache", ":examples:server-ktor-db:jib:jibBuildTar"])
+      .file("examples/server-ktor-db/jib/build/jib-image.tar")
   }
 
   # ---------------------------------------------------------------------------------------------------------------
@@ -80,22 +83,18 @@ type ServerKtorDb {
   # ---------------------------------------------------------------------------------------------------------------
 
   """
-  The app installed in the runtime image, a JRE, without an AOT cache.
+  The Jib image, imported, without an AOT cache. Its entrypoint already has `-XX:AOTCache`, for the cache that
+  `image` adds.
   """
   pub runtime: Container! {
-    container
-      .from("eclipse-temurin:25-jre")
-      .withDirectory("/app", installed)
-      .withWorkdir("/app")
-      # the config's database path is relative to the working directory: keep it out of the app's directory
-      .withEnvVariable("DB_JDBC_PATH", "/tmp/entries.db")
-      .withExposedPort(8001)
-      .withDefaultArgs(["/app/bin/vanilla"])
+    container.import(jibImage).withExposedPort(8001)
   }
 
   """
-  Starts the app with JAVA_OPTS, waits for "=> Running", sends the training requests, and stops it with SIGTERM, so
-  the app shuts down as it would in production, and the JVM writes the AOT cache, if asked to, as it exits.
+  Starts the app with the JVM flags `javaFlags`, waits for "=> Running", sends the training requests, and stops it
+  with SIGTERM, so the app shuts down as it would in production, and the JVM writes the AOT cache, if asked to, as it
+  exits. The app runs as the image's entrypoint does, but for its flags: the JVM takes only one of `-XX:AOTCache` and
+  `-XX:AOTCacheOutput`.
 
   Dagger sets `OTEL_*` variables in every container, for its own tracing, and forwards what they collect to Dagger
   Cloud when the CLI is logged in to it. The script unsets them, so the app exports no telemetry there, then sets an
@@ -106,9 +105,9 @@ type ServerKtorDb {
   The JRE image has no curl, so the requests go through bash's `/dev/tcp`.
   The script has no brace expansions of shell variables, which Dang would read as its own interpolations.
   """
-  let startAndStop(ctr: Container!, javaOpts: String!, requests: String!, rounds: Int!): Container! {
+  let startAndStop(ctr: Container!, javaFlags: String!, requests: String!, rounds: Int!): Container! {
     ctr
-      .withEnvVariable("JAVA_OPTS", javaOpts)
+      .withEnvVariable("JAVA_FLAGS", javaFlags)
       .withEnvVariable("TRAINING_REQUESTS", requests)
       .withEnvVariable("TRAINING_ROUNDS", `${rounds}`)
       .withNewFile("/run/start-and-stop.sh", """
@@ -116,7 +115,8 @@ type ServerKtorDb {
         for var in $(compgen -e | grep -E '^(OTEL_|TRACEPARENT$|TRACESTATE$)' || true); do unset "$var"; done
         export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
         log=/run/app.log
-        /app/bin/vanilla > "$log" 2>&1 &
+        # JAVA_FLAGS unquoted: one argument per flag
+        java $JAVA_FLAGS -cp @/app/jib-classpath-file AppKt > "$log" 2>&1 &
         pid=$!
 
         for _ in $(seq 1200); do
@@ -158,17 +158,15 @@ type ServerKtorDb {
   requests, and SIGTERM.
   """
   pub aotCache: File! {
-    startAndStop(runtime, "-XX:AOTCacheOutput=/run/vanilla.aot", requests, rounds).file("/run/vanilla.aot")
+    startAndStop(runtime, "-XX:AOTCacheOutput=/run/server-ktor-db.aot", requests, rounds).file("/run/server-ktor-db.aot")
   }
 
   """
-  The image: the runtime, with the AOT cache at `/app/aot/vanilla.aot`, and `-XX:AOTCache` in `JAVA_OPTS`.
+  The image: the runtime, with the AOT cache at `/app/aot/server-ktor-db.aot`, where its entrypoint looks for it.
   `image export --path=server-ktor-db.tar` writes it to disk; nothing here publishes it.
   """
   pub image: Container! {
-    runtime
-      .withFile("/app/aot/vanilla.aot", aotCache)
-      .withEnvVariable("JAVA_OPTS", "-XX:AOTCache=/app/aot/vanilla.aot")
+    runtime.withFile("/app/aot/server-ktor-db.aot", aotCache)
   }
 
   """
@@ -179,7 +177,7 @@ type ServerKtorDb {
   pub verify(
     minPercent: Int! = 90,
   ): Container! {
-    startAndStop(image, "-XX:AOTCache=/app/aot/vanilla.aot -Xlog:class+load=info:file=/run/class-load.log", "", 0)
+    startAndStop(image, "-XX:AOTCache=/app/aot/server-ktor-db.aot -Xlog:class+load=info:file=/run/class-load.log", "", 0)
       .withEnvVariable("MIN_PERCENT", `${minPercent}`)
       .withExec(["sh", "-c", """
         shared=$(grep -c 'source: shared objects file' /run/class-load.log)
@@ -210,7 +208,7 @@ type ServerKtorDb {
       .withExposedPort(8001)
       .asService(args: ["bash", "-c", """
         for var in $(compgen -e | grep -E '^(OTEL_|TRACEPARENT$|TRACESTATE$)' || true); do unset "$var"; done
-        exec /app/bin/vanilla
+        exec java -XX:AOTCache=/app/aot/server-ktor-db.aot -cp @/app/jib-classpath-file AppKt
         """])
   }
 }

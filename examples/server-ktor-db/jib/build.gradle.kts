@@ -36,8 +36,9 @@ val trainedCacheDir = layout.buildDirectory.dir("aot/cache")
 
 jib {
   from {
-    // a JRE is enough for both the training and the application; the training's JDK build is the image's own
-    image = "eclipse-temurin:25-jre"
+    // a JRE is enough for both the training and the application; the training's JDK build is the image's own.
+    // Pinned by digest, so the JDK build, and with it the cache, only changes when the digest does.
+    image = "eclipse-temurin:25-jre@sha256:945247f9d092703e0c6be92243ef3c51640229e23ab34d353c8dcdc73e6cd4e6"
   }
   to {
     image = imageName
