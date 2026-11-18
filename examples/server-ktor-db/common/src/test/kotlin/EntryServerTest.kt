@@ -3,7 +3,12 @@ import com.github.rocketraman.bootable.db.exposed.SchemaVerificationService
 import com.github.rocketraman.bootable.db.flyway.FlywayMigrationService
 import com.github.rocketraman.bootable.db.jdbc.HikariConnectionPoolFactory
 import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
+import com.github.rocketraman.bootable.db.jdbc.JdbcHealthCheck
 import com.github.rocketraman.bootable.db.jdbc.SqliteConfig
+import com.github.rocketraman.bootable.boot.Health
+import com.github.rocketraman.bootable.boot.ServiceContext
+import com.github.rocketraman.bootable.boot.StartupTimeline
+import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.telemetry.otel.MetricsConfig
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
@@ -18,17 +23,19 @@ import io.ktor.server.testing.*
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteRecursively
+import kotlin.time.TimeSource
 
 /**
  * Runs the server's routes against a real SQLite database in a temporary directory, wired as in `main` but with the
  * services started by hand instead of by Bootable.
  */
 @OptIn(ExperimentalPathApi::class)
-private fun withServer(block: suspend HttpClient.() -> Unit) {
+private fun withServer(block: suspend HttpClient.(health: Health) -> Unit) {
   val dir = createTempDirectory("server-ktor-db")
   val database = JdbcDataSourceService(SqliteConfig(path = dir.resolve("test.db").toString()), HikariConnectionPoolFactory())
   val exposed = ExposedDatabaseService(database.dataSource)
   val db = exposed.database
+  val health = Health(setOf(JdbcHealthCheck(database.dataSource)))
   try {
     database.start()
     FlywayMigrationService(database.dataSource).start()
@@ -39,9 +46,9 @@ private fun withServer(block: suspend HttpClient.() -> Unit) {
         TelemetryConfig(metrics = MetricsConfig(runtime = false), registerGlobal = false),
         listOf(prometheus),
       ).openTelemetry
-      val server = EntryServer(ServerConfig("127.0.0.1:0"), EntryRepository(db), KtorTelemetry(openTelemetry, setOf(prometheus)), "test")
+      val server = EntryServer(ServerConfig("127.0.0.1:0"), EntryRepository(db), KtorTelemetry(openTelemetry, setOf(prometheus)), KtorHealth(health), "test")
       application { with(server) { module() } }
-      client.block()
+      client.block(health)
     }
   } finally {
     exposed.shutdown()
@@ -142,6 +149,19 @@ val EntryServerTest by testSuite {
       val response = get("/metrics")
       assert(response.status == HttpStatusCode.OK)
       assert(response.bodyAsText().lines().any { it.startsWith("entries_stored_total{") && it.endsWith(" 2.0") })
+    }
+  }
+
+  test("is live, and ready once the application is running and the database answers") {
+    withServer { health ->
+      assert(get("/health/live").status == HttpStatusCode.OK)
+      assert(get("/health/ready").status == HttpStatusCode.ServiceUnavailable)
+
+      // the application is running once its start completes, as Bootable runs it
+      health.aroundAppStart(ServiceContext(emptySet(), emptyList(), {}, {}), StartupTimeline(TimeSource.Monotonic.markNow())) {}
+      val ready = get("/health/ready")
+      assert(ready.status == HttpStatusCode.OK)
+      assert(ready.bodyAsText() == "UP\nstate: Running\njdbc: UP\n")
     }
   }
 }

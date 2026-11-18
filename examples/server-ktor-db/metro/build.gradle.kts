@@ -27,6 +27,8 @@ dependencies {
   implementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
   implementation(project(path = ":boot-telemetry-otel-prometheus", configuration = "metroElements"))
   implementation(project(path = ":boot-server-http-ktor-otel", configuration = "metroElements"))
+  // the health probes, served by the server
+  implementation(project(path = ":boot-server-http-ktor", configuration = "metroElements"))
   // HikariCP's pool metrics, through the application's OpenTelemetry
   implementation(project(path = ":boot-db-pool-hikari-otel", configuration = "metroElements"))
 }

@@ -48,6 +48,7 @@ tasks.aotCache {
   request("GET", "http://$trainingHostPort/entries")
   request("GET", "http://$trainingHostPort/")
   request("GET", "http://$trainingHostPort/metrics")
+  request("GET", "http://$trainingHostPort/health/ready")
   request("DELETE", "http://$trainingHostPort/entries/trained")
   rounds = 20
 }

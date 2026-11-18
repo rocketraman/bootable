@@ -27,6 +27,7 @@ type ServerKtorDb {
       GET /entries
       GET /
       GET /metrics
+      GET /health/ready
       DELETE /entries/trained
       """,
     """
