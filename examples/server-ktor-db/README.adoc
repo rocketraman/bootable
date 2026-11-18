@@ -110,6 +110,15 @@ After a few requests, open Grafana at http://localhost:3000, and in Explore:
 
 Spans are exported in batches, every few seconds, and whatever is still buffered is exported when the example stops.
 
+The `server-ktor-db` Dagger module runs both at once, in containers, with the example's Jib image, and its AOT cache, on port 8002; see In a CI pipeline, with Dagger in the link:../../README.adoc[README]:
+
+[source,shell]
+----
+dagger start server-ktor-db/lgtm
+----
+
+It sets the example's OTLP endpoint to the stack's, and its metrics interval to 5 seconds, and tunnels the example's port, 8002, Grafana's, 3000, and the collector's, 4318, to `localhost`.
+
 === Traces only, with Jaeger
 
 Jaeger takes OTLP directly, and shows the traces at http://localhost:16686:

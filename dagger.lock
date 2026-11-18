@@ -6,6 +6,7 @@
 ["","git-latest",["github.com/dagger/sdk-helpers",["version","v1"]],"refs/tags/v1.0.11"]
 ["","git-sha",["github.com/dagger/dang-sdk","refs/tags/v1.0.1"],"6dde4a9ca2cb598bf281ba36778d2428ad53aa48"]
 ["","git-sha",["github.com/dagger/sdk-helpers","refs/tags/v1.0.11"],"3be7456c40d9206b648ac44e418f30aa79bc6190"]
+["","oci-sha",["docker.io/grafana/otel-lgtm:0.41.0"],"sha256:2e3290657f2f2a256c7a9175f097424a3ac5b54840741ace433e108e109348b6"]
 ["","oci-sha",["docker.io/library/eclipse-temurin:25-jdk"],"sha256:884a2f8692cc1e2c7e21f95914adf0ae0eafee9a7eb663a12169cc44468256ec"]
 ["","vanity-url",["https://dagger.io/sdk/dang"],"https://github.com/dagger/dang-sdk"]
 ["","vanity-url",["https://dagger.io/sdk/helpers"],"https://github.com/dagger/sdk-helpers"]

@@ -701,6 +701,10 @@ Publishes nothing.
 |`dev`
 |`image`, on port 8001; `dagger start` runs it, and tunnels the port to `localhost`.
 
+|`lgtm`
+|`image`, on port 8002, as `lgtm dev`, exporting its traces and metrics over OTLP to Grafana's `otel-lgtm` stack, as `lgtm stack`, which runs alongside it.
+`dagger start server-ktor-db/lgtm` starts both, and tunnels the app's port, Grafana's, 3000, and the collector's, 4318, to `localhost`.
+
 |`env`
 |The build container before Gradle has run.
 `dagger api call server-ktor-db env terminal` opens a shell in it.
