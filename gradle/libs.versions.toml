@@ -9,6 +9,7 @@ hikari = "7.1.0"
 hoplite = "3.0.5"
 # 4.0.0 is out, but npm tags it next rather than latest, and Ktor's HTMX attributes follow htmx 2
 htmx = "2.0.11"
+jib = "3.5.4"
 kilua = "0.0.36"
 kotlin = "2.4.21"
 kotlinx-coroutines = "1.11.0"
@@ -37,6 +38,7 @@ vanniktech-publish = "0.37.0"
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 dokka-javadoc = { id = "org.jetbrains.dokka-javadoc", version.ref = "dokka" }
 graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "graalvm-buildtools" }
+jib = { id = "com.google.cloud.tools.jib", version.ref = "jib" }
 kilua = { id = "dev.kilua", version.ref = "kilua" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

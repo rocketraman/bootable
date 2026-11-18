@@ -1,5 +1,10 @@
 rootProject.name = "bootable"
 
+pluginManagement {
+  // plugins for the examples, such as bootable.aot-cache
+  includeBuild("build-logic")
+}
+
 dependencyResolutionManagement {
   @Suppress("UnstableApiUsage")
   repositories {
@@ -65,6 +70,7 @@ include(":examples:kilua:server")
 include(":examples:kilua:shared")
 include(":examples:server-ktor")
 include(":examples:server-ktor-db:common")
+include(":examples:server-ktor-db:jib")
 include(":examples:server-ktor-db:kodein")
 include(":examples:server-ktor-db:metro")
 include(":examples:server-ktor-db:vanilla")

@@ -1,0 +1,12 @@
+[modules.dang-sdk]
+source = "dagger.io/sdk/dang"
+
+[sdks.dang]
+module = "dang-sdk"
+
+[modules.server-ktor-db]
+source = ".dagger/modules/server-ktor-db"
+
+[sdks.dang.scopes.".dagger/modules/server-ktor-db"]
+is-module = true
+name = "server-ktor-db"

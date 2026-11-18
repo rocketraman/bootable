@@ -2,6 +2,7 @@
 
 A Ktor server that stores entries in a SQLite database, through a HikariCP pool, Flyway migrations, and Exposed, and traces and measures itself with OpenTelemetry.
 It is wired three ways, with the same server and config in `common`: `vanilla`, `kodein`, and `metro`.
+`jib` builds the vanilla app into a container image, with its JVM AOT cache in it, and the repository's `server-ktor-db` https://dagger.io[Dagger] module does the same as a CI pipeline.
 See the Database and Telemetry sections of the link:../../README.adoc[README] for the modules it uses.
 
 == Running it
@@ -22,6 +23,36 @@ curl -X PUT --data 'hello' http://localhost:8001/entries/greeting
 ----
 
 The config is in `common/src/main/resources/application.conf`.
+
+== Starting faster, with an AOT cache
+
+The `vanilla` app has an `aotCache` task, which runs the installed app once, serving a few requests, to write its JVM AOT cache:
+
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:vanilla:aotCache
+cd vanilla
+JAVA_OPTS=-XX:AOTCache=build/aot/vanilla.aot build/install/vanilla/bin/vanilla
+----
+
+The `jib` app builds an image with the cache in it, trained in a container of the image itself:
+
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:jib:jibDockerBuild -PcontainerCli=podman
+podman run --rm -p 8001:8001 bootable-examples/server-ktor-db-jib
+----
+
+The `server-ktor-db` Dagger module builds the app, trains the cache, and builds the image, each in a container, from anywhere in the repository:
+
+[source,shell]
+----
+dagger check
+dagger api call server-ktor-db image export --path=build/server-ktor-db.tar
+podman load -i build/server-ktor-db.tar
+----
+
+See Faster Start in the link:../../README.adoc[README] for how it works, what has to match for the JVM to use the cache, and how much faster it starts.
 
 == Seeing it locally
 

@@ -1,2 +1,9 @@
 [tools]
 java = "temurin-25"
+dagger = "0.21.11"
+
+[env]
+# The Dagger module needs the Dagger 1.0 beta. The stable CLI downloads and runs the release named here.
+DAGGER_X_RELEASE = "v1.0.0-beta.28"
+# Hides the Dagger Cloud signup hint; with no login or DAGGER_CLOUD_TOKEN, Dagger sends no traces anyway.
+DAGGER_NO_NAG = "1"
