@@ -19,6 +19,9 @@ dependencies {
   api(project(":boot-client-http-ktor-cio"))
   api(project(":boot-client-http-ktor-otel"))
   implementation(project(":boot-db-exposed"))
+  // the entry count, a periodic loop that only the leader runs, of the instances elected through a Kubernetes Lease
+  api(project(":boot-periodic"))
+  api(project(":boot-leader-k8s"))
   implementation(project(":boot-logging-log4j2"))
 
   implementation(libs.ktor.server.html.builder)

@@ -18,6 +18,10 @@ import com.github.rocketraman.bootable.db.jdbc.jdbcDataSourceModule
 import com.github.rocketraman.bootable.db.jdbc.jdbcHealthCheckModule
 import com.github.rocketraman.bootable.db.jdbc.jdbcTracingModule
 import com.github.rocketraman.bootable.db.jdbc.sqliteConfigModule
+import com.github.rocketraman.bootable.leader.k8s.kubernetesLeaderElectionModule
+import com.github.rocketraman.bootable.periodic.PeriodicServices
+import com.github.rocketraman.bootable.periodic.periodicModule
+import com.github.rocketraman.bootable.periodic.periodicTracingModule
 import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.server.http.ktor.ktorHealthModule
@@ -44,6 +48,15 @@ val entriesModule by DI.Module {
   bindSingleton { new(::EntryRepository) }
   inBindSet<Table> { add { singleton { EntryTable } } }
   bindAppService { singleton { new(::SeedEntriesService) } }
+  bindSingleton { new(::EntryCountReport) }
+  // the entry count, every entries.report.interval, on the leader only
+  bindAppService {
+    singleton {
+      instance<PeriodicServices>().create("entry-count", instance<ConfigBinder>().config("entries.report")) {
+        instance<EntryCountReport>().report()
+      }
+    }
+  }
   bindAppService { singleton { EntryServer(instance(), instance(), instance(), instance(), instance<KtorClientService>()["entries"], "kodein") } }
   // the HTTP clients' engine; a test binds one that returns Ktor's MockEngine instead
   bindSingleton<KtorClientEngine> { CioClientEngine() }
@@ -64,6 +77,9 @@ val entriesModule by DI.Module {
  * within its request's trace, as is each connection taken from the pool (`jdbcTracingModule`). The application's start is one trace, with a span for each
  * service's start (`serviceStartTracingModule`), so the queries of the migrations and the sample entries are within
  * those.
+ * `periodicModule` creates the loop that logs the entry count, which only the leader runs, of the instances elected
+ * through a Kubernetes Lease (`kubernetesLeaderElectionModule`, from `leader.kubernetes`), and each run is a trace
+ * (`periodicTracingModule`).
  * `bootableModule` tracks the application's health from its lifecycle, which the server serves (`ktorHealthModule`),
  * with readiness down while the database doesn't answer (`jdbcHealthCheckModule`).
  * The HTTP clients (`ktorClientModule`, from `http.client`) run on CIO, and each of their requests is a client span
@@ -89,6 +105,9 @@ fun appDI() = DI {
   import(hikariPoolMetricsModule)
   import(flywayMigrationModule)
   import(exposedDatabaseModule)
+  import(kubernetesLeaderElectionModule)
+  import(periodicModule)
+  import(periodicTracingModule())
   import(entriesModule)
 }
 

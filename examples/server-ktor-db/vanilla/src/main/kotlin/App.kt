@@ -21,6 +21,12 @@ import com.github.rocketraman.bootable.db.jdbc.JdbcHealthCheck
 import com.github.rocketraman.bootable.db.jdbc.hikariPoolMetrics
 import com.github.rocketraman.bootable.db.jdbc.SqliteConfig
 import com.github.rocketraman.bootable.db.jdbc.jdbcTracing
+import com.github.rocketraman.bootable.leader.k8s.KubernetesLeaderElection
+import com.github.rocketraman.bootable.leader.k8s.KubernetesLeaderElectionConfig
+import com.github.rocketraman.bootable.leader.k8s.kubernetesClientDefaults
+import com.github.rocketraman.bootable.periodic.PeriodicGate
+import com.github.rocketraman.bootable.periodic.PeriodicServices
+import com.github.rocketraman.bootable.periodic.periodicTracing
 import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetryConfig
@@ -48,6 +54,9 @@ import io.ktor.server.cio.*
  * pool and the HTTP clients close, and the SDK exports the last telemetry, the pool's included. The set's order doesn't matter: each service declares
  * where it starts, and the start plan is logged.
  *
+ * A periodic loop logs the entry count every `entries.report.interval`, on the leader only, of the instances elected
+ * through a Kubernetes Lease (`leader.kubernetes`), and each run is a trace.
+ *
  * `Health`, one of the lifecycle controllers, tracks the application's lifecycle, and the server serves it: liveness,
  * and readiness, which is up only while the application is running and the database answers (`health.readiness`,
  * `health.ktor`).
@@ -66,12 +75,14 @@ class EntriesApp(binder: ConfigBinder) {
       listOf(prometheus, ktorConfig.excludeScrapeFromTraces(), healthConfig.excludeHealthFromTraces()),
     )
     val ktorTelemetry = KtorTelemetry(telemetry.openTelemetry, setOf(prometheus), ktorConfig)
+    val leaderConfig = binder.config<KubernetesLeaderElectionConfig>("leader.kubernetes")
     // the HTTP clients, on CIO, each request a client span within its caller's trace (`http.client`,
-    // `telemetry.httpClient`)
+    // `telemetry.httpClient`); in a cluster, the leader election's client trusts the API server by default
     val clients = KtorClientService(
       binder.config("http.client"),
       CioClientEngine(),
       HttpClientTelemetry(telemetry.openTelemetry, binder.config("telemetry.httpClient")),
+      defaults = listOf(kubernetesClientDefaults(leaderConfig)),
     )
 
     val database = JdbcDataSourceService(
@@ -88,6 +99,13 @@ class EntriesApp(binder: ConfigBinder) {
     // readiness is down while the database doesn't answer
     val health = Health(setOf(JdbcHealthCheck(database.dataSource)), readinessConfig(binder))
     val ktorHealth = KtorHealth(health, healthConfig)
+    // the election calls the API server through the kubernetes client
+    val leaderElection = KubernetesLeaderElection(leaderConfig, clients.getOrDefault(leaderConfig.httpClient))
+    val periodic = PeriodicServices(
+      PeriodicGate.leader(leaderElection),
+      interceptors = listOf(periodicTracing(telemetry.openTelemetry)),
+    )
+    val entryCount = EntryCountReport(repository)
     services = setOf(
       telemetry,
       database,
@@ -96,6 +114,8 @@ class EntriesApp(binder: ConfigBinder) {
       FlywayMigrationService(database.dataSource, binder.config("db.flyway")),
       SchemaVerificationService(exposed.database, setOf(EntryTable), exposedConfig.schemaVerification),
       SeedEntriesService(repository),
+      leaderElection,
+      periodic.create("entry-count", binder.config("entries.report")) { entryCount.report() },
       EntryServer(binder.config("server"), repository, ktorTelemetry, ktorHealth, clients["entries"], "vanilla"),
       // the scrape's own listener when telemetry.ktor.hostPort is set; otherwise it does nothing
       ktorTelemetry.listener(CIO),
