@@ -24,6 +24,9 @@ data class SpeedConfig(val speed: Speed)
 // public: hoplite constructs it reflectively
 data class PropertiesConfig(val values: Map<String, String>)
 
+// public: hoplite constructs it reflectively
+data class DefaultedConfig(val host: String = "default.example.com")
+
 private fun binder(env: Map<String, String>): ConfigBinder =
   hopliteConfigBinder(report = false, environmentVariables = { env })
 
@@ -113,6 +116,13 @@ val HopliteConfigBinderTest by testSuite {
     assert(e is ConfigException && "Could not resolve 'BOOTABLE_TEST_HOST'" in e.message.orEmpty())
   }
 
+  test("an unset env resolver fails even in a field with a default") {
+    val binder = hocon("defaulted.host = \"\${{ env:BOOTABLE_TEST_HOST }}\"")
+
+    val e = runCatching { binder.config<DefaultedConfig>("defaulted") }.exceptionOrNull()
+    assert(e is ConfigException && "Could not resolve 'BOOTABLE_TEST_HOST'" in e.message.orEmpty())
+  }
+
   test("an unset env resolver with a fallback is the fallback") {
     val binder = hocon("server.host = \"\${{ env:BOOTABLE_TEST_HOST:-fallback.example.com }}\"")
 
@@ -186,6 +196,12 @@ val HopliteConfigBinderTest by testSuite {
     listOf("Fast", "fast", "FAST").forEach {
       assert(binder(mapOf("SPEED_SPEED" to it)).config<SpeedConfig>("speed") == SpeedConfig(Speed.Fast))
     }
+  }
+
+  test("an environment variable overrides a map entry without respelling its key") {
+    val binder = hocon("properties.values { alphaKey = a }", mapOf("PROPERTIES_VALUES_ALPHAKEY" to "b"))
+
+    assert(binder.config<PropertiesConfig>("properties").values == mapOf("alphaKey" to "b"))
   }
 
   test("environment variables override config with underscores as separators") {

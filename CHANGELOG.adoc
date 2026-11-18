@@ -85,9 +85,10 @@ Sealed subtype names match ignoring case too, so `Shuffled` and `shuffled` selec
 
 === Environment variables select sealed subtypes
 
-Bootable now uses Hoplite 3.0.5, where an environment variable selects a sealed type's subtype by naming it as the sealed type's own value, since no environment variable can spell `_type`: `_` separates the path.
+Bootable now uses Hoplite 3.0.7, where an environment variable selects a sealed type's subtype by naming it as the sealed type's own value, since no environment variable can spell `_type`: `_` separates the path.
 For example, `tiebreaker { _type = Shuffled, seed = 42 }` in config, or `BOOT_SERVICE_ORDER_TIEBREAKER=Shuffled` and `BOOT_SERVICE_ORDER_TIEBREAKER_SEED=42`.
 An environment variable that selects a subtype overrides the one config selects, and config can still set the subtype's properties.
+An environment variable that overrides a map entry keeps the entry's key as config spells it, so `DB_JDBC_DATASOURCEPROPERTIES_SSLMODE` overrides `dataSourceProperties.sslMode` without renaming it `SSLMODE`.
 
 === Config substitutions use Hoplite's resolvers
 
@@ -127,7 +128,7 @@ They are not an error: a `${VAR}` or `{{key}}` is left in the value as literal t
 That includes a `${VAR}` inside a quoted HOCON string, which Hoplite's preprocessors used to expand and HOCON doesn't.
 * A resolver resolves only a data class field whose value is a single string.
 A `${{ ... }}` inside a map, list, or set, such as `dataSourceProperties`, Flyway's `placeholders`, `locations`, or `schemas`, or telemetry's `otlp.headers` or `resourceAttributes`, is left as literal text; use HOCON's `${?VAR}` there.
-* A `${{ ... }}` that resolves to nothing fails the bind, and doesn't fall back to the data class's default value (https://github.com/sksamuel/hoplite/issues/460[sksamuel/hoplite#460]).
+* A `${{ ... }}` that resolves to nothing fails the bind, even in a field with a default value.
 Give an optional value a fallback, e.g. `${{ env:DB_HOST:-localhost }}`.
 * Hoplite's module resolvers use different names from its module preprocessors: `awssm://` (and `${awssecret:...}`, `secretsmanager://`) is `aws-secrets-manager://`, `azurekeyvault://` is `azure-key-vault://`, and `gcpsm://` is `gcp-secrets-manager://`.
 `vault://` and `consul://` are unchanged.
