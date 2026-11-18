@@ -22,6 +22,8 @@ import com.github.rocketraman.bootable.leader.k8s.kubernetesLeaderElectionModule
 import com.github.rocketraman.bootable.periodic.PeriodicServices
 import com.github.rocketraman.bootable.periodic.periodicModule
 import com.github.rocketraman.bootable.periodic.periodicTracingModule
+import com.github.rocketraman.bootable.scheduler.db.dbSchedulerModule
+import com.github.kagkarlsson.scheduler.task.Task
 import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.server.http.ktor.ktorHealthModule
@@ -49,6 +51,9 @@ val entriesModule by DI.Module {
   inBindSet<Table> { add { singleton { EntryTable } } }
   bindAppService { singleton { new(::SeedEntriesService) } }
   bindSingleton { new(::EntryCountReport) }
+  // the entry digest, every entries.digest.interval, once across the instances
+  bindSingleton { instance<ConfigBinder>().config<EntryDigestConfig>("entries.digest") }
+  inBindSet<Task<*>> { add { singleton { new(::EntryDigest).task } } }
   // the entry count, every entries.report.interval, on the leader only
   bindAppService {
     singleton {
@@ -80,6 +85,8 @@ val entriesModule by DI.Module {
  * `periodicModule` creates the loop that logs the entry count, which only the leader runs, of the instances elected
  * through a Kubernetes Lease (`kubernetesLeaderElectionModule`, from `leader.kubernetes`), and each run is a trace
  * (`periodicTracingModule`).
+ * `dbSchedulerModule` runs db-scheduler (`db.scheduler`), with the recurring task that logs the entry digest, over the
+ * pool, and its table migrated by Flyway along with the application's.
  * `bootableModule` tracks the application's health from its lifecycle, which the server serves (`ktorHealthModule`),
  * with readiness down while the database doesn't answer (`jdbcHealthCheckModule`).
  * The HTTP clients (`ktorClientModule`, from `http.client`) run on CIO, and each of their requests is a client span
@@ -108,6 +115,7 @@ fun appDI() = DI {
   import(kubernetesLeaderElectionModule)
   import(periodicModule)
   import(periodicTracingModule())
+  import(dbSchedulerModule)
   import(entriesModule)
 }
 

@@ -27,6 +27,7 @@ import com.github.rocketraman.bootable.leader.k8s.kubernetesClientDefaults
 import com.github.rocketraman.bootable.periodic.PeriodicGate
 import com.github.rocketraman.bootable.periodic.PeriodicServices
 import com.github.rocketraman.bootable.periodic.periodicTracing
+import com.github.rocketraman.bootable.scheduler.db.DbSchedulerService
 import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetryConfig
@@ -55,7 +56,9 @@ import io.ktor.server.cio.*
  * where it starts, and the start plan is logged.
  *
  * A periodic loop logs the entry count every `entries.report.interval`, on the leader only, of the instances elected
- * through a Kubernetes Lease (`leader.kubernetes`), and each run is a trace.
+ * through a Kubernetes Lease (`leader.kubernetes`), and each run is a trace. db-scheduler (`db.scheduler`) runs a
+ * recurring task that logs the entry digest, once across the instances, with no leader, its table migrated by Flyway
+ * along with the application's.
  *
  * `Health`, one of the lifecycle controllers, tracks the application's lifecycle, and the server serves it: liveness,
  * and readiness, which is up only while the application is running and the database answers (`health.readiness`,
@@ -85,8 +88,9 @@ class EntriesApp(binder: ConfigBinder) {
       defaults = listOf(kubernetesClientDefaults(leaderConfig)),
     )
 
+    val sqliteConfig = binder.config<SqliteConfig>("db.jdbc")
     val database = JdbcDataSourceService(
-      binder.config<SqliteConfig>("db.jdbc"),
+      sqliteConfig,
       // HikariCP records its pool metrics through OpenTelemetry
       HikariConnectionPoolFactory(binder.config("db.pool"), hikariPoolMetrics(telemetry.openTelemetry)),
       // each query is a span, under the request's, and so is each connection taken from the pool, which shows the
@@ -116,6 +120,13 @@ class EntriesApp(binder: ConfigBinder) {
       SeedEntriesService(repository),
       leaderElection,
       periodic.create("entry-count", binder.config("entries.report")) { entryCount.report() },
+      DbSchedulerService(
+        database.dataSource,
+        binder.config("db.scheduler"),
+        listOf(EntryDigest(repository, binder.config("entries.digest")).task),
+        // db-scheduler's SQL dialect, from the JDBC URL
+        jdbcUrl = sqliteConfig.jdbcUrl,
+      ),
       EntryServer(binder.config("server"), repository, ktorTelemetry, ktorHealth, clients["entries"], "vanilla"),
       // the scrape's own listener when telemetry.ktor.hostPort is set; otherwise it does nothing
       ktorTelemetry.listener(CIO),
