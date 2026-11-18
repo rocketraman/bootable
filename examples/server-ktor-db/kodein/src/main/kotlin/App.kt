@@ -10,9 +10,12 @@ import com.github.rocketraman.bootable.db.flyway.flywayMigrationModule
 import com.github.rocketraman.bootable.db.jdbc.hikariPoolMetricsModule
 import com.github.rocketraman.bootable.db.jdbc.hikariPoolModule
 import com.github.rocketraman.bootable.db.jdbc.jdbcDataSourceModule
+import com.github.rocketraman.bootable.db.jdbc.jdbcHealthCheckModule
 import com.github.rocketraman.bootable.db.jdbc.jdbcTracingModule
 import com.github.rocketraman.bootable.db.jdbc.sqliteConfigModule
+import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
+import com.github.rocketraman.bootable.server.http.ktor.ktorHealthModule
 import com.github.rocketraman.bootable.server.http.ktor.ktorTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.openTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.prometheusTelemetryModule
@@ -36,9 +39,11 @@ val entriesModule by DI.Module {
   bindSingleton { new(::EntryRepository) }
   inBindSet<Table> { add { singleton { EntryTable } } }
   bindAppService { singleton { new(::SeedEntriesService) } }
-  bindAppService { singleton { EntryServer(instance(), instance(), instance(), "kodein") } }
+  bindAppService { singleton { EntryServer(instance(), instance(), instance(), instance(), "kodein") } }
   // the scrape's own listener when telemetry.ktor.hostPort is set; otherwise it does nothing
   bindAppService { singleton { instance<KtorTelemetry>().listener(CIO) } }
+  // the health probes' own listener when health.ktor.hostPort is set; otherwise it does nothing
+  bindAppService { singleton { instance<KtorHealth>().listener(CIO) } }
 }
 
 /**
@@ -52,6 +57,8 @@ val entriesModule by DI.Module {
  * within its request's trace, as is each connection taken from the pool (`jdbcTracingModule`). The application's start is one trace, with a span for each
  * service's start (`serviceStartTracingModule`), so the queries of the migrations and the sample entries are within
  * those.
+ * `bootableModule` tracks the application's health from its lifecycle, which the server serves (`ktorHealthModule`),
+ * with readiness down while the database doesn't answer (`jdbcHealthCheckModule`).
  */
 fun appDI() = DI {
   import(bootableModule)
@@ -60,7 +67,9 @@ fun appDI() = DI {
   import(serviceStartTracingModule)
   import(prometheusTelemetryModule)
   import(ktorTelemetryModule)
+  import(ktorHealthModule)
   import(jdbcDataSourceModule)
+  import(jdbcHealthCheckModule)
   // a span for each connection taken from the pool too, which shows the pool's start and its first connection in the
   // application's start
   import(jdbcTracingModule { setDataSourceInstrumenterEnabled(true) })

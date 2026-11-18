@@ -1,3 +1,4 @@
+import com.github.rocketraman.bootable.boot.Health
 import com.github.rocketraman.bootable.boot.StartOrder
 import com.github.rocketraman.bootable.boot.startPlan
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
@@ -5,6 +6,8 @@ import com.github.rocketraman.bootable.db.exposed.ExposedDatabaseService
 import com.github.rocketraman.bootable.db.exposed.SchemaVerificationService
 import com.github.rocketraman.bootable.db.flyway.FlywayMigrationService
 import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
+import com.github.rocketraman.bootable.db.jdbc.JdbcHealthCheck
+import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
 import com.zaxxer.hikari.HikariDataSource
@@ -12,11 +15,12 @@ import de.infix.testBalloon.framework.core.testSuite
 import io.ktor.server.cio.*
 
 private val noListener = KtorTelemetry(io.opentelemetry.api.OpenTelemetry.noop()).listener(CIO)
+private val noHealthListener = KtorHealth(Health()).listener(CIO)
 
 /** The wiring resolves; nothing is started, so no database is created. */
 val AppTest by testSuite {
   test("wires the telemetry, database, migrations, schema verification, seed entries, and server") {
-    val services = appServices(hopliteConfigBinder(report = false))
+    val services = EntriesApp(hopliteConfigBinder(report = false)).services
 
     assert(
       services.map { it::class }.toSet() == setOf(
@@ -29,14 +33,22 @@ val AppTest by testSuite {
         EntryServer::class,
         // the scrape's own listener, which does nothing unless telemetry.ktor.hostPort is set
         noListener::class,
+        // the health probes' own listener, which does nothing unless health.ktor.hostPort is set
+        noHealthListener::class,
       )
     )
     // the pool is HikariCP, under the JDBC tracing
     assert(services.filterIsInstance<JdbcDataSourceService>().single().dataSource.isWrapperFor(HikariDataSource::class.java))
   }
 
+  test("tracks the lifecycle's health, ready only while the database answers") {
+    val controllers = EntriesApp(hopliteConfigBinder(report = false)).lifecycleControllers
+    val health = controllers.filterIsInstance<Health>().single()
+    assert(health.checks.single() is JdbcHealthCheck)
+  }
+
   test("seeds the entries after the migrations, and before the server, in any tie order") {
-    val services = appServices(hopliteConfigBinder(report = false))
+    val services = EntriesApp(hopliteConfigBinder(report = false)).services
 
     repeat(20) {
       val plan = startPlan(services, tiebreaker = StartOrder.Tiebreaker.Shuffled()).map { it::class }

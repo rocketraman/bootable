@@ -4,7 +4,9 @@ import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.config.ConfigBinderProvider
 import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.db.jdbc.JdbcHealthCheckBindings
 import com.github.rocketraman.bootable.db.jdbc.JdbcTelemetryConfigurer
+import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.telemetry.otel.ServiceStartTracingBindings
 import dev.zacsweers.metro.ContributesTo
@@ -37,8 +39,8 @@ interface EntriesBindings : ConfigBinderProvider {
   fun seedEntries(entries: EntryRepository): AppService = SeedEntriesService(entries)
 
   @Provides @IntoSet
-  fun entryServer(config: ServerConfig, entries: EntryRepository, telemetry: KtorTelemetry): AppService =
-    EntryServer(config, entries, telemetry, "metro")
+  fun entryServer(config: ServerConfig, entries: EntryRepository, telemetry: KtorTelemetry, health: KtorHealth): AppService =
+    EntryServer(config, entries, telemetry, health, "metro")
 
   /**
    * A span for each connection taken from the pool too, as well as each query, which shows the pool's start and its
@@ -50,6 +52,9 @@ interface EntriesBindings : ConfigBinderProvider {
 
   /** The scrape's own listener when `telemetry.ktor.hostPort` is set; otherwise it does nothing. */
   @Provides @IntoSet fun metricsListener(telemetry: KtorTelemetry): AppService = telemetry.listener(CIO)
+
+  /** The health probes' own listener when `health.ktor.hostPort` is set; otherwise it does nothing. */
+  @Provides @IntoSet fun healthListener(health: KtorHealth): AppService = health.listener(CIO)
 }
 
 /**
@@ -61,13 +66,16 @@ interface EntriesBindings : ConfigBinderProvider {
  * contribute the application's OpenTelemetry SDK, its Prometheus export, the Ktor instrumentation the server
  * installs, and the pool's metrics (`boot-db-pool-hikari-otel-metro`). `boot-db-jdbc-otel-metro` makes each query a
  * span within its request's trace, as is each connection taken from the pool (`JdbcTelemetryConfigurer`).
+ * `boot-metro` tracks the application's health from its lifecycle, which the server serves
+ * (`boot-server-http-ktor-metro`), with readiness down while the database doesn't answer (`JdbcHealthCheckBindings`).
  */
 @DependencyGraph(
   AppScope::class,
   additionalScopes = [BootScope::class],
   // the start is one trace, with a span for each service's start, and the queries of the migrations and the sample
   // entries within those, rather than a trace each
-  bindingContainers = [ServiceStartTracingBindings::class],
+  // readiness is down while the database doesn't answer
+  bindingContainers = [ServiceStartTracingBindings::class, JdbcHealthCheckBindings::class],
 )
 interface AppGraph : BootableGraph
 

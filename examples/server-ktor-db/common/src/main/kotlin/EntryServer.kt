@@ -1,6 +1,8 @@
 import com.github.rocketraman.bootable.config.common.HostPort
 import com.github.rocketraman.bootable.server.http.ktor.CioKtorService
+import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
+import com.github.rocketraman.bootable.server.http.ktor.installHealth
 import com.github.rocketraman.bootable.server.http.ktor.installTelemetry
 import com.github.rocketraman.bootable.telemetry.otel.withSpan
 import io.ktor.http.*
@@ -54,6 +56,8 @@ fun HTML.index(entries: Map<String, String>, bindings: String) {
       li { code { +"PUT /entries/{name}" }; +" stores the request body as the value" }
       li { code { +"DELETE /entries/{name}" }; +" removes an entry" }
       li { code { +"GET /metrics" }; +" the application's metrics, for Prometheus to scrape" }
+      li { code { +"GET /health/live" }; +" liveness: 200 until the application has stopped" }
+      li { code { +"GET /health/ready" }; +" readiness: 200 while the application is running and its database answers, 503 otherwise" }
     }
     p {
       +"For example: "
@@ -141,11 +145,15 @@ document.addEventListener('click', event => {
  * [telemetry] traces and measures every request, and serves the Prometheus scrape at `/metrics`, unless
  * `telemetry.ktor.hostPort` puts it on a port of its own. Each database operation is a span of its own, within the
  * request's, and the server counts the entries it stores, as `entries.stored`.
+ *
+ * [health] serves liveness at `/health/live` and readiness at `/health/ready`, from Bootable's lifecycle and the
+ * database's health check, unless `health.ktor.hostPort` puts them on a port of their own.
  */
 class EntryServer(
   config: ServerConfig,
   private val entries: EntryRepository,
   private val telemetry: KtorTelemetry,
+  private val health: KtorHealth,
   private val bindings: String,
 ) : CioKtorService("entries", config) {
   private val logger = logger()
@@ -156,6 +164,7 @@ class EntryServer(
 
   override fun Application.module() {
     installTelemetry(telemetry)
+    installHealth(health)
     routing {
       get("/") {
         val all = tracer.withSpan("entries.all") { entries.all() }

@@ -562,18 +562,29 @@ project("boot-logging-log4j2") {
 }
 
 project("boot-server-http-ktor") {
+  configureDiVariants()
   dependencies {
     // KtorService is an AdvancedAppService, so boot is part of this module's API
     api(project(":boot"))
     api(project(":boot-config-common"))
     // engine-agnostic: the engine comes from one of the boot-server-http-ktor-<engine> modules, or the application
     api(rootProject.libs.ktor.server.core)
+    // the metro flavor contributes KtorHealth to boot's BootScope
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
 
     // the lifecycle tests run a real server on each engine
     testImplementation(rootProject.libs.ktor.server.cio)
     testImplementation(rootProject.libs.ktor.server.jetty.jakarta)
     testImplementation(rootProject.libs.ktor.server.netty)
     testImplementation(project(":boot-logging-log4j2"))
+    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
   }
 }
 

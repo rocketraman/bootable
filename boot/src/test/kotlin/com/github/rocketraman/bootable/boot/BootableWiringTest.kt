@@ -9,8 +9,11 @@ import dev.zacsweers.metro.createGraph
 import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.kodein.di.direct
+import org.kodein.di.inBindSet
+import org.kodein.di.singleton
 import org.kodein.di.instance
 import kotlin.reflect.KClass
+import kotlin.time.Duration.Companion.seconds
 
 sealed interface TestScope
 
@@ -25,12 +28,15 @@ object OrderBindings {
   @Provides fun tiebreaker(): StartOrder.Tiebreaker = StartOrder.Tiebreaker.Shuffled(42)
 }
 
-/** Config with a `boot.service.order` section that shuffles ties with seed 7. */
+/** Config with a `boot.service.order` section that shuffles ties with seed 7, and a 3s drain delay. */
 private object ShufflingConfig : ConfigBinder {
-  override fun <T : Any> configOf(prefix: String, type: KClass<T>): T {
-    check(prefix == "boot.service.order" && type == ServiceOrderConfig::class) { "unexpected config $prefix" }
-    return type.javaObjectType.cast(ServiceOrderConfig(StartOrder.Tiebreaker.Shuffled(7)))
-  }
+  override fun <T : Any> configOf(prefix: String, type: KClass<T>): T = type.javaObjectType.cast(
+    when {
+      prefix == "boot.service.order" && type == ServiceOrderConfig::class -> ServiceOrderConfig(StartOrder.Tiebreaker.Shuffled(7))
+      prefix == "health.readiness" && type == ReadinessConfig::class -> ReadinessConfig(drainDelay = 3.seconds)
+      else -> error("unexpected config $prefix")
+    }
+  )
 }
 
 @BindingContainer
@@ -82,6 +88,29 @@ val BootableWiringTest by testSuite {
     test("are bound, in metro") {
       val bootable = createGraph<OrderedGraph>().bootable
       assert(bootable.startOrder === WiredStartOrder && bootable.tiebreaker == StartOrder.Tiebreaker.Shuffled(42))
+    }
+  }
+
+  testSuite("health") {
+    fun Set<LifecycleController>.health() = filterIsInstance<Health>().single()
+    val check = HealthCheck("wired") { HealthStatus.Healthy }
+
+    test("is a lifecycle controller, with the bound checks and config, in kodein") {
+      val di = DI {
+        import(bootableModule)
+        bindSingleton<ConfigBinder> { ShufflingConfig }
+        inBindSet<HealthCheck> { add { singleton { check } } }
+      }.direct
+      val health = di.instance<Set<LifecycleController>>().health()
+      assert(health === di.instance<Health>())
+      assert(health.config.drainDelay == 3.seconds)
+      assert(di.instance<Set<HealthCheck>>() == setOf(check))
+    }
+
+    test("is a lifecycle controller, in metro") {
+      val graph = createGraph<ConfiguredGraph>()
+      assert(graph.lifecycleControllers.health().config.drainDelay == 3.seconds)
+      assert(graph.healthChecks.isEmpty())
     }
   }
 }

@@ -20,12 +20,23 @@ import kotlin.reflect.KClass
  * [DefaultStartOrder], and the [StartOrder.Tiebreaker] of the `boot.service.order` config section (see
  * [ServiceOrderConfig]) if the graph has a [ConfigBinder], or else [StartOrder.Tiebreaker.ByName]. All three are
  * optional bindings, so a graph needs none of them.
+ *
+ * It provides the application's [Health], and adds it to the lifecycle controllers, with the checks of the
+ * graph's `Set<HealthCheck>`, and the [ReadinessConfig] of the `health.readiness` config section if the graph has a
+ * [ConfigBinder]. Add a readiness check with `@Provides @IntoSet fun myCheck(): HealthCheck = MyCheck()`.
  */
 @ContributesTo(BootScope::class)
 @BindingContainer
 object BootableDefaultBindings {
   @Provides @IntoSet fun appStartStop(): LifecycleController = AppStartStopLifecycleController()
   @Provides @IntoSet fun stopSignalHandler(): LifecycleController = StopSignalHandlerLifecycleController()
+  @Provides @IntoSet fun healthController(health: Health): LifecycleController = health
+
+  @Provides @SingleIn(BootScope::class)
+  fun health(
+    checks: Set<HealthCheck>,
+    configBinder: ConfigBinder = NoConfigBinder,
+  ): Health = Health(checks, if (configBinder === NoConfigBinder) ReadinessConfig() else readinessConfig(configBinder))
 
   @Provides @SingleIn(BootScope::class)
   fun bootable(

@@ -2,6 +2,7 @@ package com.github.rocketraman.bootable.db.jdbc
 
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
+import com.github.rocketraman.bootable.boot.HealthCheck
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.config
 import dev.zacsweers.metro.BindingContainer
@@ -67,4 +68,21 @@ interface JdbcDataSourceBindings {
 object JdbcGenericConfigBindings {
   @Provides @SingleIn(BootScope::class)
   fun jdbcConfig(binder: ConfigBinder): JdbcConfig = binder.config<JdbcGenericConfig>("db.jdbc")
+}
+
+/**
+ * Adds a [JdbcHealthCheck] of the pooled [DataSource] to the readiness checks of `BootableDefaultBindings` (from
+ * boot-metro). See [JdbcHealthCheck] for when readiness should depend on the database.
+ *
+ * Deliberately not contributed, so that depending on boot-db-jdbc-metro doesn't change readiness. Name it in your
+ * graph:
+ *
+ * ```
+ * @DependencyGraph(AppScope::class, additionalScopes = [BootScope::class], bindingContainers = [JdbcHealthCheckBindings::class])
+ * ```
+ */
+@BindingContainer
+object JdbcHealthCheckBindings {
+  @Provides @IntoSet
+  fun jdbcHealthCheck(dataSource: DataSource): HealthCheck = JdbcHealthCheck(dataSource)
 }

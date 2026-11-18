@@ -118,6 +118,7 @@ val aotCache = tasks.register<AotCacheTraining>("aotCache") {
   request("GET", "$url/entries")
   request("GET", "$url/")
   request("GET", "$url/metrics")
+  request("GET", "$url/health/ready")
   request("DELETE", "$url/entries/trained")
   rounds = 20
 }

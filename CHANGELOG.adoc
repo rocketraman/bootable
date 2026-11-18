@@ -70,6 +70,20 @@ Kodein's `serviceStartTracingModule` and Metro's `ServiceStartTracingBindings`, 
 `jdbcTracing`'s `configure` lambda, Kodein's `jdbcTracingModule { ... }`, or a Metro `JdbcTelemetryConfigurer` binding changes the instrumentation's defaults.
 `JdbcDataSourceService` takes the `DataSourceWrapper`, as its third argument; Kodein's `jdbcDataSourceModule` and Metro's `JdbcDataSourceBindings`, now an interface, collect a set of them.
 
+=== Liveness and readiness from the lifecycle
+
+`boot` adds `Health`, a lifecycle controller that tracks the application's `LifecycleState`, `Starting`, `Running`, `Stopping`, and `Stopped`, and answers liveness and readiness from it; see the Health section of the README.
+
+* Liveness is up until the application has stopped, and runs no checks.
+* Readiness is up only while the application is running, from when every service has started until shutdown begins, and its `HealthCheck`s all pass.
+* `health.readiness.drainDelay` (`ReadinessConfig`) waits, with readiness down, before the services stop, so load balancers stop routing first.
+None by default.
+* With Kodein, `bootableModule` binds `Health`, adds it to the lifecycle controllers, and opens a `Set<HealthCheck>`; with Metro, `BootableDefaultBindings` does the same, and `BootableGraph` has a `healthChecks` multibinding.
+* `boot-db-jdbc` adds `JdbcHealthCheck`, which checks that a connection from the pool is valid, opt-in through Kodein's `jdbcHealthCheckModule` or Metro's `JdbcHealthCheckBindings`.
+* `boot-server-http-ktor` adds `KtorHealth`, which serves liveness at `/health/live` and readiness at `/health/ready`, `200` or `503`, on the application's server or on a listener of their own, from the `health.ktor` config section (`KtorHealthConfig`).
+It now has Kodein and Metro flavors, `boot-server-http-ktor-kodein` and `boot-server-http-ktor-metro`, which provide `KtorHealth`.
+* `boot-server-http-ktor-otel` adds `KtorHealthConfig.excludeHealthFromTraces()`, which its Kodein and Metro flavors add to the SDK's customizers, so the probes aren't traced.
+
 === Masked config values
 
 `boot-config-common` adds `Masked`, for a config property of a Bootable module that holds a secret, such as a password, an API key, or an auth header.

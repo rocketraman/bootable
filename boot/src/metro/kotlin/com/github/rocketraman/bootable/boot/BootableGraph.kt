@@ -28,4 +28,5 @@ interface BootableGraph {
 
   @Multibinds(allowEmpty = true) val appServices: Set<AppService>
   @Multibinds(allowEmpty = true) val lifecycleControllers: Set<LifecycleController>
+  @Multibinds(allowEmpty = true) val healthChecks: Set<HealthCheck>
 }
