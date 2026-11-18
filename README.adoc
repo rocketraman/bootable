@@ -44,6 +44,7 @@ Other implementations are possible: for example starting/stopping services at ru
 A controller can also run code around the application's start, and each service's, by overriding `aroundAppStart` and `aroundServiceStart`, as `ServiceStartTracing` does to trace them.
 * Tracks the application's lifecycle state, and answers liveness and readiness from it, with an optional drain delay before shutdown; see <<Health>>.
 * Runs periodic background work, on the elected leader only if you like, with leader election through a Kubernetes Lease; see <<Periodic>>.
+* Runs persistent scheduled tasks with db-scheduler, once across the application's instances; see <<Scheduler>>.
 
 == Modules
 
@@ -341,8 +342,80 @@ Two pods never lead at once, because a leader steps down before another pod can 
 
 The leader's work must stop within the margin between the two, 5 seconds by default, once `leadership` turns false; the leader gate cancels a run in progress then, as above.
 The guarantee holds as long as the leader doesn't pause, such as for a long garbage collection or a suspended VM, for longer than that margin, since a paused pod can't step down: it would then carry on as though it still led.
+Work that db-scheduler runs needs no leader at all: it runs each execution on one instance by locking its row; see <<Scheduler>>.
 
 See link:./examples/server-ktor-db[examples/server-ktor-db], whose loop logs the entry count, on the leader only, in all three wiring styles.
+
+[[Scheduler]]
+=== Scheduled tasks (db-scheduler)
+
+`boot-scheduler-db` runs https://github.com/kagkarlsson/db-scheduler[db-scheduler] over the application's database: persistent tasks, recurring and one-time, kept in a table, so they survive restarts, and run once across all the application's instances.
+Each execution runs on whichever instance locks its row first, so, unlike an in-process loop, a task needs no leader election.
+Use it for work that must happen once, at a time, such as a reminder an hour from now, or a nightly report; use `boot-periodic` for work that polls, such as sending what is pending.
+
+`DbSchedulerService` builds db-scheduler's `Scheduler` over `boot-db-jdbc`'s `DataSource`, with the application's tasks, and starts and stops it with the application:
+
+[source,kotlin]
+----
+val reminder = Tasks.oneTime("reminder", Reminder::class.java).execute { instance, _ -> send(instance.data) }
+val purge = Tasks.recurring("purge", fixedDelay(1.hours)).execute { _, _ -> purgeExpired() }
+val scheduler = DbSchedulerService(database.dataSource, binder.config("db.scheduler"), listOf(reminder, purge))
+…
+scheduler.scheduler.schedule(reminder.instance(id, Reminder(user, text)), clock.now() + 1.hours)
+----
+
+* Its tasks are db-scheduler's own, from `Tasks`: a recurring task is scheduled when the scheduler starts, and a one-time task runs the executions the application schedules through the `Scheduler`, a `SchedulerClient`.
+* It is in the `Serving` phase, after `DbMilestones.SchemaMigrated`, so it starts once its table is migrated and the services its tasks use have started, and stops before them.
+Shutdown waits up to `shutdownMaxWait` for executing tasks: db-scheduler's default is 30 minutes, so set it within your platform's grace period.
+* Task data is stored as JSON with kotlinx-serialization, by `KotlinxSerializationTaskDataSerializer`, rather than db-scheduler's default Java serialization.
+A task's data class must be `@Serializable`; a sealed type's subclasses carry its discriminator, and must have a `@SerialName`.
+* `SerializableSchedule` (`Cron`, `FixedDelay`, `DailyAt`) is a schedule stored with the task's data, for a recurring task whose schedule is chosen at runtime, with `Tasks.recurringWithPersistentSchedule`: implement `PersistentScheduleData` in the task's data class.
+* `scheduledTo`, `schedule`, `scheduleIfNotExists`, `reschedule`, `fixedDelay`, and `exponentialBackoff` take Kotlin's `Instant` and `Duration`.
+* The SQL dialect matches the database: from its JDBC URL when the service has it, as the DI flavors do, or else detected from the database when the scheduler starts.
+`dialect` sets it explicitly.
+* Creating it opens no connection, as with the rest of Bootable's database modules.
+* `DbSchedulerHealthCheck`, opt-in, is healthy while the scheduler runs.
+
+It is configured from `db.scheduler`; every setting is optional, and an unset one keeps db-scheduler's default:
+
+[source,hocon]
+----
+db {
+  scheduler {
+    threads = 5
+    pollingInterval = 5s
+    # fetch and lock due executions in one statement, on PostgreSQL, MySQL 8, and the other databases that support it
+    pollingStrategy = LockAndFetch
+    shutdownMaxWait = 20s
+    immediateExecution = true
+  }
+}
+----
+
+For anything else, such as a `SchedulerListener`, an `ExecutionInterceptor`, or another serializer, add a `DbSchedulerCustomizer`, which adjusts db-scheduler's `SchedulerBuilder` after the typed settings.
+
+With Kodein, import `dbSchedulerModule`, which binds the `Scheduler` and `SchedulerClient`, and opens a `Set<Task<*>>` and a `Set<DbSchedulerCustomizer>`; import `dbSchedulerHealthCheckModule` for the readiness check.
+With Metro, `boot-scheduler-db-metro` contributes them; contribute tasks with `@Provides @IntoSet fun purge(…): Task<*>`, and name `DbSchedulerHealthCheckBindings` in your graph's `bindingContainers` for the readiness check.
+
+==== Its table
+
+The module ships db-scheduler's table as a Flyway migration for PostgreSQL, MySQL 8 (and MariaDB), and SQLite: add its location to `db.flyway.locations`, alongside your own, which then needs naming too:
+
+[source,hocon]
+----
+db {
+  flyway {
+    locations = ["classpath:db/migration", "classpath:bootable/db-scheduler/postgresql"]
+  }
+}
+----
+
+The locations are `classpath:bootable/db-scheduler/postgresql`, `…/mysql`, and `…/sqlite`.
+Each is a repeatable migration, `R__bootable_db_scheduler.sql`, whose statements are all idempotent (`CREATE TABLE IF NOT EXISTS`), rather than a versioned one, whose version could clash with the application's own, or be out of order in a database that already has later ones.
+It creates the table as `scheduled_tasks`, db-scheduler's default: with another `tableName`, create it with a migration of your own.
+For another database, take db-scheduler's own DDL from its repository.
+
+See link:./examples/server-ktor-db[examples/server-ktor-db], whose recurring task logs an entry digest, in all three wiring styles.
 
 [[Telemetry]]
 === Telemetry (OpenTelemetry)

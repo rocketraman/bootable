@@ -116,6 +116,18 @@ Each loop's settings are a `PeriodicConfig`, decoded from a config section of th
 Two pods never lead at once, unless one pauses for longer than the margin between `leaseDuration` and `renewDeadline`: the leader steps down at the renew deadline, timed from when it sent its last renewal, even with a request in flight, and every expiry is timed by the monotonic clock.
 It calls the API server's REST API through one of the application's `boot-client-http-ktor` clients, `kubernetes` by default (`leader.kubernetes.httpClient`), rather than a Kubernetes client library, so its TLS and HTTP settings are configured as every other client's are; in a cluster, `kubernetesClientDefaults` defaults that client's trust store to the service account's `ca.crt`, so `leaseName` is the only required setting.
 
+=== Scheduled tasks with db-scheduler
+
+`boot-scheduler-db` runs db-scheduler over `boot-db-jdbc`'s `DataSource`: persistent tasks, recurring and one-time, run once across the application's instances, with no leader election; see the Scheduled tasks section of the README.
+
+* `DbSchedulerService` builds and runs the `Scheduler`, in the `Serving` phase, after `DbMilestones.SchemaMigrated`, from the `db.scheduler` config section (`DbSchedulerConfig`), with the application's tasks and a `DbSchedulerCustomizer` for the rest.
+* Its SQL dialect matches the database, from the JDBC URL, or detected when it starts.
+* `KotlinxSerializationTaskDataSerializer` stores task data as JSON, and is the default.
+* `SerializableSchedule` and `PersistentScheduleData`, for recurring tasks with a schedule stored with their data.
+* `DbSchedulerHealthCheck`, opt-in.
+* db-scheduler's table, as a repeatable Flyway migration for PostgreSQL, MySQL, and SQLite, in `classpath:bootable/db-scheduler/<database>`.
+* Kodein's `dbSchedulerModule` and Metro's `DbSchedulerBindings` provide the `Scheduler` and `SchedulerClient`, with the tasks of a `Set<Task<*>>`.
+
 === Masked config values
 
 `boot-config-common` adds `Masked`, for a config property of a Bootable module that holds a secret, such as a password, an API key, or an auth header.
