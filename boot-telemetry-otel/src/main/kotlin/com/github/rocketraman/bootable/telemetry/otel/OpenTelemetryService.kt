@@ -10,6 +10,7 @@ import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.trace.SpanKind
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator
+import io.opentelemetry.common.ComponentLoader
 import io.opentelemetry.context.Context
 import io.opentelemetry.context.propagation.ContextPropagators
 import io.opentelemetry.context.propagation.TextMapPropagator
@@ -150,6 +151,9 @@ private fun buildSdk(
   val sdkClock = if (clock === Clock.System) null else SdkClock(clock)
   val endpoint = config.otlp.endpoint?.trimEnd('/')
   val headers = config.otlp.headers
+  // the exporters' HTTP senders, built on their first export, off the start's main thread; a customizer can set
+  // another component loader, which builds them with the exporters again
+  val componentLoader = LazySenderComponentLoader(ComponentLoader.forClassLoader(OtlpHttpSpanExporter::class.java.classLoader))
   val builder = OpenTelemetrySdk.builder().setPropagators(
     ContextPropagators.create(
       TextMapPropagator.composite(W3CTraceContextPropagator.getInstance(), W3CBaggagePropagator.getInstance())
@@ -166,7 +170,7 @@ private fun buildSdk(
     sdkClock?.let { tracerProvider.setClock(it) }
     if (endpoint != null && config.traces.otlp) {
       val url = "$endpoint/v1/traces"
-      val exporter = OtlpHttpSpanExporter.builder().setEndpoint(url).apply {
+      val exporter = OtlpHttpSpanExporter.builder().setEndpoint(url).setComponentLoader(componentLoader).apply {
         headers.forEach { (key, value) -> addHeader(key, value.value) }
         if (config.otlp.compression) setCompression("gzip")
         config.otlp.timeout?.let { setTimeout(it.toJavaDuration()) }
@@ -187,7 +191,7 @@ private fun buildSdk(
     sdkClock?.let { meterProvider.setClock(it) }
     if (endpoint != null && config.metrics.otlp) {
       val url = "$endpoint/v1/metrics"
-      val exporter = OtlpHttpMetricExporter.builder().setEndpoint(url).apply {
+      val exporter = OtlpHttpMetricExporter.builder().setEndpoint(url).setComponentLoader(componentLoader).apply {
         headers.forEach { (key, value) -> addHeader(key, value.value) }
         if (config.otlp.compression) setCompression("gzip")
         config.otlp.timeout?.let { setTimeout(it.toJavaDuration()) }
