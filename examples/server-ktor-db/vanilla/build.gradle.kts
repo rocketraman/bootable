@@ -39,6 +39,10 @@ val trainingHostPort = "127.0.0.1:18001"
 
 tasks.aotCache {
   environment.put("SERVER_HOSTPORT", trainingHostPort)
+  // An OTLP endpoint, as in production, where the app exports its telemetry: the SDK then builds its OTLP
+  // exporters, whose classes, about 760 of them, the cache would otherwise leave out. Nothing listens on it, so the
+  // training exports nothing, and logs a failed export as it stops.
+  environment.put("OTEL_EXPORTER_OTLP_ENDPOINT", "http://127.0.0.1:1")
   request("PUT", "http://$trainingHostPort/entries/trained", "by the AOT training run")
   request("GET", "http://$trainingHostPort/entries/trained")
   request("GET", "http://$trainingHostPort/entries")

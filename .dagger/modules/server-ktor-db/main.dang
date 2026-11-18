@@ -98,8 +98,10 @@ type ServerKtorDb {
   the app shuts down as it would in production, and the JVM writes the AOT cache, if asked to, as it exits.
 
   Dagger sets `OTEL_*` variables in every container, for its own tracing, and forwards what they collect to Dagger
-  Cloud when the CLI is logged in to it. The script unsets them, so the app exports no telemetry there, and runs with
-  only its own config: an app that loaded the OTLP exporter would train a cache unlike its production one.
+  Cloud when the CLI is logged in to it. The script unsets them, so the app exports no telemetry there, then sets an
+  OTLP endpoint of its own, as in production, where the app exports its telemetry: the SDK then builds its OTLP
+  exporters, whose classes the cache would otherwise leave out. Nothing listens on it, the container's own localhost,
+  so the app exports nothing, and logs a failed export as it stops.
 
   The JRE image has no curl, so the requests go through bash's `/dev/tcp`.
   The script has no brace expansions of shell variables, which Dang would read as its own interpolations.
@@ -112,6 +114,7 @@ type ServerKtorDb {
       .withNewFile("/run/start-and-stop.sh", """
         set -euo pipefail
         for var in $(compgen -e | grep -E '^(OTEL_|TRACEPARENT$|TRACESTATE$)' || true); do unset "$var"; done
+        export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
         log=/run/app.log
         /app/bin/vanilla > "$log" 2>&1 &
         pid=$!

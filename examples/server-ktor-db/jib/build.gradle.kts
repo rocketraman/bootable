@@ -100,6 +100,9 @@ val aotCache = tasks.register<AotCacheTraining>("aotCache") {
       "--publish", "127.0.0.1:$trainingPort:8001",
       // Z: relabelled for SELinux, where it's enabled
       "--volume", "${trainedCacheDir.get().asFile}:$cacheDir:Z",
+      // an OTLP endpoint, as in production, so the cache has the SDK's OTLP exporters: the container's own
+      // localhost, where nothing listens
+      "--env", "OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318",
       "--entrypoint", "java",
       imageName,
     ) + appJvmFlags + listOf(

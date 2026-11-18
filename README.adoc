@@ -399,6 +399,11 @@ tasks.aotCache {
 }
 ----
 
+Train with the configuration the application runs with in production, as the cache only holds the classes the training loaded.
+Telemetry is the usual difference: with an OTLP endpoint, the OpenTelemetry SDK builds its OTLP exporters, and loads about 760 classes that a training run without one leaves out of the cache.
+So the examples' training runs set `OTEL_EXPORTER_OTLP_ENDPOINT` to an address nothing listens on: the training exports nothing, and logs a failed export as it stops.
+The Jib image below, started with an endpoint, loaded 914 classes from outside a cache trained without one, and 144 from outside one trained with one, as many as it does without an endpoint.
+
 The plugin is one file, `AotCache.kt`, with no dependencies but Gradle's own, so an application outside this repository can copy it into its own `buildSrc` or build logic.
 The task type, `AotCacheTraining`, runs any command that starts the application with `-XX:AOTCacheOutput`, such as a container, as the Jib example below does.
 The training needs a JVM that writes the cache as it exits, on SIGTERM, so it runs on Linux and macOS, not Windows.
@@ -542,7 +547,7 @@ The training runs in a container of `runtime`, and `image` adds the cache to tha
 `dagger.lock` pins the JDK and JRE images by digest, so the JDK build only changes when `dagger lock update` moves it, and the cache is trained again with it.
 
 Dagger sets `OTEL_*` variables in every container, for its own tracing, and forwards what they collect to Dagger Cloud when the CLI is logged in to it.
-The module unsets them before it starts the app, which would otherwise export its own telemetry there, and, by loading the OTLP exporter, train a cache unlike the one it uses in production.
+The module unsets them before it starts the app, which would otherwise export its own telemetry there, and sets an OTLP endpoint of its own, on the container's localhost, where nothing listens, so the cache has the OTLP exporters' classes, as in the Gradle examples.
 
 Its image used 8,253 of the 8,400 classes it loaded from its 64 MB cache, and started from launch to `+=> Running+` in a median of 385 ms with the cache, and 860 ms without it, over 7 starts, each in a new container.
 
