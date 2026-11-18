@@ -49,8 +49,11 @@ dependencies {
   dokka(project(":boot-db-pool-hikari"))
   dokka(project(":boot-db-pool-hikari-otel"))
   dokka(project(":boot-env"))
+  dokka(project(":boot-leader"))
   dokka(project(":boot-logging"))
   dokka(project(":boot-logging-log4j2"))
+  dokka(project(":boot-periodic"))
+  dokka(project(":boot-periodic-otel"))
   dokka(project(":boot-server-http-ktor"))
   dokka(project(":boot-server-http-ktor-cio"))
   dokka(project(":boot-server-http-ktor-jetty"))
@@ -634,6 +637,74 @@ project("boot-env") {
     implementation(project(":boot"))
     // the metro flavor contributes to boot's BootScope (in-repo: boot's metro source set; POM: boot-metro)
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
+  }
+}
+
+// LeaderElection, the role a periodic loop's gate asks about, with no implementation beyond AlwaysLeader
+project("boot-leader") {
+  dependencies {
+    // leadership is a StateFlow
+    api(rootProject.libs.kotlinx.coroutines.core)
+  }
+}
+
+// PeriodicAppService: a coroutine loop, gated, e.g. by leadership, and traced through interceptors
+project("boot-periodic") {
+  configureDiVariants()
+  dependencies {
+    // PeriodicAppService is an AppService, and its gates ask boot's Health and boot-leader's LeaderElection
+    api(project(":boot"))
+    api(project(":boot-leader"))
+    api(rootProject.libs.kotlinx.coroutines.core)
+    // the logging API only: the application chooses the logging implementation (e.g. boot-logging-log4j2)
+    implementation(rootProject.libs.bundles.log4j.api)
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+
+    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(":boot-logging-log4j2"))
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+  }
+}
+
+// traces each periodic run through the application's OpenTelemetry, as a PeriodicRunInterceptor for boot-periodic
+project("boot-periodic-otel") {
+  configureDiVariants()
+  dependencies {
+    api(project(":boot-periodic"))
+    // withRootSpan, and the OpenTelemetry of boot-telemetry-otel's SDK
+    api(project(":boot-telemetry-otel"))
+    // each flavor adds to boot-periodic's interceptors, over the OpenTelemetry of boot-telemetry-otel's SDK, so it
+    // brings both modules' matching flavors
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-periodic", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot-periodic", configuration = "kodeinElements"))
+    "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+
+    testImplementation(rootProject.libs.opentelemetry.sdk.testing)
+    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-periodic", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-periodic", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+    testImplementation(project(":boot-logging-log4j2"))
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
   }
 }
 
