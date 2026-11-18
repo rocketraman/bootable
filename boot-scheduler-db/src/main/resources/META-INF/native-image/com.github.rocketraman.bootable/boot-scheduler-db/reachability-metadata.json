@@ -1,0 +1,15 @@
+{
+  "reflection": [
+    {
+      "type": "com.github.rocketraman.bootable.scheduler.db.DbSchedulerConfig",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    }
+  ],
+  "resources": [
+    {
+      "glob": "bootable/db-scheduler/**"
+    }
+  ]
+}

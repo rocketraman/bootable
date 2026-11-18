@@ -55,6 +55,7 @@ dependencies {
   dokka(project(":boot-logging-log4j2"))
   dokka(project(":boot-periodic"))
   dokka(project(":boot-periodic-otel"))
+  dokka(project(":boot-scheduler-db"))
   dokka(project(":boot-server-http-ktor"))
   dokka(project(":boot-server-http-ktor-cio"))
   dokka(project(":boot-server-http-ktor-jetty"))
@@ -739,6 +740,48 @@ project("boot-periodic-otel") {
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
     testImplementation(project(":boot-logging-log4j2"))
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+  }
+}
+
+// persistent scheduled tasks with db-scheduler, over boot-db-jdbc's DataSource
+project("boot-scheduler-db") {
+  apply(plugin = "org.jetbrains.kotlin.plugin.serialization")
+  configureDiVariants()
+  dependencies {
+    // DbSchedulerService is an AppService over boot-db-jdbc's DataSource, ordered after its milestones
+    api(project(":boot-db-jdbc"))
+    api(rootProject.libs.db.scheduler)
+    // task data as JSON, and SerializableSchedule
+    api(rootProject.libs.kotlinx.serialization.json)
+    // the scheduler needs boot-db-jdbc's DataSource, so each flavor brings boot-db-jdbc's matching flavor
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+
+    // the tests run the scheduler against real databases, migrated by Flyway with this module's migrations: SQLite,
+    // and PostgreSQL and MySQL in containers, which are skipped where Docker is unavailable, outside CI
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-jdbc-sqlite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc-sqlite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-flyway", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-flyway", configuration = "metroElements"))
+    testImplementation(project(":boot-db-jdbc-postgresql"))
+    testImplementation(project(":boot-db-jdbc-mysql"))
+    testImplementation(project(":boot-logging-log4j2"))
+    testImplementation(rootProject.libs.testcontainers.postgresql)
+    testImplementation(rootProject.libs.testcontainers.mysql)
   }
 
   sourceSets.named("test") {

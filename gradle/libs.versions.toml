@@ -1,5 +1,6 @@
 [versions]
 compose-multiplatform = "1.12.2"
+db-scheduler = "17.1.0"
 dokka = "2.2.0"
 exposed = "1.6.0"
 flyway = "13.11.1"
@@ -49,6 +50,8 @@ metro = { id = "dev.zacsweers.metro", version.ref = "metro" }
 testBalloon = { id = "de.infix.testBalloon", version.ref = "testBalloon" }
 
 [libraries]
+db-scheduler = { module = "com.github.kagkarlsson:db-scheduler", version.ref = "db-scheduler" }
+
 exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
 exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
 exposed-migration-jdbc = { module = "org.jetbrains.exposed:exposed-migration-jdbc", version.ref = "exposed" }
