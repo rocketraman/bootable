@@ -232,6 +232,8 @@ PeriodicAppService("notifications", binder.config("notifications.loop"), Periodi
 `runTimeout` cancels a run that hangs.
 * Before each run, it asks its `PeriodicGate`, and skips the run when the gate is closed.
 `PeriodicGate.leader(leaderElection)` runs it on one instance of the application only, and `PeriodicGate.running(health)` only while the application is running; `and` combines gates.
+A gate that closes while a run is in progress, as the leader gate does when this instance stops leading, cancels the run, which isn't counted as a failure.
+Cancellation is cooperative: work that blocks, such as a JDBC call, stops at its next suspension point, unless it blocks in `runInterruptible`.
 * `enabled = false` turns it off.
 * On shutdown it starts no further run, and waits up to `shutdownTimeout` for a run in progress to finish before cancelling it.
 * It is in the `Serving` phase, so it starts after what its work uses, and stops before it.
@@ -262,7 +264,7 @@ With Metro, `boot-periodic-metro` contributes it, gated on the graph's `LeaderEl
 
 `boot-leader-k8s` provides `KubernetesLeaderElection`, which elects a leader among an application's pods with a `coordination.k8s.io/v1` Lease, as Kubernetes's own controllers do, following client-go's algorithm.
 It is an app service in the `Infrastructure` phase, so it leads, if it can, before the loops that ask it start.
-The leader renews the Lease every `retryPeriod`, and gives up leadership when it can't renew it within `renewDeadline`; another pod takes the Lease once it hasn't been renewed for `leaseDuration`, timed by its own clock, so the pods' clocks need not agree.
+The leader renews the Lease every `retryPeriod`, and gives up leadership when it can't renew it within `renewDeadline`; another pod takes the Lease once it hasn't been renewed for `leaseDuration`.
 On shutdown the leader releases the Lease, so another pod takes over at once.
 Its first attempt is part of its start, which fails if the API server refuses access, such as for a missing permission; it retries every other failure.
 
@@ -331,8 +333,14 @@ The election starts after the HTTP clients, in the same phase, so it stops, rele
 
 With Kodein, import `kubernetesLeaderElectionModule`, which binds it as the `LeaderElection`, alongside `ktorClientModule`; with Metro, `boot-leader-k8s-metro` contributes it, and `boot-client-http-ktor-metro` the clients.
 
-Leadership is an optimization, not a lock: it can be lost at any moment, and a leader learns it has lost it only after the fact.
-Work that must never run twice at once also needs a lock or a version check, such as in the database.
+Two pods never lead at once, because a leader steps down before another pod can take over:
+
+* The leader steps down `renewDeadline` after it sent its last successful renewal, even if a request is still in flight then.
+* Another pod takes the Lease only `leaseDuration` after it saw that renewal, which was after it was sent.
+* Both are timed by each pod's monotonic clock, so the pods' clocks need not agree, and a clock that jumps elects no second leader; the Lease's own times are only informational.
+
+The leader's work must stop within the margin between the two, 5 seconds by default, once `leadership` turns false; the leader gate cancels a run in progress then, as above.
+The guarantee holds as long as the leader doesn't pause, such as for a long garbage collection or a suspended VM, for longer than that margin, since a paused pod can't step down: it would then carry on as though it still led.
 
 See link:./examples/server-ktor-db[examples/server-ktor-db], whose loop logs the entry count, on the leader only, in all three wiring styles.
 

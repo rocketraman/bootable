@@ -95,6 +95,68 @@ val PeriodicAppServiceTest by testSuite {
     }
   }
 
+  test("cancels a run in progress when this instance stops leading, without counting it as a failure") {
+    val leading = MutableStateFlow(true)
+    val election = object : LeaderElection {
+      override val leadership = leading
+    }
+    val started = AtomicBoolean(false)
+    val cancelled = AtomicBoolean(false)
+    val service = PeriodicAppService("led", testConfig(), PeriodicGate.leader(election)) {
+      started.set(true)
+      try {
+        delay(10.seconds)
+      } catch (e: CancellationException) {
+        cancelled.set(true)
+        throw e
+      }
+    }
+    service.startService()
+    try {
+      eventually { started.get() }
+      leading.value = false
+      eventually { cancelled.get() }
+      sleep(50.milliseconds)
+      assert(service.isRunning)
+      assert(service.consecutiveFailures == 0)
+      assert(service.lastFailed == null)
+      assert(service.lastSucceeded == null)
+      // and it runs again once this instance leads again
+      started.set(false)
+      leading.value = true
+      eventually { started.get() }
+    } finally {
+      service.shutdown()
+    }
+  }
+
+  test("combined gates cancel a run in progress when either closes") {
+    val leading = MutableStateFlow(true)
+    val election = object : LeaderElection {
+      override val leadership = leading
+    }
+    val cancelled = AtomicBoolean(false)
+    val started = AtomicBoolean(false)
+    val gate = PeriodicGate.Always and PeriodicGate.leader(election)
+    val service = PeriodicAppService("combined", testConfig(), gate) {
+      started.set(true)
+      try {
+        delay(10.seconds)
+      } catch (e: CancellationException) {
+        cancelled.set(true)
+        throw e
+      }
+    }
+    service.startService()
+    try {
+      eventually { started.get() }
+      leading.value = false
+      eventually { cancelled.get() }
+    } finally {
+      service.shutdown()
+    }
+  }
+
   test("runs only while the application is running, with the running gate") {
     val health = Health()
     val runs = AtomicInteger()

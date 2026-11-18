@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.apache.logging.log4j.kotlin.logger
 import java.net.InetAddress
 import com.github.rocketraman.bootable.client.http.ktor.HttpClientMilestones
@@ -29,7 +30,6 @@ import kotlin.io.path.exists
 import kotlin.io.path.readText
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.Instant
 import kotlin.time.TimeSource
 
 // by name, rather than logger(), whose name resolution would need native-image metadata for the calling class
@@ -46,6 +46,18 @@ private val log = logger("com.github.rocketraman.bootable.leader.k8s.KubernetesL
  * in the background, retrying whatever fails. On shutdown it stops, and the leader releases the Lease, so another pod
  * takes over at once.
  *
+ * Leadership is conservative, so that two instances never lead at once, as long as neither pauses, such as for a
+ * garbage collection, longer than the margin between the lease duration and the renew deadline:
+ *
+ * - A leader stops leading [KubernetesLeaderElectionConfig.renewDeadline] after it last sent a request that renewed
+ *   the Lease, even if a request is still in flight then, while another instance takes the Lease only
+ *   [KubernetesLeaderElectionConfig.leaseDuration] after it saw the renewal, which was after it was sent.
+ * - Both are timed by the monotonic clock, and the Lease's own times, by [clock], are only informational, so neither
+ *   the instances' clocks need to agree, nor a clock that jumps elects a second leader.
+ *
+ * Within that margin, work that only the leader does must stop once [leadership] turns false: `boot-periodic`'s
+ * `PeriodicGate.leader` cancels a run in progress then.
+ *
  * It talks to the API server's REST API through [httpClient], one of the application's Ktor clients from
  * `boot-client-http-ktor`, such as the one named by [KubernetesLeaderElectionConfig.httpClient], whose TLS settings
  * trust the API server's certificate authority. Each request authenticates with the pod's service account token, read
@@ -57,7 +69,7 @@ private val log = logger("com.github.rocketraman.bootable.leader.k8s.KubernetesL
  * KubernetesLeaderElection(config, clients.getOrDefault(config.httpClient))
  * ```
  *
- * [clock] dates the Lease's renewals, and times its expiry.
+ * [clock] dates the Lease's acquisitions and renewals, for those reading it; it times nothing.
  */
 class KubernetesLeaderElection(
   private val config: KubernetesLeaderElectionConfig,
@@ -82,11 +94,15 @@ class KubernetesLeaderElection(
   private var scope: CoroutineScope? = null
   private var election: Job? = null
 
-  // the Lease as this instance last saw it, and when, by its own clock: another holder's lease expires leaseDuration
-  // after this instance saw it last change, so the instances' clocks need not agree
+  // the Lease as this instance last saw it, and when, by the monotonic clock: another holder's lease expires
+  // leaseDuration after this instance saw it last change, so the instances' clocks need not agree, nor can a clock
+  // that jumps expire it early
   private var observedSpec: LeaseSpec? = null
-  private var observedAt: Instant = Instant.DISTANT_PAST
+  private var observedAt: TimeSource.Monotonic.ValueTimeMark? = null
   private var observedLease: Lease? = null
+
+  // when this instance last sent a request that took or renewed the Lease: it leads until renewDeadline after then
+  private var renewedAt: TimeSource.Monotonic.ValueTimeMark = TimeSource.Monotonic.markNow()
 
   private fun leaseClient(httpClient: HttpClient, environment: Map<String, String>): LeaseClient {
     val serviceAccount = Path(config.serviceAccountDir)
@@ -140,18 +156,22 @@ class KubernetesLeaderElection(
     }
   }
 
-  /** Keeps trying to lead, and, while leading, renewing the Lease, until cancelled. */
+  /**
+   * Keeps trying to lead, and, while leading, renewing the Lease, until cancelled. While leading, it stops at the
+   * renew deadline, whether or not a request is in flight then.
+   */
   private suspend fun elect() {
-    var lastRenewed = TimeSource.Monotonic.markNow()
     while (true) {
-      delay(config.retryPeriod)
-      val wasLeader = state.value
-      when (attempt()) {
-        Attempt.Held -> lastRenewed = TimeSource.Monotonic.markNow()
-        Attempt.HeldByOther -> if (wasLeader) lose("another instance, $holderIdentity, holds the lease")
-        Attempt.Failed -> if (wasLeader && lastRenewed.elapsedNow() >= config.renewDeadline) {
-          lose("it couldn't renew the lease within ${config.renewDeadline}")
-        }
+      if (!state.value) {
+        delay(config.retryPeriod)
+        attempt()
+        continue
+      }
+      val untilDeadline = -(renewedAt + config.renewDeadline).elapsedNow()
+      when (withTimeoutOrNull(untilDeadline) { delay(config.retryPeriod); attempt() }) {
+        null -> lose("it couldn't renew the lease within ${config.renewDeadline}")
+        Attempt.HeldByOther -> lose("another instance, $holderIdentity, holds the lease")
+        Attempt.Held, Attempt.Failed -> Unit
       }
     }
   }
@@ -163,10 +183,20 @@ class KubernetesLeaderElection(
 
   private enum class Attempt { Held, HeldByOther, Failed }
 
-  /** Tries to take, or renew, the Lease, once; and when it does, leads. */
+  /**
+   * Tries to take, or renew, the Lease, once; and when it does, leads, unless the renew deadline passed since it sent
+   * the request.
+   */
   @Suppress("TooGenericExceptionCaught")
   private suspend fun attempt(firstAttempt: Boolean = false): Attempt = try {
+    // before the requests: the other instances see the renewal after it is sent
+    val sent = TimeSource.Monotonic.markNow()
     if (tryAcquireOrRenew()) {
+      if (sent.elapsedNow() >= config.renewDeadline) {
+        log.warn { "$identity took lease ${config.leaseName}, but too slowly to lead; retrying in ${config.retryPeriod}" }
+        return Attempt.Failed
+      }
+      renewedAt = sent
       if (!state.value) {
         state.value = true
         log.info { "$identity leads, holding lease ${config.leaseName}" }
@@ -196,18 +226,22 @@ class KubernetesLeaderElection(
     val lease = client.get()
     if (lease == null) {
       val spec = LeaseSpec(identity, leaseDurationSeconds, formatMicroTime(now), formatMicroTime(now), 0)
-      observe(client.create(spec), now)
+      observe(client.create(spec))
       return true
     }
-    if (lease.spec != observedSpec) {
-      observedSpec = lease.spec
-      observedAt = now
+    val seen = if (lease.spec != observedSpec) {
+      TimeSource.Monotonic.markNow().also {
+        observedSpec = lease.spec
+        observedAt = it
+      }
+    } else {
+      checkNotNull(observedAt)
     }
     observedLease = lease
     val holder = lease.spec.holderIdentity
     holderIdentity = holder?.ifEmpty { null }
     val duration = lease.spec.leaseDurationSeconds?.seconds ?: config.leaseDuration
-    if (!holder.isNullOrEmpty() && holder != identity && observedAt + duration > now) return false
+    if (!holder.isNullOrEmpty() && holder != identity && seen.elapsedNow() < duration) return false
 
     val spec = if (holder == identity) {
       lease.spec.copy(leaseDurationSeconds = leaseDurationSeconds, renewTime = formatMicroTime(now))
@@ -216,14 +250,14 @@ class KubernetesLeaderElection(
         identity, leaseDurationSeconds, formatMicroTime(now), formatMicroTime(now), (lease.spec.leaseTransitions ?: 0) + 1,
       )
     }
-    observe(client.update(lease.copy(spec = spec)), now)
+    observe(client.update(lease.copy(spec = spec)))
     return true
   }
 
-  private fun observe(lease: Lease, now: Instant) {
+  private fun observe(lease: Lease) {
     observedLease = lease
     observedSpec = lease.spec
-    observedAt = now
+    observedAt = TimeSource.Monotonic.markNow()
     holderIdentity = lease.spec.holderIdentity?.ifEmpty { null }
   }
 
@@ -237,7 +271,6 @@ class KubernetesLeaderElection(
       withTimeout(config.requestTimeout) {
         observe(
           client.update(lease.copy(spec = lease.spec.copy(holderIdentity = "", leaseDurationSeconds = 1, renewTime = now))),
-          clock.now(),
         )
       }
       log.info { "$identity released lease ${config.leaseName}" }

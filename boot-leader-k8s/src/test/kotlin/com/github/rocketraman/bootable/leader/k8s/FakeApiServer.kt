@@ -12,6 +12,7 @@ import kotlinx.serialization.json.put
 import java.net.InetSocketAddress
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -21,11 +22,16 @@ import java.util.concurrent.atomic.AtomicLong
  */
 class FakeApiServer(private val tokens: Set<String>) : AutoCloseable {
   private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+  // a thread per request, so a stalled request holds up no other
+  private val executor = Executors.newCachedThreadPool()
   private val leases = ConcurrentHashMap<String, JsonObject>()
   private val versions = AtomicLong()
 
   /** Tokens whose requests fail with a 503, as if the instance had lost its connection to the API server. */
   val unavailableTo: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+  /** Tokens whose requests hang, unanswered, while they're in this set, as if the network had stalled. */
+  val stalledFor: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
   /** Tokens whose requests are refused with a 403, as if the service account lacked the permission. */
   val forbidden: MutableSet<String> = ConcurrentHashMap.newKeySet()
@@ -43,6 +49,7 @@ class FakeApiServer(private val tokens: Set<String>) : AutoCloseable {
         exchange.respond(500, status(500, e.toString()))
       }
     }
+    server.executor = executor
     server.start()
   }
 
@@ -75,6 +82,7 @@ class FakeApiServer(private val tokens: Set<String>) : AutoCloseable {
       token in forbidden -> return exchange.respond(403, status(403, "leases is forbidden"))
       token in unavailableTo -> return exchange.respond(503, status(503, "unavailable"))
     }
+    while (token in stalledFor) Thread.sleep(10)
     // /apis/coordination.k8s.io/v1/namespaces/{namespace}/leases[/{name}]
     val parts = path.removePrefix("/apis/coordination.k8s.io/v1/namespaces/").split('/')
     val namespace = parts[0]
@@ -130,7 +138,11 @@ class FakeApiServer(private val tokens: Set<String>) : AutoCloseable {
     responseBody.use { it.write(bytes) }
   }
 
-  override fun close() = server.stop(0)
+  override fun close() {
+    stalledFor.clear()
+    server.stop(0)
+    executor.shutdownNow()
+  }
 
   companion object {
     private val json = Json

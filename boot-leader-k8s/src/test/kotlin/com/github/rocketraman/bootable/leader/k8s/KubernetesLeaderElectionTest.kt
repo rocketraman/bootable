@@ -13,12 +13,14 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.nio.file.Path
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteRecursively
 import kotlin.io.path.writeText
 import kotlin.time.Clock
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -197,6 +199,62 @@ val KubernetesLeaderElectionTest by testSuite {
           server.unavailableTo -= "token-a"
           sleep(500.milliseconds)
           assert(!a.isLeader() && b.isLeader())
+        }
+      }
+    }
+  }
+
+  test("a leader whose requests hang gives up leadership at the renew deadline, before the lease expires") {
+    FakeApiServer(setOf("token-a", "token-b")).use { server ->
+      withServiceAccounts("token-a", "token-b") { accounts ->
+        // a request timeout longer than the lease: the deadline can't wait for a hanging request to fail
+        val config = { token: String, identity: String ->
+          testConfig(server, accounts.getValue(token), identity).copy(requestTimeout = 3.seconds)
+        }
+        val a = KubernetesLeaderElection(config("token-a", "pod-a"), http)
+        val b = KubernetesLeaderElection(config("token-b", "pod-b"), http)
+        listOf(a, b).use {
+          a.start()
+          b.start()
+          assert(a.isLeader())
+          server.stalledFor += "token-a"
+          val cutOff = TimeSource.Monotonic.markNow()
+          eventually { !a.isLeader() }
+          // the renew deadline, from its last renewal, which was at most a retry period or so before the cut-off
+          assert(cutOff.elapsedNow() < 800.milliseconds)
+          var bothLed = false
+          eventually {
+            if (a.isLeader() && b.isLeader()) bothLed = true
+            b.isLeader()
+          }
+          assert(!bothLed)
+          assert(server.holder() == "pod-b")
+        }
+      }
+    }
+  }
+
+  test("a clock that jumps doesn't expire another holder's lease early") {
+    // pod-b's clock jumps an hour ahead once it has seen pod-a's lease
+    val offset = AtomicReference(Duration.ZERO)
+    val jumpy = object : Clock {
+      override fun now() = Clock.System.now() + offset.get()
+    }
+    FakeApiServer(setOf("token-a", "token-b")).use { server ->
+      withServiceAccounts("token-a", "token-b") { accounts ->
+        val a = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-a"), "pod-a"), http)
+        val b = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-b"), "pod-b"), http, jumpy)
+        listOf(a, b).use {
+          a.start()
+          b.start()
+          assert(a.isLeader() && !b.isLeader())
+          // pod-a stops renewing, without releasing, so pod-b must wait out the lease
+          server.unavailableTo += "token-a"
+          offset.set(1.hours)
+          val cutOff = TimeSource.Monotonic.markNow()
+          eventually { b.isLeader() }
+          // a lease duration after pod-b last saw pod-a renew, not at once
+          assert(cutOff.elapsedNow() >= 700.milliseconds)
         }
       }
     }

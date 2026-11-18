@@ -11,7 +11,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -36,7 +38,9 @@ internal val log = logger("com.github.rocketraman.bootable.periodic.PeriodicAppS
  *   own, under a `SupervisorJob`. A run that throws is handed to the [onFailure] handler, which logs it by default, and
  *   the loop carries on, unless [PeriodicConfig.maxConsecutiveFailures] runs in a row have failed.
  * - Before each run, it asks its [gate], and skips the run when the gate is closed: use [PeriodicGate.leader] so that
- *   only one instance of the application runs it.
+ *   only one instance of the application runs it. If the gate closes while a run is in progress, such as when this
+ *   instance stops leading, it cancels the run, which isn't counted as a failure. Cancellation is cooperative: [work]
+ *   that blocks, such as JDBC calls, stops only at its next suspension point, unless it blocks in `runInterruptible`.
  * - A disabled loop ([PeriodicConfig.enabled]) starts nothing.
  * - On shutdown, it starts no further run, and waits up to [PeriodicConfig.shutdownTimeout] for a run in progress to
  *   finish, before cancelling it.
@@ -161,15 +165,31 @@ class PeriodicAppService(
     return withTimeoutOrNull(duration) { stopping.await() } != null || stopping.isCompleted
   }
 
-  /** Runs [work] once, through the interceptors, and returns whether it succeeded. */
+  /**
+   * Runs [work] once, through the interceptors, cancelling it if the gate closes, and returns false if it failed: a
+   * run the gate cancelled didn't.
+   */
   @Suppress("TooGenericExceptionCaught")
   private suspend fun runOnce(): Boolean {
     lastStarted = clock.now()
     val mark = TimeSource.Monotonic.markNow()
     val timed: suspend () -> Unit = config.runTimeout?.let { timeout -> { withTimeout(timeout) { work() } } } ?: work
     val run = interceptors.foldRight(timed) { interceptor, next -> { interceptor.intercept(name, next) } }
+    var gateClosed = false
     return try {
-      run()
+      coroutineScope {
+        val running = async { run() }
+        val watch = launch {
+          gate.awaitClosed()
+          gateClosed = true
+          running.cancel("Periodic service $name's gate closed")
+        }
+        try {
+          running.await()
+        } finally {
+          watch.cancel()
+        }
+      }
       lastSucceeded = clock.now()
       consecutiveFailures = 0
       log.debug { "Periodic service $name ran in ${mark.elapsedNow()}" }
@@ -178,6 +198,10 @@ class PeriodicAppService(
       // this coroutine was cancelled, at shutdown: not the run's failure
       if (e is CancellationException && !currentCoroutineContext().isActive) throw e
       if (e is VirtualMachineError) throw e
+      if (e is CancellationException && gateClosed) {
+        log.warn { "Periodic service $name's gate closed during a run, after ${mark.elapsedNow()}; cancelled it" }
+        return true
+      }
       lastFailed = clock.now()
       consecutiveFailures++
       try {
