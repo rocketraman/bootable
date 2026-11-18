@@ -1,6 +1,7 @@
 package com.github.rocketraman.bootable.db.jdbc
 
 import com.github.rocketraman.bootable.boot.AppService
+import com.github.rocketraman.bootable.boot.HealthCheck
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.config
 import org.kodein.di.DI
@@ -43,4 +44,13 @@ val jdbcDataSourceModule by DI.Module {
  */
 val jdbcGenericConfigModule by DI.Module {
   bindSingleton<JdbcConfig> { instance<ConfigBinder>().config<JdbcGenericConfig>("db.jdbc") }
+}
+
+/**
+ * A Kodein module that adds a [JdbcHealthCheck] of the pooled [DataSource] to the readiness checks of
+ * `bootableModule` (from boot-kodein). Import it alongside [jdbcDataSourceModule]. See [JdbcHealthCheck] for when
+ * readiness should depend on the database.
+ */
+val jdbcHealthCheckModule by DI.Module {
+  inBindSet<HealthCheck> { add { singleton { JdbcHealthCheck(instance()) } } }
 }

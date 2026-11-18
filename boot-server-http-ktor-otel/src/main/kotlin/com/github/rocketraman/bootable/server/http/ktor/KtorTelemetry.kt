@@ -57,6 +57,13 @@ data class KtorTelemetryConfig(
 }
 
 /**
+ * An `OpenTelemetryCustomizer` that records no trace for the health probes served on the application's server by
+ * `KtorHealth`, which the platform's probes would otherwise fill the traces with. Add it to `OpenTelemetryService`'s
+ * customizers; the Kodein and Metro flavors of this module add it for the `health.ktor` config section.
+ */
+fun KtorHealthConfig.excludeHealthFromTraces(): OpenTelemetryCustomizer = excludeUrlPathsFromTraces(applicationServerPaths)
+
+/**
  * Adjusts OpenTelemetry's Ktor server instrumentation after the typed settings are applied, for settings
  * [KtorTelemetryConfig] doesn't cover, such as extra span attributes or how a span's status is decided.
  */

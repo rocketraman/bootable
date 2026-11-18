@@ -15,7 +15,8 @@ import io.opentelemetry.api.OpenTelemetry
 /**
  * Provides [KtorTelemetry], over the OpenTelemetry and metrics snapshot providers of `OpenTelemetryBindings` (from
  * boot-telemetry-otel-metro), with its [KtorTelemetryConfig] decoded from the `telemetry.ktor` config section. It
- * also keeps scrapes of the application's server out of the traces.
+ * also keeps scrapes of the application's server out of the traces, and the health probes of `KtorHealth`, at the
+ * paths of the `health.ktor` config section.
  *
  * Install it in a server with `installTelemetry(telemetry)`. For the scrape's listener of its own, add the listener
  * on your engine to the app services:
@@ -36,6 +37,10 @@ interface KtorTelemetryBindings {
 
     @Provides @IntoSet
     fun excludeScrapeFromTraces(config: KtorTelemetryConfig): OpenTelemetryCustomizer = config.excludeScrapeFromTraces()
+
+    @Provides @IntoSet
+    fun excludeHealthFromTraces(binder: ConfigBinder): OpenTelemetryCustomizer =
+      ktorHealthConfig(binder).excludeHealthFromTraces()
 
     @Provides @SingleIn(BootScope::class)
     fun ktorTelemetry(

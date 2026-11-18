@@ -3,6 +3,7 @@ package com.github.rocketraman.bootable.server.http.ktor
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.Health
 import com.github.rocketraman.bootable.boot.bootableModule
 import com.github.rocketraman.bootable.boot.startPlan
 import com.github.rocketraman.bootable.config.common.HostPort
@@ -83,6 +84,7 @@ private class AppServer(private val telemetry: KtorTelemetry) : CioKtorService("
     installTelemetry(telemetry)
     routing {
       get("/hello") { call.respondText("hello") }
+      healthRoutes(Health())
       get("/orders/{id}") {
         val tracer = telemetry.openTelemetry.getTracer("orders")
         val order = tracer.withSpan("orders.find") { call.parameters["id"] }
@@ -269,6 +271,19 @@ val KtorTelemetryTest by testSuite {
       assert(telemetry.inMemory.serverSpans().map { it.attributes.get(URL_PATH) } == listOf("/hello"))
     }
 
+    test("health probes are not traced, with excludeHealthFromTraces") {
+      val health = KtorHealthConfig()
+      val telemetry = Telemetry(KtorTelemetryConfig(), health.excludeHealthFromTraces())
+      val server = AppServer(telemetry.ktor)
+      withStarted(telemetry.service, server) {
+        get(server.port(), "/health/live")
+        get(server.port(), "/health/ready")
+        get(server.port(), "/hello")
+        assert(eventually { telemetry.inMemory.serverSpans().isNotEmpty() })
+      }
+      assert(telemetry.inMemory.serverSpans().map { it.attributes.get(URL_PATH) } == listOf("/hello"))
+    }
+
     test("isn't served without a pulled backend") {
       val telemetry = Telemetry()
       val server = AppServer(KtorTelemetry(telemetry.service.openTelemetry))
@@ -353,12 +368,13 @@ private val expectedConfig = KtorTelemetryConfig(path = "/scrape", capturedReque
 private suspend fun checkServes(services: Set<AppService>, ktorTelemetry: KtorTelemetry, inMemory: InMemoryTelemetry) {
   val server = AppServer(ktorTelemetry)
   withStarted(*services.toTypedArray(), server) {
+    get(server.port(), "/health/live")
     get(server.port(), "/hello", "X-Request-Id" to "req-1")
     assert(eventually {
       get(server.port(), "/scrape").body().lines().any { it.startsWith("http_server_request_duration_seconds_count{") }
     })
   }
-  // the scrapes aren't traced, and the configured header is captured
+  // the scrapes and the health probes aren't traced, and the configured header is captured
   val span = inMemory.serverSpans().single()
   assert(span.attributes.get(URL_PATH) == "/hello")
   assert(span.attributes.get(AttributeKey.stringArrayKey("http.request.header.x-request-id")) == listOf("req-1"))

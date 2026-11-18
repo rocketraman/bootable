@@ -13,7 +13,8 @@ import org.kodein.di.singleton
 /**
  * A Kodein module that provides [KtorTelemetry], over the OpenTelemetry and metrics snapshot providers of
  * `openTelemetryModule` (from boot-telemetry-otel-kodein), with its [KtorTelemetryConfig] decoded from the
- * `telemetry.ktor` config section. It also keeps scrapes of the application's server out of the traces. Import it
+ * `telemetry.ktor` config section. It also keeps scrapes of the application's server out of the traces, and the
+ * health probes of `KtorHealth`, at the paths of the `health.ktor` config section. Import it
  * after `openTelemetryModule`. Requires a `ConfigBinder` binding (e.g. from boot-config-hoplite's
  * `hopliteConfigModule`).
  *
@@ -30,7 +31,10 @@ import org.kodein.di.singleton
 val ktorTelemetryModule by DI.Module {
   bindSet<KtorServerTelemetryCustomizer>()
   bindSingleton<KtorTelemetryConfig> { instance<ConfigBinder>().config("telemetry.ktor") }
-  inBindSet<OpenTelemetryCustomizer> { add { singleton { instance<KtorTelemetryConfig>().excludeScrapeFromTraces() } } }
+  inBindSet<OpenTelemetryCustomizer> {
+    add { singleton { instance<KtorTelemetryConfig>().excludeScrapeFromTraces() } }
+    add { singleton { ktorHealthConfig(instance()).excludeHealthFromTraces() } }
+  }
   bindSingleton {
     val customizers = instance<Set<KtorServerTelemetryCustomizer>>()
     KtorTelemetry(instance(), instance(), instance()) { builder -> customizers.forEach { it.customize(builder) } }

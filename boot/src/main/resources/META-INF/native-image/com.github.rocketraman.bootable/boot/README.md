@@ -16,8 +16,12 @@ KotlinReflectionInternalError: Unresolved class …
 
 The proper fix belongs in log4j-api-kotlin: resolve the logger name without kotlin-reflect
 (e.g. from `javaClass`) so no consumer ever needs to reflection-register its logger-owning
-classes. Once bootable depends on a log4j-api-kotlin release that does this, **delete this
-directory** (`reachability-metadata.json` and this README).
+classes. `Health` logs its drain on the same shutdown path, so it is registered too. Once
+bootable depends on a log4j-api-kotlin release that does this, **delete these entries**, and
+this README.
 
-The genuinely bootable-owned metadata lives in the `boot-config-common` (`HostPort`) and
+The exception is `ReadinessConfig`, which is permanent: Hoplite decodes the `health.readiness`
+config section into it by reflection, as with every other module's config classes.
+
+The rest of the genuinely bootable-owned metadata lives in the `boot-config-common` (`HostPort`) and
 `boot-logging-log4j2` (`log4j2-base*.xml` resources) modules and is permanent.

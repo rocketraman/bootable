@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.db.jdbc
 
+import com.github.rocketraman.bootable.boot.HealthStatus
 import de.infix.testBalloon.framework.core.testSuite
 import java.io.PrintWriter
 import java.nio.file.Path
@@ -90,6 +91,16 @@ val JdbcDataSourceServiceTest by testSuite {
       assert(counting.connections == 1)
       service.shutdown()
       assert(pool.closed)
+    }
+  }
+
+  test("the health check is healthy while the database answers, and throws when it can't connect") {
+    withTempDir { dir ->
+      val pool = TestPool(JdbcGenericConfig(jdbcUrl = "jdbc:sqlite:${dir.resolve("health.db")}"))
+      assert(JdbcHealthCheck(pool.dataSource).check() == HealthStatus.Healthy)
+
+      val missing = TestPool(JdbcGenericConfig(jdbcUrl = "jdbc:sqlite:${dir.resolve("missing-dir/test.db")}"))
+      assert(runCatching { JdbcHealthCheck(missing.dataSource).check() }.exceptionOrNull() is SQLException)
     }
   }
 

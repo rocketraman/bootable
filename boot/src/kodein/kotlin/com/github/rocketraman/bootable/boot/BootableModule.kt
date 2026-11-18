@@ -16,13 +16,23 @@ import org.kodein.di.singleton
  * A [StartOrder] or [StartOrder.Tiebreaker] binding, if there is one, is passed to [Bootable]. Otherwise it uses
  * [DefaultStartOrder], and the [StartOrder.Tiebreaker] of the `boot.service.order` config section (see
  * [ServiceOrderConfig]) if there is a [ConfigBinder] binding, or else [StartOrder.Tiebreaker.ByName].
+ *
+ * It binds the application's [Health], and adds it to the lifecycle controllers, with the checks of the
+ * `Set<HealthCheck>` it opens, and the [ReadinessConfig] of the `health.readiness` config section if there is a
+ * [ConfigBinder] binding. Add a readiness check with
+ * `inBindSet<HealthCheck> { add { singleton { MyCheck() } } }`.
  */
 val bootableModule by DI.Module {
   bindSet<AppService>()
   bindSet<LifecycleController>()
+  bindSet<HealthCheck>()
+  bindSingleton {
+    Health(instance(), instanceOrNull<ConfigBinder>()?.let { readinessConfig(it) } ?: ReadinessConfig())
+  }
   inBindSet<LifecycleController> {
     add { singleton { AppStartStopLifecycleController() } }
     add { singleton { StopSignalHandlerLifecycleController() } }
+    add { singleton { instance<Health>() } }
   }
   bindSingleton {
     val tiebreaker = instanceOrNull<StartOrder.Tiebreaker>()

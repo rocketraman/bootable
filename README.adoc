@@ -42,6 +42,7 @@ An app can pass its own `StartOrder` to add phases; see link:./examples/start-or
 Another basic implementation, intended to be used in conjunction with `AppStartStopLifecycleController`, is the `StopSignalHandlerLifecycleController`, which registers signal handlers, which, when received, cleanly shuts the system down.
 Other implementations are possible: for example starting/stopping services at runtime based on a command system, like start/stop messages from RPCs or web requests.
 A controller can also run code around the application's start, and each service's, by overriding `aroundAppStart` and `aroundServiceStart`, as `ServiceStartTracing` does to trace them.
+* Tracks the application's lifecycle state, and answers liveness and readiness from it, with an optional drain delay before shutdown; see <<Health>>.
 
 == Modules
 
@@ -140,6 +141,70 @@ Note that this is also useful in a JavaScript environment, where the environment
 The environment abstraction may be used to abstract away the underlying details of this binding in a way that can be used in both frontend and backend in the common code source set.
 
 NOTE: We currently do not publish multi-platform versions of these modules, but may do so in the future.
+
+[[Health]]
+=== Health (liveness and readiness)
+
+`Health`, in the core `boot` module, is a lifecycle controller that tracks where the application is in its lifecycle, `Starting`, `Running`, `Stopping`, or `Stopped`, and answers liveness and readiness from that, such as for Kubernetes probes, a Cloud Run startup probe, or a load balancer's health check:
+
+* *Liveness* is up until the application has stopped.
+It runs no checks: an application whose database is down isn't helped by being restarted, and restarting every instance at once makes an outage worse.
+* *Readiness* is up only while the application is running: once every service has started, and until shutdown begins.
+Then, it runs the readiness checks too, and is up only if they all pass.
+
+When shutdown begins, readiness goes down, and, if the application was running, `Health` waits for `health.readiness.drainDelay` before any service stops.
+Load balancers take a few seconds to stop routing to an instance that is going away: Kubernetes, for one, removes a terminating pod from its endpoints asynchronously, and a server that stops before then refuses the requests still routed to it.
+The delay is none by default; a few seconds suits Kubernetes.
+It comes before the shutdown timeout starts, so the platform's grace period, such as `terminationGracePeriodSeconds`, must cover both.
+
+[source,hocon]
+----
+health {
+  readiness {
+    drainDelay = 5s
+  }
+}
+----
+
+A readiness check is a `HealthCheck`, which returns `HealthStatus.Healthy` or `HealthStatus.Unhealthy(reason)`; one that throws is unhealthy.
+A check runs on the thread asking for readiness, so it must bound its own wait.
+`boot-db-jdbc` provides `JdbcHealthCheck`, which takes a connection from the pool and checks it is valid.
+It is opt-in: readiness that depends on a shared database takes every instance out of rotation at once when the database is down, turning failing requests into refused ones, which is what you want only when the application can do nothing useful without it.
+
+With vanilla wiring, construct `Health` and add it to the lifecycle controllers:
+
+[source,kotlin]
+----
+val health = Health(setOf(JdbcHealthCheck(database.dataSource)), readinessConfig(binder))
+Bootable(services, defaultLifecycleControllers() + health)
+----
+
+With Kodein, `bootableModule` binds `Health`, adds it to the lifecycle controllers, and opens a `Set<HealthCheck>`; import `jdbcHealthCheckModule` for the JDBC check.
+With Metro, `BootableDefaultBindings` does the same, with a `Set<HealthCheck>` multibinding; name `JdbcHealthCheckBindings` in your graph's `bindingContainers` for the JDBC check.
+
+`boot-server-http-ktor` serves them with `KtorHealth`: liveness at `/health/live` and readiness at `/health/ready`, each `200` when up and `503` when down, with a short plain-text body, such as `UP`, `state: Running`, and `jdbc: UP`.
+Install it in your server's module with `installHealth(health)`, or add the routes anywhere with `healthRoutes(health)`.
+`health.ktor` configures it:
+
+[source,hocon]
+----
+health {
+  ktor {
+    livePath = /health/live
+    readyPath = /health/ready
+    # serve them on a listener of their own, rather than on the application's server
+    hostPort = ":9091"
+  }
+}
+----
+
+On a listener of their own, add `KtorHealth.listener(engine)` to the application's services: it starts first and stops last, so liveness is answered while the other services start, such as during long migrations, and readiness is down until the application is running.
+With Kodein, `ktorHealthModule` (from `boot-server-http-ktor-kodein`) provides `KtorHealth`; with Metro, `boot-server-http-ktor-metro` contributes it.
+
+The Kodein and Metro flavors of `boot-server-http-ktor-otel` keep the probes on the application's server out of the traces, at the paths of `health.ktor`.
+With vanilla wiring, add `ktorHealthConfig(binder).excludeHealthFromTraces()` to `OpenTelemetryService`'s customizers.
+
+See link:./examples/server-ktor-db[examples/server-ktor-db], which serves them in all three wiring styles, with the JDBC check.
 
 === Logging (Log4j2)
 
@@ -305,6 +370,7 @@ No other `OTEL_*` variable is read, such as `OTEL_TRACES_SAMPLER` or `OTEL_METRI
 Provides a basic Ktor service abstraction with Bootable lifecycle integration i.e. the server starts and stops with the application.
 Does not attempt to configure Ktor in any significant way — this is left to the user.
 To trace and measure requests, and serve a metrics scrape, see `boot-server-http-ktor-otel` under <<Telemetry>>.
+To serve liveness and readiness probes, see `KtorHealth` under <<Health>>.
 See https://github.com/rocketraman/bootable/blob/HEAD/boot-server-http-ktor/src/main/kotlin/com/github/rocketraman/bootable/server/http/ktor/KtorService.kt[KtorService].
 
 The Ktor engine is your choice.

@@ -29,6 +29,24 @@
       "allDeclaredConstructors": true,
       "allDeclaredMethods": true,
       "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.boot.Health",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.boot.Health$Companion",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.boot.ReadinessConfig",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
     }
   ]
 }
