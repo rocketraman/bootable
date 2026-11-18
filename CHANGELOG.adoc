@@ -69,6 +69,22 @@ Kodein's `serviceStartTracingModule` and Metro's `ServiceStartTracingBindings`, 
 * `boot-db-jdbc-otel`: traces each JDBC query as a client span, under the span current where it runs, such as a request's, as a `DataSourceWrapper` the Kodein and Metro flavors add to `boot-db-jdbc`'s wrappers.
 `jdbcTracing`'s `configure` lambda, Kodein's `jdbcTracingModule { ... }`, or a Metro `JdbcTelemetryConfigurer` binding changes the instrumentation's defaults.
 `JdbcDataSourceService` takes the `DataSourceWrapper`, as its third argument; Kodein's `jdbcDataSourceModule` and Metro's `JdbcDataSourceBindings`, now an interface, collect a set of them.
+* `boot-client-http-ktor-otel`: traces and measures each HTTP client request, as a child of the span current where the call is made, and carries the trace to the server called in a `traceparent` header, as a `KtorClientCustomizer` the Kodein and Metro flavors add to the clients' customizers.
+
+=== HTTP clients (Ktor)
+
+New modules provide the application's Ktor `HttpClient`s, tied to the application lifecycle; see the Client HTTP section of the README.
+
+* `boot-client-http-ktor`: `KtorClientService` builds a default client, and any number of named ones, from `http.client`, and closes them, and their engines, when the application stops.
+It is in the `Infrastructure` phase, so the services that make calls stop before the clients close, and provides `HttpClientMilestones.ClientsReady`.
+* Each client's typed settings, `KtorClientConfig`: a base URL, connect, request and socket timeouts, default headers, retries through Ktor's `HttpRequestRetry`, and TLS material for mutual TLS, a key store and a trust store, each inline as base64 or from a file, the trust store as PKCS12, JKS, or PEM certificates.
+A named client takes what it leaves unset from the default client.
+A module can contribute a named client's default settings with `KtorClientDefaults`, which the application's config overrides.
+* Retries are only of transient failures: a 5xx, 408 or 429 response, a timeout, or a failed connection, and only of idempotent methods unless configured otherwise.
+`HttpStatusCode.isTransient()` and `Throwable.isTransient()` give the same classification to an application's own retries.
+* The engine is the application's choice, through a `KtorClientEngine`: `CioClientEngine` (`boot-client-http-ktor-cio`), or `JavaClientEngine` (`boot-client-http-ktor-java`).
+One that returns Ktor's `MockEngine` answers the clients' requests in a test, with no other change to the wiring.
+* `KtorClientCustomizer`, a set binding, installs whatever else the application wants in each client, such as `ContentNegotiation`.
 
 === Liveness and readiness from the lifecycle
 

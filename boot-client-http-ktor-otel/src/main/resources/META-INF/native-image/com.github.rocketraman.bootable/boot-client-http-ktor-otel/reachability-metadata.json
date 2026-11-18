@@ -1,0 +1,10 @@
+{
+  "reflection": [
+    {
+      "type": "com.github.rocketraman.bootable.client.http.ktor.HttpClientTelemetryConfig",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    }
+  ]
+}

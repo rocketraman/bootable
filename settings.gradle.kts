@@ -34,6 +34,10 @@ dependencyResolutionManagement {
 }
 
 include("boot")
+include("boot-client-http-ktor")
+include("boot-client-http-ktor-cio")
+include("boot-client-http-ktor-java")
+include("boot-client-http-ktor-otel")
 include("boot-common")
 include("boot-config-common")
 include("boot-config-hoplite")

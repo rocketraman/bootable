@@ -46,7 +46,9 @@ private fun withServer(block: suspend HttpClient.(health: Health) -> Unit) {
         TelemetryConfig(metrics = MetricsConfig(runtime = false), registerGlobal = false),
         listOf(prometheus),
       ).openTelemetry
-      val server = EntryServer(ServerConfig("127.0.0.1:0"), EntryRepository(db), KtorTelemetry(openTelemetry, setOf(prometheus)), KtorHealth(health), "test")
+      // the relay calls the test application itself, as the running server calls itself back
+      val relay = createClient { }
+      val server = EntryServer(ServerConfig("127.0.0.1:0"), EntryRepository(db), KtorTelemetry(openTelemetry, setOf(prometheus)), KtorHealth(health), relay, "test")
       application { with(server) { module() } }
       client.block(health)
     }
@@ -162,6 +164,15 @@ val EntryServerTest by testSuite {
       val ready = get("/health/ready")
       assert(ready.status == HttpStatusCode.OK)
       assert(ready.bodyAsText() == "UP\nstate: Running\njdbc: UP\n")
+    }
+  }
+
+  test("the relay gets an entry by calling the server back, and passes on a missing one's 404") {
+    withServer {
+      put("/entries/greeting") { setBody("hello") }
+
+      assert(get("/relay/greeting").bodyAsText() == "hello")
+      assert(get("/relay/missing").status == HttpStatusCode.NotFound)
     }
   }
 }

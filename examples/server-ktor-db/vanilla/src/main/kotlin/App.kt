@@ -5,6 +5,9 @@ import com.github.rocketraman.bootable.boot.LifecycleController
 import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.boot.defaultLifecycleControllers
 import com.github.rocketraman.bootable.boot.readinessConfig
+import com.github.rocketraman.bootable.client.http.ktor.CioClientEngine
+import com.github.rocketraman.bootable.client.http.ktor.HttpClientTelemetry
+import com.github.rocketraman.bootable.client.http.ktor.KtorClientService
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
@@ -39,10 +42,10 @@ import io.ktor.server.cio.*
  * query is a span within its request's trace, the pool records its metrics, and the server serves the metrics for Prometheus to scrape (`telemetry.sdk`,
  * `telemetry.prometheus`, `telemetry.ktor`).
  *
- * Bootable starts the services phase by phase: the OpenTelemetry SDK first, then the pool (validating a connection),
- * then the migrations, then the schema verification and the sample entries, then the server. Shutdown runs in
- * reverse, so the server stops taking requests before the Exposed `Database` is unregistered and the pool closes,
- * and the SDK exports the last telemetry, the pool's included. The set's order doesn't matter: each service declares
+ * Bootable starts the services phase by phase: the OpenTelemetry SDK first, then the pool (validating a connection)
+ * and the HTTP clients, then the migrations, then the schema verification and the sample entries, then the server.
+ * Shutdown runs in reverse, so the server stops taking requests before the Exposed `Database` is unregistered, and the
+ * pool and the HTTP clients close, and the SDK exports the last telemetry, the pool's included. The set's order doesn't matter: each service declares
  * where it starts, and the start plan is logged.
  *
  * `Health`, one of the lifecycle controllers, tracks the application's lifecycle, and the server serves it: liveness,
@@ -63,6 +66,13 @@ class EntriesApp(binder: ConfigBinder) {
       listOf(prometheus, ktorConfig.excludeScrapeFromTraces(), healthConfig.excludeHealthFromTraces()),
     )
     val ktorTelemetry = KtorTelemetry(telemetry.openTelemetry, setOf(prometheus), ktorConfig)
+    // the HTTP clients, on CIO, each request a client span within its caller's trace (`http.client`,
+    // `telemetry.httpClient`)
+    val clients = KtorClientService(
+      binder.config("http.client"),
+      CioClientEngine(),
+      HttpClientTelemetry(telemetry.openTelemetry, binder.config("telemetry.httpClient")),
+    )
 
     val database = JdbcDataSourceService(
       binder.config<SqliteConfig>("db.jdbc"),
@@ -81,11 +91,12 @@ class EntriesApp(binder: ConfigBinder) {
     services = setOf(
       telemetry,
       database,
+      clients,
       exposed,
       FlywayMigrationService(database.dataSource, binder.config("db.flyway")),
       SchemaVerificationService(exposed.database, setOf(EntryTable), exposedConfig.schemaVerification),
       SeedEntriesService(repository),
-      EntryServer(binder.config("server"), repository, ktorTelemetry, ktorHealth, "vanilla"),
+      EntryServer(binder.config("server"), repository, ktorTelemetry, ktorHealth, clients["entries"], "vanilla"),
       // the scrape's own listener when telemetry.ktor.hostPort is set; otherwise it does nothing
       ktorTelemetry.listener(CIO),
       // the health probes' own listener when health.ktor.hostPort is set; otherwise it does nothing

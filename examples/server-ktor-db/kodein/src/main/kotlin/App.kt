@@ -2,6 +2,11 @@ import com.github.rocketraman.bootable.boot.Bootable
 import com.github.rocketraman.bootable.boot.bindAppService
 import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.client.http.ktor.CioClientEngine
+import com.github.rocketraman.bootable.client.http.ktor.KtorClientEngine
+import com.github.rocketraman.bootable.client.http.ktor.KtorClientService
+import com.github.rocketraman.bootable.client.http.ktor.httpClientTelemetryModule
+import com.github.rocketraman.bootable.client.http.ktor.ktorClientModule
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigModule
@@ -39,7 +44,9 @@ val entriesModule by DI.Module {
   bindSingleton { new(::EntryRepository) }
   inBindSet<Table> { add { singleton { EntryTable } } }
   bindAppService { singleton { new(::SeedEntriesService) } }
-  bindAppService { singleton { EntryServer(instance(), instance(), instance(), instance(), "kodein") } }
+  bindAppService { singleton { EntryServer(instance(), instance(), instance(), instance(), instance<KtorClientService>()["entries"], "kodein") } }
+  // the HTTP clients' engine; a test binds one that returns Ktor's MockEngine instead
+  bindSingleton<KtorClientEngine> { CioClientEngine() }
   // the scrape's own listener when telemetry.ktor.hostPort is set; otherwise it does nothing
   bindAppService { singleton { instance<KtorTelemetry>().listener(CIO) } }
   // the health probes' own listener when health.ktor.hostPort is set; otherwise it does nothing
@@ -59,6 +66,8 @@ val entriesModule by DI.Module {
  * those.
  * `bootableModule` tracks the application's health from its lifecycle, which the server serves (`ktorHealthModule`),
  * with readiness down while the database doesn't answer (`jdbcHealthCheckModule`).
+ * The HTTP clients (`ktorClientModule`, from `http.client`) run on CIO, and each of their requests is a client span
+ * within its caller's trace (`httpClientTelemetryModule`).
  */
 fun appDI() = DI {
   import(bootableModule)
@@ -68,6 +77,8 @@ fun appDI() = DI {
   import(prometheusTelemetryModule)
   import(ktorTelemetryModule)
   import(ktorHealthModule)
+  import(ktorClientModule)
+  import(httpClientTelemetryModule)
   import(jdbcDataSourceModule)
   import(jdbcHealthCheckModule)
   // a span for each connection taken from the pool too, which shows the pool's start and its first connection in the

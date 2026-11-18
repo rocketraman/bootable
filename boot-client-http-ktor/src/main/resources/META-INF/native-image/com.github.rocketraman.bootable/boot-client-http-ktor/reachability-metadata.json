@@ -1,0 +1,46 @@
+{
+  "reflection": [
+    {
+      "type": "com.github.rocketraman.bootable.client.http.ktor.KtorClientsConfig",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.client.http.ktor.KtorClientConfig",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.client.http.ktor.KtorClientRetryConfig",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.client.http.ktor.KtorClientTlsConfig",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.client.http.ktor.KeyStoreConfig",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.client.http.ktor.KtorClientService",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    },
+    {
+      "type": "com.github.rocketraman.bootable.client.http.ktor.KtorClientService$Companion",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    }
+  ]
+}
