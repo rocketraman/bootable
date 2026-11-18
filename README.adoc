@@ -290,6 +290,7 @@ Settings are configured explicitly in `telemetry.sdk`, which `telemetryConfig` d
 | `OTEL_EXPORTER_OTLP_HEADERS` | `otlp.headers` | Merged by header name; the explicit value wins for a header in both.
 |===
 
+A variable that is set but empty, such as `OTEL_EXPORTER_OTLP_ENDPOINT=`, or only whitespace, is treated as unset, as the specification says.
 The variables take their standard format, described in OpenTelemetry's https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/[SDK environment variables] and https://opentelemetry.io/docs/specs/otel/protocol/exporter/[OTLP exporter] specifications.
 Explicit configuration comes from any of Hoplite's sources, so a `TELEMETRY_SDK_*` environment variable, such as `TELEMETRY_SDK_SERVICENAME`, is explicit too, and wins over the matching `OTEL_*` one.
 The values end up in the `TelemetryConfig` that `telemetryConfig` returns, with the headers `Masked`, but not in Hoplite's config report, which only lists what Hoplite decoded.

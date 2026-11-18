@@ -122,20 +122,24 @@ fun telemetryConfig(binder: ConfigBinder, env: Map<String, String> = System.gete
  * - `OTEL_EXPORTER_OTLP_HEADERS` is merged into [OtlpConfig.headers], whose values win for a header in both.
  *
  * No other `OTEL_*` variable is read.
+ * A variable that is empty, or only whitespace, is treated as unset, as the OpenTelemetry specification says.
  *
  * These are the names platforms and tools set, such as the OpenTelemetry operator for Kubernetes, and other
  * OpenTelemetry SDKs read, so an application configured for them works unchanged. They also take the
  * `key1=value1,key2=value2` form, which suits resource attributes, whose keys are dotted, better than one
  * environment variable per key.
  */
-fun TelemetryConfig.withOtelEnvironment(env: Map<String, String> = System.getenv()): TelemetryConfig = copy(
-  serviceName = serviceName ?: env["OTEL_SERVICE_NAME"],
-  resourceAttributes = parseKeyValues(env["OTEL_RESOURCE_ATTRIBUTES"]) + resourceAttributes,
-  otlp = otlp.copy(
-    endpoint = otlp.endpoint ?: env["OTEL_EXPORTER_OTLP_ENDPOINT"],
-    headers = parseKeyValues(env["OTEL_EXPORTER_OTLP_HEADERS"]).mapValues { (_, value) -> Masked(value) } + otlp.headers,
-  ),
-)
+fun TelemetryConfig.withOtelEnvironment(env: Map<String, String> = System.getenv()): TelemetryConfig {
+  fun variable(name: String) = env[name]?.trim()?.takeIf { it.isNotEmpty() }
+  return copy(
+    serviceName = serviceName ?: variable("OTEL_SERVICE_NAME"),
+    resourceAttributes = parseKeyValues(variable("OTEL_RESOURCE_ATTRIBUTES")) + resourceAttributes,
+    otlp = otlp.copy(
+      endpoint = otlp.endpoint ?: variable("OTEL_EXPORTER_OTLP_ENDPOINT"),
+      headers = parseKeyValues(variable("OTEL_EXPORTER_OTLP_HEADERS")).mapValues { (_, value) -> Masked(value) } + otlp.headers,
+    ),
+  )
+}
 
 /** Parses the `key1=value1,key2=value2` format of the OpenTelemetry environment variables, whose values may be URL-encoded. */
 internal fun parseKeyValues(value: String?): Map<String, String> =
