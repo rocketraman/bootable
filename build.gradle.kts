@@ -50,6 +50,7 @@ dependencies {
   dokka(project(":boot-db-pool-hikari-otel"))
   dokka(project(":boot-env"))
   dokka(project(":boot-leader"))
+  dokka(project(":boot-leader-k8s"))
   dokka(project(":boot-logging"))
   dokka(project(":boot-logging-log4j2"))
   dokka(project(":boot-periodic"))
@@ -645,6 +646,44 @@ project("boot-leader") {
   dependencies {
     // leadership is a StateFlow
     api(rootProject.libs.kotlinx.coroutines.core)
+  }
+}
+
+// a LeaderElection that holds a Kubernetes Lease, through the API server's REST API, with a boot-client-http-ktor client
+project("boot-leader-k8s") {
+  apply(plugin = "org.jetbrains.kotlin.plugin.serialization")
+  configureDiVariants()
+  dependencies {
+    // KubernetesLeaderElection is an AppService and a LeaderElection
+    api(project(":boot"))
+    api(project(":boot-config-common"))
+    api(project(":boot-leader"))
+    // the API server is called with one of the application's Ktor clients; the engine is the application's choice
+    api(project(":boot-client-http-ktor"))
+    // the Lease, as JSON: generated serializers, with no reflection, so nothing to add for a native image
+    implementation(rootProject.libs.kotlinx.serialization.json)
+    // the logging API only: the application chooses the logging implementation (e.g. boot-logging-log4j2)
+    implementation(rootProject.libs.bundles.log4j.api)
+    // each flavor takes the client from boot-client-http-ktor's service, so it brings that module's matching flavor
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-client-http-ktor", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot-client-http-ktor", configuration = "kodeinElements"))
+
+    // the election runs against a fake API server, through the Java engine
+    testImplementation(project(":boot-client-http-ktor-java"))
+    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-client-http-ktor", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-client-http-ktor", configuration = "metroElements"))
+    testImplementation(project(":boot-logging-log4j2"))
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
   }
 }
 
