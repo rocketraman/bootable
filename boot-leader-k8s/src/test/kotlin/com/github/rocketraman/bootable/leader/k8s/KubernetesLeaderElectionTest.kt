@@ -7,6 +7,8 @@ import com.github.rocketraman.bootable.boot.startPlan
 import de.infix.testBalloon.framework.core.testSuite
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.java.Java
+import io.ktor.client.request.get
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
@@ -29,8 +31,13 @@ import kotlin.time.TimeSource
 private const val NAMESPACE = "apps"
 private const val LEASE = "entries-leader"
 
-/** The HTTP client the elections call the fake API server with, as an application's Ktor client would. */
-private val http = HttpClient(Java)
+/**
+ * The HTTP client the elections call the fake API server with, as an application's Ktor client would. It is warmed
+ * up first, since a cold JVM's first request can take longer than the tests' short timings.
+ */
+private val http = HttpClient(Java).also { client ->
+  FakeApiServer(emptySet()).use { server -> runBlocking { client.get(server.url + "/apis/coordination.k8s.io/v1/namespaces/") } }
+}
 
 private fun eventually(timeout: Duration = 5.seconds, condition: () -> Boolean) {
   val start = TimeSource.Monotonic.markNow()
@@ -293,6 +300,22 @@ val KubernetesLeaderElectionTest by testSuite {
           a.start()
           assert(server.spec("acquireTime") == "2026-11-18T12:34:56.789000Z")
           assert(server.spec("renewTime") == "2026-11-18T12:34:56.789000Z")
+        }
+      }
+    }
+  }
+
+  test("a request that times out is a failure to retry, not the election's cancellation") {
+    FakeApiServer(setOf("token-a")).use { server ->
+      server.stalledFor += "token-a"
+      withServiceAccounts("token-a") { accounts ->
+        val config = testConfig(server, accounts.getValue("token-a"), "pod-a").copy(requestTimeout = 200.milliseconds)
+        listOf(KubernetesLeaderElection(config, http)).use { (a) ->
+          // the start's first attempt times out, and the start carries on
+          a.start()
+          assert(!a.isLeader())
+          server.stalledFor -= "token-a"
+          eventually { a.isLeader() }
         }
       }
     }

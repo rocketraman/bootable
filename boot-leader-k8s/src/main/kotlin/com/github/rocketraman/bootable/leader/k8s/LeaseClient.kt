@@ -12,12 +12,13 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import java.io.IOException
 import java.nio.file.Path
 import java.time.Instant
 import java.time.ZoneOffset
@@ -28,6 +29,12 @@ import kotlin.time.Duration
 
 /** A request to the Kubernetes API server that it answered with an error [status]. */
 class KubernetesApiException(val status: Int, message: String) : RuntimeException(message)
+
+/**
+ * A request to the API server that took longer than the election's request timeout: a failure to retry, rather than a
+ * `TimeoutCancellationException`, which would read as the election's own cancellation.
+ */
+class KubernetesRequestTimeoutException(message: String) : IOException(message)
 
 /** A `coordination.k8s.io/v1` Lease. Its metadata is kept as it was read, so an update sends it back unchanged. */
 @Serializable
@@ -115,10 +122,10 @@ internal class LeaseClient(
   }
 
   // the timeout is the election's own, whichever engine the client has, and whether or not it sets timeouts
-  private suspend fun send(request: suspend () -> HttpResponse): Pair<Int, String> = withTimeout(requestTimeout) {
+  private suspend fun send(request: suspend () -> HttpResponse): Pair<Int, String> = withTimeoutOrNull(requestTimeout) {
     val response = request()
     response.status.value to response.bodyAsText()
-  }
+  } ?: throw KubernetesRequestTimeoutException("No response from the API server within $requestTimeout")
 
   private fun apiException(method: String, url: String, status: Int, body: String): KubernetesApiException {
     // a Kubernetes Status object's message says why, e.g. which permission is missing
