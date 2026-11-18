@@ -64,6 +64,7 @@ In your own config classes, declare secrets with your config library's type, suc
 See https://github.com/sksamuel/hoplite[hoplite].
 
 Add this module to your project to use Hoplite for configuration.
+A config value can take an environment variable with HOCON's own `${?VAR}`, or with Hoplite's `${{ env:VAR }}` resolver, which works only in a field that holds a single string; see its documentation's substitutions section.
 
 xref:./boot-config-hoplite/README.adoc[Documentation]
 

@@ -21,6 +21,9 @@ enum class Speed { Fast, Slow }
 // public: hoplite constructs it reflectively
 data class SpeedConfig(val speed: Speed)
 
+// public: hoplite constructs it reflectively
+data class PropertiesConfig(val values: Map<String, String>)
+
 private fun binder(env: Map<String, String>): ConfigBinder =
   hopliteConfigBinder(report = false, environmentVariables = { env })
 
@@ -52,6 +55,11 @@ private object NothingSecret : SecretsPolicy {
   override fun isSecret(node: Node, type: KType?) = false
 }
 
+private fun hocon(conf: String, env: Map<String, String> = emptyMap()): ConfigBinder =
+  hopliteConfigBinder(report = false, environmentVariables = { env }, withConfigStage2 = {
+    addPropertySource(PropertySource.string(conf, "conf"))
+  })
+
 val HopliteConfigBinderTest by testSuite {
   test("decodes Masked values in strict mode, maps' included") {
     val binder = hopliteConfigBinder(
@@ -81,24 +89,97 @@ val HopliteConfigBinderTest by testSuite {
     assert("https://api.example" in printed && "key-123" !in printed && "tenant-789" !in printed)
   }
 
-  test("exported bash functions in the environment are ignored") {
-    // what `export -f` / Lmod put in the environment
-    val env = mapOf("BASH_FUNC_module%%" to "() {  if [ -z \"\${LMOD_SH_DBG_ON+x}\" ]; then :; fi\n}")
+  test("shell code in exported environment variables doesn't fail binding") {
+    // https://github.com/sksamuel/hoplite/issues/602: Debian's default prompt, and what `export -f` / Lmod put in
+    // the environment
+    val env = mapOf(
+      "PS1" to "\${debian_chroot:+(\$debian_chroot)}\\u@\\h:\\w\\$ ",
+      "BASH_FUNC_ml%%" to "() {  if [ -z \"\${LMOD_SH_DBG_ON+x}\" ]; then :; fi\n}",
+    )
 
     assert(binder(env).config<ServerConfig>("server") == ServerConfig("localhost", 8080))
   }
 
-  test("shell prompt variables in the environment are ignored") {
-    val env = mapOf("PS1" to "\${debian_chroot:+(\$debian_chroot)}\\u@\\h:\\w\\$ ")
+  test("an env resolver in a string field resolves from the environment variables") {
+    val binder = hocon("server.host = \"\${{ env:BOOTABLE_TEST_HOST }}\"", mapOf("BOOTABLE_TEST_HOST" to "example.com"))
 
-    assert(binder(env).config<ServerConfig>("server") == ServerConfig("localhost", 8080))
+    assert(binder.config<ServerConfig>("server") == ServerConfig("example.com", 8080))
   }
 
-  test("unresolved substitutions in config still fail") {
-    val env = mapOf("SERVER_HOST" to "\${BOOTABLE_TEST_UNSET_VARIABLE}")
+  test("an unset env resolver fails") {
+    val binder = hocon("server.host = \"\${{ env:BOOTABLE_TEST_HOST }}\"")
 
-    val e = runCatching { binder(env).config<ServerConfig>("server") }.exceptionOrNull()
-    assert(e is ConfigException && "Unresolved substitution" in e.message.orEmpty())
+    val e = runCatching { binder.config<ServerConfig>("server") }.exceptionOrNull()
+    assert(e is ConfigException && "Could not resolve 'BOOTABLE_TEST_HOST'" in e.message.orEmpty())
+  }
+
+  test("an unset env resolver with a fallback is the fallback") {
+    val binder = hocon("server.host = \"\${{ env:BOOTABLE_TEST_HOST:-fallback.example.com }}\"")
+
+    assert(binder.config<ServerConfig>("server") == ServerConfig("fallback.example.com", 8080))
+  }
+
+  test("a ref resolver resolves another config value, and an env resolver resolves into a non-string field") {
+    val binder = hocon(
+      "app.host = example.com\nserver.host = \"\${{ ref:app.host }}\"\nserver.port = \"\${{ env:BOOTABLE_TEST_PORT }}\"",
+      mapOf("BOOTABLE_TEST_PORT" to "9090"),
+    )
+
+    assert(binder.config<ServerConfig>("server") == ServerConfig("example.com", 9090))
+  }
+
+  test("an env resolver resolves into a Masked field") {
+    val binder = hopliteConfigBinder(
+      report = false,
+      withConfigStage3 = {
+        addPropertySource(PropertySource.string(apiConf.replace("key-123", "\"\${{ env:BOOTABLE_TEST_KEY }}\""), "conf"))
+      },
+      environmentVariables = { mapOf("BOOTABLE_TEST_KEY" to "key-456") },
+    )
+
+    assert(binder.config<ApiConfig>("api").apiKey == Masked("key-456"))
+  }
+
+  test("preprocessor substitutions are left as literal text") {
+    val binder = hocon("server.host = \"\${BOOTABLE_TEST_HOST}\"", mapOf("BOOTABLE_TEST_HOST" to "example.com"))
+
+    assert(binder.config<ServerConfig>("server") == ServerConfig("\${BOOTABLE_TEST_HOST}", 8080))
+  }
+
+  // HOCON resolves its own substitutions at parse time, falling back to the process environment, which the
+  // environmentVariables parameter doesn't reach; so these reference PATH, which is set, and a variable that isn't.
+  test("HOCON substitutions resolve, in strings and in maps") {
+    val path = System.getenv("PATH")
+    val binder = hocon(
+      """
+      base = "example.com"
+      server.host = ${'$'}{base}
+      server.host = ${'$'}{?BOOTABLE_TEST_UNSET_VARIABLE}
+      properties.values {
+        path = ${'$'}{PATH}
+        optionalPath = ${'$'}{?PATH}
+        base = ${'$'}{base}
+      }
+      """.trimIndent()
+    )
+
+    assert(binder.config<ServerConfig>("server") == ServerConfig("example.com", 8080))
+    assert(
+      binder.config<PropertiesConfig>("properties").values ==
+        mapOf("path" to path, "optionalPath" to path, "base" to "example.com")
+    )
+  }
+
+  test("an env resolver in a map value is not resolved") {
+    // Hoplite's resolvers only resolve a data class field whose value is a string, not the values of a map, list,
+    // or set; see ContextResolver.resolve in hoplite-core. If this fails, Hoplite resolves them now: update this
+    // test, the README, and the CHANGELOG.
+    val binder = hocon(
+      "properties.values.host = \"\${{ env:BOOTABLE_TEST_HOST }}\"",
+      mapOf("BOOTABLE_TEST_HOST" to "example.com"),
+    )
+
+    assert(binder.config<PropertiesConfig>("properties").values == mapOf("host" to "\${{ env:BOOTABLE_TEST_HOST }}"))
   }
 
   test("enum values match the entries' names in any case") {
