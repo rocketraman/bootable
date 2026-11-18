@@ -74,6 +74,18 @@ val OpenTelemetryServiceTest by testSuite {
       assert(config.withOtelEnvironment(env).otlp.headers == mapOf("api-key" to Masked("configured"), "tenant" to Masked("a b")))
     }
 
+    test("treats an empty or blank standard variable as unset, as the specification says") {
+      val env = mapOf(
+        "OTEL_SERVICE_NAME" to "",
+        "OTEL_RESOURCE_ATTRIBUTES" to " ",
+        "OTEL_EXPORTER_OTLP_ENDPOINT" to "",
+        "OTEL_EXPORTER_OTLP_HEADERS" to "  ",
+      )
+      assert(TelemetryConfig().withOtelEnvironment(env) == TelemetryConfig())
+      // and the SDK builds, rather than failing on an endpoint of "/v1/traces"
+      OpenTelemetryService(testConfig().withOtelEnvironment(env)).shutdown()
+    }
+
     test("is passed through the customizers") {
       val customizer = object : OpenTelemetryCustomizer {
         override fun customizeResource(resource: Resource) =
