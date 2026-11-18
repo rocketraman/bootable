@@ -14,6 +14,10 @@ dependencies {
   api(project(":boot-server-http-ktor-cio"))
   // the server traces and measures its requests, and serves the metrics scrape
   api(project(":boot-server-http-ktor-otel"))
+  // the relay calls the server back through a lifecycle-managed HTTP client on Ktor's CIO engine, traced as a client
+  // span within the request's trace
+  api(project(":boot-client-http-ktor-cio"))
+  api(project(":boot-client-http-ktor-otel"))
   implementation(project(":boot-db-exposed"))
   implementation(project(":boot-logging-log4j2"))
 

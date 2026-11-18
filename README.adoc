@@ -260,6 +260,7 @@ For SDK settings the config doesn't cover, such as a span processor, a metric vi
 | `boot-telemetry-otel-micrometer-bridge` | Metrics | | A Micrometer `MeterRegistry` that bridges the metrics of libraries that report only to Micrometer, such as the Temporal SDK, to the application's OpenTelemetry SDK, which exports them with the rest.
 | `boot-server-http-ktor-otel` | Traces, metrics | `KtorTelemetryConfig` | Ktor server instrumentation, and the metrics scrape for a pulling backend; see below.
 | `boot-db-pool-hikari-otel` | Metrics | | HikariCP's pool metrics, such as `db.client.connections.usage` and `db.client.connections.wait_time`, through OpenTelemetry's HikariCP instrumentation: `hikariPoolMetrics(openTelemetry)` is a `HikariConfigCustomizer` to give `HikariConnectionPoolFactory`, and the Kodein `hikariPoolMetricsModule` (imported after `hikariPoolModule`) and the Metro bindings add it to the pool's customizers.
+| `boot-client-http-ktor-otel` | Traces, metrics | `HttpClientTelemetryConfig` | Ktor client instrumentation: each request of the HTTP clients of `boot-client-http-ktor` as a client span, within the span current where the call is made, and carrying its trace to the server it calls, and the standard HTTP client metrics, such as `http.client.request.duration`; see <<ClientHttp>>.
 | `boot-db-jdbc-otel` | Traces | | Each JDBC query as a client span, through OpenTelemetry's JDBC instrumentation: `jdbcTracing(openTelemetry)` is a `DataSourceWrapper` to give `JdbcDataSourceService`, and the Kodein `jdbcTracingModule()` (imported after `jdbcDataSourceModule`) and the Metro bindings add it to the pool's wrappers; see below.
 |===
 
@@ -304,11 +305,14 @@ telemetry {
   ktor {
     hostPort = ":9090"
   }
+  httpClient {
+    capturedResponseHeaders = [X-Request-Id]
+  }
 }
 ----
 
 With vanilla wiring, build the customizers, then an `OpenTelemetryService(telemetryConfig(binder), listOf(prometheus, ktorConfig.excludeScrapeFromTraces()))`, pass it to `boot` as an app service, and hand its `openTelemetry` to whatever records telemetry: e.g. `KtorTelemetry(telemetry.openTelemetry, setOf(prometheus), ktorConfig)`.
-With Kodein, import `openTelemetryModule`, then `prometheusTelemetryModule`, `gcpTelemetryModule`, `sigNozTelemetryModule`, `micrometerBridgeModule`, and `ktorTelemetryModule` as needed, and bind `OpenTelemetry` and `KtorTelemetry` where needed.
+With Kodein, import `openTelemetryModule`, then `prometheusTelemetryModule`, `gcpTelemetryModule`, `sigNozTelemetryModule`, `micrometerBridgeModule`, `ktorTelemetryModule`, and `httpClientTelemetryModule` (after `ktorClientModule`) as needed, and bind `OpenTelemetry` and `KtorTelemetry` where needed.
 With Metro, the `-metro` modules contribute everything.
 
 link:./examples/server-ktor-db[examples/server-ktor-db] traces its requests, with a span for each database operation within them, records its request, pool, and runtime metrics and a counter of its own, and serves them at http://localhost:8001/metrics, wired each of the three ways.
@@ -420,6 +424,98 @@ It runs with `./gradlew :examples:htmx:run`, at http://localhost:8003.
 
 See link:./examples/kilua[examples/kilua] for the same todo list written with https://kilua.dev[Kilua], a Compose-based alternative to Compose HTML, and also rendered on the server, by running the client in Node.js, in a process that Bootable starts before the server.
 It runs with `./gradlew :examples:kilua:server:run`, at http://localhost:8004, with the Node.js that Gradle downloads.
+
+[[ClientHttp]]
+=== Client HTTP (Ktor)
+
+`boot-client-http-ktor` provides the application's Ktor `HttpClient`s, tied to the application lifecycle.
+`KtorClientService` builds them when it is constructed, so they can be handed to other components right away, and a bad setting, such as an unreadable key store, fails the boot; it closes them, and their engines, when the application stops.
+It is in the `Infrastructure` phase, so services that make calls, in later phases, stop before the clients close, and a call in flight isn't cut off.
+Something in the same phase that uses the clients starts after the `HttpClientMilestones.ClientsReady` milestone.
+
+There is a default client, `clients.default`, and any number of named ones, `clients["github"]`, each its own `HttpClient`, with its own connection pool and settings.
+`clients.getOrDefault(name)` gives the named client if there is one, and the default otherwise, for e.g. a client per partner, where only some need settings of their own, such as their own client certificate.
+They are plain Ktor clients: Bootable applies the typed settings through Ktor's own plugins, and wraps nothing.
+
+[source,hocon]
+----
+http {
+  client {
+    default {
+      connectTimeout = 5s
+      requestTimeout = 30s
+      retry { maxRetries = 3 }
+    }
+    named {
+      github {
+        baseUrl = "https://api.github.com/"
+        headers { Accept = "application/vnd.github+json", Authorization = ${?GITHUB_AUTHORIZATION} }
+      }
+      partner {
+        requestTimeout = 300s
+        tls {
+          keyStore { base64 = ${?PARTNER_KEYSTORE}, password = ${?PARTNER_KEYSTORE_PASSWORD} }
+        }
+      }
+    }
+  }
+}
+----
+
+* `baseUrl`, through Ktor's `DefaultRequest`, is what relative request URLs resolve against: end it with a `/` to keep its last path segment.
+* `connectTimeout`, `requestTimeout`, and `socketTimeout`, through Ktor's `HttpTimeout`; unset, the engine's own defaults apply.
+* `headers` are sent with every request that doesn't set its own; they are `Masked`, since they often carry a token.
+* `retry`, through Ktor's `HttpRequestRetry`, retries only transient failures: a 5xx, 408, or 429 response, a timeout, or a failed connection.
+Any other 4xx is permanent, since the same request would fail the same way, and so is a failed TLS handshake.
+Only the idempotent methods are retried, unless `methods` says otherwise, so a request that may have changed something isn't sent twice.
+The delay grows exponentially, from `initialDelay` up to `maxDelay`, with some `jitter`, unless a `Retry-After` header says otherwise.
+`HttpStatusCode.isTransient()` and `Throwable.isTransient()` give the same classification to code that decides for itself, such as a workflow activity's.
+* `tls` holds the material for mutual TLS: the `keyStore` with the client certificate to present, the `keyAlias` of its key, if it holds several, and the `trustStore` of certificates to trust, if not the platform's.
+Each store is inline, as `base64`, so it can come from an environment variable or a secret, or a file, at `path`, with its `password` and `type`, `PKCS12` by default.
+A trust store can also be `PEM`: one or more certificates, such as a CA bundle, or a platform's mounted `ca.crt`.
+The certificate is presented whatever certificate authorities the server asks for, so a self-signed one works too.
+
+A named client takes every setting it leaves unset from the default client, adding to its headers, and taking `retry` and `tls` whole: an empty `tls {}` turns off a client certificate the default client has.
+
+A module that calls a service of its own can contribute its named client's default settings with a `KtorClientDefaults`, in the service's `defaults` or its set binding (Kodein `inBindSet`, Metro `@IntoSet`): e.g. a trust store of the platform's mounted CA certificate, so the application needn't configure one.
+The client exists whether or not the application configures it, and the application's `http.client.named.<name>` settings override the contributed ones the same way, field by field, with `tls` taken whole.
+Two modules that default the same client fail the boot.
+
+The engine is your choice: `boot-client-http-ktor` itself depends on none.
+Depend on the module for the engine you want, which brings that engine with it, and give its `KtorClientEngine` to the service:
+
+[cols="1,1,3"]
+|===
+| Module | Engine class | Engine
+
+| `boot-client-http-ktor-cio` | `CioClientEngine` | CIO: pure Kotlin, and the engine to use for a GraalVM native image. Its own TLS supports TLS 1.2 but not 1.3 (https://youtrack.jetbrains.com/issue/KTOR-6737[KTOR-6737]). Unless the client sets a `requestTimeout`, CIO's own 15 seconds applies.
+| `boot-client-http-ktor-java` | `JavaClientEngine` | The JDK's own `java.net.http.HttpClient`, with the JDK's TLS, including TLS 1.3, and HTTP/2, and no dependencies beyond Ktor's. It works in a native image too.
+|===
+
+Each engine class applies the client's TLS material in its engine's terms, and takes a lambda to set the engine's own options, e.g. `JavaClientEngine { protocolVersion = java.net.http.HttpClient.Version.HTTP_1_1 }`.
+Between them they cover native images and TLS 1.3, so Bootable has no module for Apache5 or OkHttp.
+For those, such as for the finer connection pool control of Apache HttpClient, or any other engine, give the service a `KtorClientEngine` of your own, a few lines that create the engine from its `KtorClientSpec`, applying its `tls.sslContext`.
+A `KtorClientEngine` is also the seam for tests: one that returns Ktor's `MockEngine`, `KtorClientEngine { MockEngine { respond("hello") } }`, answers every client's requests, with no other change to the wiring.
+
+For anything else, such as a plugin, add a `KtorClientCustomizer` to the service's customizers, or to its set binding (Kodein `inBindSet`, Metro `@IntoSet`).
+It runs for each client after the typed settings, with the client's name, or `default`, and Ktor's own `HttpClientConfig`.
+Bootable installs no `ContentNegotiation`, since which serialization library, and which `Json` settings, are the application's choice:
+
+[source,kotlin]
+----
+KtorClientCustomizer { name, config ->
+  config.install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+  if (name == "github") config.expectSuccess = true
+}
+----
+
+`boot-client-http-ktor-otel` adds one that traces and measures every request; see <<Telemetry>>.
+
+With vanilla wiring, construct `KtorClientService(binder.config("http.client"), CioClientEngine(), customizer)`, pass it to `boot` as an app service, and hand its clients to whatever makes calls.
+With Kodein, import `ktorClientModule`, which binds the `KtorClientService` and the default `HttpClient`, and bind the engine: `bindSingleton<KtorClientEngine> { CioClientEngine() }`.
+With Metro, `boot-client-http-ktor-metro` contributes the service and the default `HttpClient`, and the graph provides the engine: `@Provides fun engine(): KtorClientEngine = CioClientEngine()`; a graph without one fails to compile with a missing binding.
+
+link:./examples/server-ktor-db[examples/server-ktor-db]'s `GET /relay/{name}` gets an entry by calling the server back through a named client, so one trace shows the request, the client's call within it, and the server's handling of that call within that.
 
 == How to Use
 

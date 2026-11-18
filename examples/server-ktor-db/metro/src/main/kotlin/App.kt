@@ -2,6 +2,9 @@ import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.boot
+import com.github.rocketraman.bootable.client.http.ktor.CioClientEngine
+import com.github.rocketraman.bootable.client.http.ktor.KtorClientEngine
+import com.github.rocketraman.bootable.client.http.ktor.KtorClientService
 import com.github.rocketraman.bootable.config.ConfigBinderProvider
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.db.jdbc.JdbcHealthCheckBindings
@@ -39,8 +42,16 @@ interface EntriesBindings : ConfigBinderProvider {
   fun seedEntries(entries: EntryRepository): AppService = SeedEntriesService(entries)
 
   @Provides @IntoSet
-  fun entryServer(config: ServerConfig, entries: EntryRepository, telemetry: KtorTelemetry, health: KtorHealth): AppService =
-    EntryServer(config, entries, telemetry, health, "metro")
+  fun entryServer(
+    config: ServerConfig,
+    entries: EntryRepository,
+    telemetry: KtorTelemetry,
+    health: KtorHealth,
+    clients: KtorClientService,
+  ): AppService = EntryServer(config, entries, telemetry, health, clients["entries"], "metro")
+
+  /** The HTTP clients' engine; a test provides one that returns Ktor's MockEngine instead. */
+  @Provides fun ktorClientEngine(): KtorClientEngine = CioClientEngine()
 
   /**
    * A span for each connection taken from the pool too, as well as each query, which shows the pool's start and its
@@ -68,6 +79,8 @@ interface EntriesBindings : ConfigBinderProvider {
  * span within its request's trace, as is each connection taken from the pool (`JdbcTelemetryConfigurer`).
  * `boot-metro` tracks the application's health from its lifecycle, which the server serves
  * (`boot-server-http-ktor-metro`), with readiness down while the database doesn't answer (`JdbcHealthCheckBindings`).
+ * The HTTP clients (`boot-client-http-ktor-metro`, from `http.client`) run on CIO, and
+ * `boot-client-http-ktor-otel-metro` makes each of their requests a client span within its caller's trace.
  */
 @DependencyGraph(
   AppScope::class,

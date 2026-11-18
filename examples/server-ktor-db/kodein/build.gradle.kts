@@ -30,6 +30,9 @@ dependencies {
   implementation(project(path = ":boot-server-http-ktor", configuration = "kodeinElements"))
   // HikariCP's pool metrics, through the application's OpenTelemetry
   implementation(project(path = ":boot-db-pool-hikari-otel", configuration = "kodeinElements"))
+  // the HTTP clients, each request traced within its caller's trace
+  implementation(project(path = ":boot-client-http-ktor", configuration = "kodeinElements"))
+  implementation(project(path = ":boot-client-http-ktor-otel", configuration = "kodeinElements"))
 }
 
 application {

@@ -2,6 +2,7 @@ import com.github.rocketraman.bootable.boot.Health
 import com.github.rocketraman.bootable.boot.StartOrder
 import com.github.rocketraman.bootable.boot.startPlan
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
+import com.github.rocketraman.bootable.client.http.ktor.KtorClientService
 import com.github.rocketraman.bootable.db.exposed.ExposedDatabaseService
 import com.github.rocketraman.bootable.db.exposed.SchemaVerificationService
 import com.github.rocketraman.bootable.db.flyway.FlywayMigrationService
@@ -19,13 +20,14 @@ private val noHealthListener = KtorHealth(Health()).listener(CIO)
 
 /** The wiring resolves; nothing is started, so no database is created. */
 val AppTest by testSuite {
-  test("wires the telemetry, database, migrations, schema verification, seed entries, and server") {
+  test("wires the telemetry, database, HTTP clients, migrations, schema verification, seed entries, and server") {
     val services = EntriesApp(hopliteConfigBinder(report = false)).services
 
     assert(
       services.map { it::class }.toSet() == setOf(
         OpenTelemetryService::class,
         JdbcDataSourceService::class,
+        KtorClientService::class,
         ExposedDatabaseService::class,
         FlywayMigrationService::class,
         SchemaVerificationService::class,

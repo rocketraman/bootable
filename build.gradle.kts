@@ -32,6 +32,10 @@ val signingRequired: String by project
 
 dependencies {
   dokka(project(":boot"))
+  dokka(project(":boot-client-http-ktor"))
+  dokka(project(":boot-client-http-ktor-cio"))
+  dokka(project(":boot-client-http-ktor-java"))
+  dokka(project(":boot-client-http-ktor-otel"))
   dokka(project(":boot-common"))
   dokka(project(":boot-config-common"))
   dokka(project(":boot-config-hoplite"))
@@ -219,6 +223,93 @@ project("boot") {
     runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
   }
 
+}
+
+project("boot-client-http-ktor") {
+  configureDiVariants()
+  dependencies {
+    // KtorClientService is an AppService, and the clients it owns are Ktor's own HttpClient
+    api(project(":boot"))
+    api(project(":boot-config-common"))
+    // engine-agnostic: the engine comes from one of the boot-client-http-ktor-<engine> modules, or the application
+    api(rootProject.libs.ktor.client.core)
+    // the logging API only: the application chooses the logging implementation (e.g. boot-logging-log4j2)
+    implementation(rootProject.libs.bundles.log4j.api)
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+
+    // the clients run against a real server on each engine, and against a MockEngine through the engine seam
+    testImplementation(project(":boot-client-http-ktor-cio"))
+    testImplementation(project(":boot-client-http-ktor-java"))
+    testImplementation(rootProject.libs.ktor.client.mock)
+    // certificates for the mutual TLS tests, generated as they run
+    testImplementation(rootProject.libs.ktor.network.tls.certificates)
+    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(":boot-logging-log4j2"))
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+  }
+}
+
+// Each engine module is a KtorClientEngine for its engine, applying the clients' TLS settings in that engine's own
+// terms, and brings that engine transitively
+listOf(
+  "cio" to rootProject.libs.ktor.client.cio,
+  "java" to rootProject.libs.ktor.client.java,
+).forEach { (engine, engineLibrary) ->
+  project("boot-client-http-ktor-$engine") {
+    dependencies {
+      api(project(":boot-client-http-ktor"))
+      api(engineLibrary)
+    }
+  }
+}
+
+// traces and measures each client request through the application's OpenTelemetry, as a KtorClientCustomizer
+project("boot-client-http-ktor-otel") {
+  configureDiVariants()
+  dependencies {
+    api(project(":boot-client-http-ktor"))
+    // the customizer only needs an OpenTelemetry, whichever SDK built it
+    api(rootProject.libs.opentelemetry.api)
+    api(rootProject.libs.opentelemetry.instrumentation.ktor)
+    // each flavor adds to the clients' customizers, over the OpenTelemetry of boot-telemetry-otel's SDK, so it brings
+    // both modules' matching flavors
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-client-http-ktor", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot-client-http-ktor", configuration = "kodeinElements"))
+    "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+
+    // client calls are made from within a real, traced server's requests
+    testImplementation(project(":boot-client-http-ktor-cio"))
+    testImplementation(project(":boot-server-http-ktor-cio"))
+    testImplementation(project(":boot-server-http-ktor-otel"))
+    testImplementation(project(":boot-telemetry-otel"))
+    testImplementation(rootProject.libs.ktor.client.mock)
+    testImplementation(rootProject.libs.opentelemetry.sdk.testing)
+    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-client-http-ktor", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-client-http-ktor", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+    testImplementation(project(":boot-logging-log4j2"))
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+  }
 }
 
 project("boot-common") {

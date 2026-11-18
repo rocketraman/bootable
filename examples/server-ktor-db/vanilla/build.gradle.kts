@@ -27,6 +27,9 @@ dependencies {
   implementation(project(":boot-server-http-ktor-otel"))
   // HikariCP's pool metrics, through the application's OpenTelemetry
   implementation(project(":boot-db-pool-hikari-otel"))
+  // the HTTP clients on CIO, each request traced within its caller's trace
+  implementation(project(":boot-client-http-ktor-cio"))
+  implementation(project(":boot-client-http-ktor-otel"))
 }
 
 application {

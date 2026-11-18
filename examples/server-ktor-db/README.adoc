@@ -1,9 +1,10 @@
 = Server with a database example
 
 A Ktor server that stores entries in a SQLite database, through a HikariCP pool, Flyway migrations, and Exposed, and traces and measures itself with OpenTelemetry.
+Its `GET /relay/{name}` calls the server back through a lifecycle-managed Ktor `HttpClient`, as a call to another service would be made.
 It is wired three ways, with the same server and config in `common`: `vanilla`, `kodein`, and `metro`.
 `jib` builds the vanilla app into a container image, with its JVM AOT cache in it, and the repository's `server-ktor-db` https://dagger.io[Dagger] module does the same as a CI pipeline.
-See the Database and Telemetry sections of the link:../../README.adoc[README] for the modules it uses.
+See the Database, Telemetry, and Client HTTP sections of the link:../../README.adoc[README] for the modules it uses.
 
 == Running it
 
@@ -20,6 +21,13 @@ Store an entry with:
 [source,shell]
 ----
 curl -X PUT --data 'hello' http://localhost:8001/entries/greeting
+----
+
+Get it back through the HTTP client, which calls `GET /entries/greeting` on the server, as configured under `http.client.named.entries`:
+
+[source,shell]
+----
+curl http://localhost:8001/relay/greeting
 ----
 
 The config is in `common/src/main/resources/application.conf`.
@@ -97,7 +105,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 TELEMETRY_SDK_METRICS_INTERVAL
 
 After a few requests, open Grafana at http://localhost:3000, and in Explore:
 
-* choose Tempo, and search for the service `entries`: each request is a trace, such as `PUT /entries/{name}`, with a span for the database operation within it, such as `entries.put`, and a client span for each of its queries within that, such as `INSERT entries.db.entry`, from `boot-db-jdbc-otel`; the application's start is a trace too, `start application`, with a span for each service's start within it, such as `start FlywayMigrationService`, and the migrations' queries within that;
+* choose Tempo, and search for the service `entries`: each request is a trace, such as `PUT /entries/{name}`, with a span for the database operation within it, such as `entries.put`, and a client span for each of its queries within that, such as `INSERT entries.db.entry`, from `boot-db-jdbc-otel`; `GET /relay/{name}` has a client span, `GET`, from `boot-client-http-ktor-otel`, with the server's own `GET /entries/{name}` within it, since the client carries the trace in a `traceparent` header; the application's start is a trace too, `start application`, with a span for each service's start within it, such as `start FlywayMigrationService`, and the migrations' queries within that;
 * choose Prometheus, and query the same metrics as the scrape, such as `entries_stored_total`, pushed over OTLP.
 
 Spans are exported in batches, every few seconds, and whatever is still buffered is exported when the example stops.

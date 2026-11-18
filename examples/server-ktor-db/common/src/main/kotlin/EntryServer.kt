@@ -5,6 +5,9 @@ import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.server.http.ktor.installHealth
 import com.github.rocketraman.bootable.server.http.ktor.installTelemetry
 import com.github.rocketraman.bootable.telemetry.otel.withSpan
+import io.ktor.client.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.html.*
@@ -55,6 +58,7 @@ fun HTML.index(entries: Map<String, String>, bindings: String) {
       li { code { +"GET /entries/{name}" }; +" returns an entry's value" }
       li { code { +"PUT /entries/{name}" }; +" stores the request body as the value" }
       li { code { +"DELETE /entries/{name}" }; +" removes an entry" }
+      li { code { +"GET /relay/{name}" }; +" gets an entry by calling this server back through an HTTP client, in one trace" }
       li { code { +"GET /metrics" }; +" the application's metrics, for Prometheus to scrape" }
       li { code { +"GET /health/live" }; +" liveness: 200 until the application has stopped" }
       li { code { +"GET /health/ready" }; +" readiness: 200 while the application is running and its database answers, 503 otherwise" }
@@ -141,6 +145,9 @@ document.addEventListener('click', event => {
  * - `GET /entries/{name}` returns the value, or 404
  * - `PUT /entries/{name}` stores the request body as the value
  * - `DELETE /entries/{name}` removes the entry, or 404
+ * - `GET /relay/{name}` gets the entry by calling `GET /entries/{name}` through [relay], an HTTP client, and answers
+ *   with what that answered: an example of a call out, which is a client span within the request's trace, and carries
+ *   the trace to the server it calls, here this one
  *
  * [telemetry] traces and measures every request, and serves the Prometheus scrape at `/metrics`, unless
  * `telemetry.ktor.hostPort` puts it on a port of its own. Each database operation is a span of its own, within the
@@ -154,6 +161,7 @@ class EntryServer(
   private val entries: EntryRepository,
   private val telemetry: KtorTelemetry,
   private val health: KtorHealth,
+  private val relay: HttpClient,
   private val bindings: String,
 ) : CioKtorService("entries", config) {
   private val logger = logger()
@@ -169,6 +177,12 @@ class EntryServer(
       get("/") {
         val all = tracer.withSpan("entries.all") { entries.all() }
         call.respondHtml(HttpStatusCode.OK) { index(all, bindings) }
+      }
+
+      get("/relay/{name}") {
+        val name = call.parameters["name"]!!
+        val response = relay.get("entries/${name.encodeURLPathPart()}")
+        call.respondText(response.bodyAsText(), status = response.status)
       }
 
       route("/entries") {
