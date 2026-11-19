@@ -14,6 +14,7 @@ import com.github.rocketraman.bootable.telemetry.otel.MetricsConfig
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
 import com.github.rocketraman.bootable.telemetry.otel.PrometheusTelemetry
 import com.github.rocketraman.bootable.telemetry.otel.TelemetryConfig
+import com.github.rocketraman.bootable.test.captureLogs
 import de.infix.testBalloon.framework.core.testSuite
 import io.ktor.client.HttpClient
 import io.ktor.client.request.*
@@ -24,6 +25,7 @@ import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteRecursively
 import kotlin.time.TimeSource
+import org.apache.logging.log4j.Level
 
 /**
  * Runs the server's routes against a real SQLite database in a temporary directory, wired as in `main` but with the
@@ -99,9 +101,12 @@ val EntryServerTest by testSuite {
     }
   }
 
-  test("a stored entry can be read back") {
+  test("a stored entry can be read back, and is logged") {
     withServer {
-      assert(put("/entries/greeting") { setBody("hello") }.status == HttpStatusCode.NoContent)
+      val logs = captureLogs("EntryServer") {
+        assert(put("/entries/greeting") { setBody("hello") }.status == HttpStatusCode.NoContent)
+      }
+      assert(logs.messages(Level.INFO) == listOf("Stored entry greeting"))
 
       val response = get("/entries/greeting")
       assert(response.status == HttpStatusCode.OK)

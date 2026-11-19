@@ -164,7 +164,8 @@ class EntryServer(
   private val relay: HttpClient,
   private val bindings: String,
 ) : CioKtorService("entries", config) {
-  private val logger = logger()
+  // not `logger`: in a route, that would be log4j-api-kotlin's logger of the RoutingContext receiver
+  private val entriesLog = logger()
   private val tracer = telemetry.openTelemetry.getTracer("entries")
   private val stored = telemetry.openTelemetry.getMeter("entries").counterBuilder("entries.stored")
     .setDescription("Entries stored, new or replaced")
@@ -202,7 +203,7 @@ class EntryServer(
           val value = call.receiveText()
           tracer.withSpan("entries.put") { entries.put(name, value) }
           stored.add(1)
-          logger.info { "Stored entry $name" }
+          entriesLog.info { "Stored entry $name" }
           call.respond(HttpStatusCode.NoContent)
         }
 
