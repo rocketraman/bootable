@@ -24,6 +24,10 @@ import kotlin.concurrent.thread
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /** An application server, which installs [health]'s routes. */
 private class AppServer(private val health: KtorHealth) :
@@ -63,13 +67,24 @@ private class App(private val health: Health, vararg services: AppService) {
 
 private val client = HttpClient.newHttpClient()
 
-private data class Response(val status: Int, val body: String)
+private data class Response(val status: Int, val body: String, val contentType: String? = null)
 
 private fun get(port: Int, path: String): Response {
   val request = HttpRequest.newBuilder(URI("http://127.0.0.1:$port$path")).build()
   val response = client.send(request, HttpResponse.BodyHandlers.ofString())
-  return Response(response.statusCode(), response.body())
+  return Response(response.statusCode(), response.body(), response.headers().firstValue("Content-Type").orElse(null))
 }
+
+/** A health route's answer: its status, and its body, parsed as JSON. */
+private data class HealthResponse(val status: Int, val body: JsonElement)
+
+private fun getHealth(port: Int, path: String): HealthResponse {
+  val response = get(port, path)
+  assert(response.contentType?.startsWith("application/json") == true) { "Content-Type: ${response.contentType}" }
+  return HealthResponse(response.status, Json.parseToJsonElement(response.body))
+}
+
+private fun health(status: Int, json: String) = HealthResponse(status, Json.parseToJsonElement(json))
 
 private suspend fun KtorService<*, *>.port() = server.engine.resolvedConnectors().single().port
 
@@ -85,15 +100,23 @@ val KtorHealthTest by testSuite {
 
     app.start {
       val port = kotlinx.coroutines.runBlocking { server.port() }
-      assert(get(port, "/health/live") == Response(200, "UP\nstate: Starting\n"))
-      assert(get(port, "/health/ready") == Response(503, "DOWN\nstate: Starting\n"))
+      assert(getHealth(port, "/health/live") == health(200, """{"status": "UP", "state": "Starting", "checks": {}}"""))
+      assert(getHealth(port, "/health/ready") == health(503, """{"status": "DOWN", "state": "Starting", "checks": {}}"""))
     }
     val port = server.port()
-    assert(get(port, "/health/live") == Response(200, "UP\nstate: Running\n"))
-    assert(get(port, "/health/ready") == Response(200, "UP\nstate: Running\ndb: UP\n"))
+    assert(getHealth(port, "/health/live") == health(200, """{"status": "UP", "state": "Running", "checks": {}}"""))
+    assert(getHealth(port, "/health/ready") == health(200, """{"status": "UP", "state": "Running", "checks": {"db": {"status": "UP"}}}"""))
 
     dbUp = false
-    assert(get(port, "/health/ready") == Response(503, "DOWN\nstate: Running\ndb: DOWN (db is down)\n"))
+    val down = getHealth(port, "/health/ready")
+    assert(
+      down == health(
+        503,
+        """{"status": "DOWN", "state": "Running", "checks": {"db": {"status": "DOWN", "reason": "db is down"}}}""",
+      ),
+    )
+    // a consumer can check one service
+    assert(down.body.jsonObject["checks"]!!.jsonObject["db"]!!.jsonObject["status"]!!.jsonPrimitive.content == "DOWN")
     assert(get(port, "/health/live").status == 200)
     dbUp = true
 
@@ -104,9 +127,9 @@ val KtorHealthTest by testSuite {
       check(mark.elapsedNow() < 10.seconds)
       Thread.sleep(5)
     }
-    assert(get(port, "/health/ready") == Response(503, "DOWN\nstate: Stopping\n"))
-    assert(get(port, "/health/live") == Response(200, "UP\nstate: Stopping\n"))
-    assert(get(port, "/hello") == Response(200, "hello"))
+    assert(getHealth(port, "/health/ready") == health(503, """{"status": "DOWN", "state": "Stopping", "checks": {}}"""))
+    assert(getHealth(port, "/health/live") == health(200, """{"status": "UP", "state": "Stopping", "checks": {}}"""))
+    assert(get(port, "/hello").let { it.status == 200 && it.body == "hello" })
     stopping.join()
     assert(health.state == LifecycleState.Stopped)
   }
@@ -125,7 +148,7 @@ val KtorHealthTest by testSuite {
     try {
       val healthPort = (listener as HealthKtorService<*, *>).port()
       assert(get(healthPort, "/live").status == 200)
-      assert(get(healthPort, "/ready") == Response(200, "UP\nstate: Running\n"))
+      assert(getHealth(healthPort, "/ready") == health(200, """{"status": "UP", "state": "Running", "checks": {}}"""))
       // not on the application's server
       assert(get(server.port(), "/ready").status == 404)
     } finally {

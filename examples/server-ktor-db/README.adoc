@@ -34,12 +34,19 @@ The config is in `common/src/main/resources/application.conf`.
 
 === Health
 
-Liveness is at http://localhost:8001/health/live, and readiness at http://localhost:8001/health/ready, from Bootable's lifecycle: `200` and `UP`, or `503` and `DOWN`, with the lifecycle state and each readiness check.
+Liveness is at http://localhost:8001/health/live, and readiness at http://localhost:8001/health/ready, from Bootable's lifecycle: `200` and `UP`, or `503` and `DOWN`, as JSON, with the lifecycle state and each readiness check.
 Readiness is up only while the application is running, and the database answers its check:
 
 [source,shell]
 ----
 curl -i http://localhost:8001/health/ready
+----
+
+Each check is in the body by name, so a script can check one, such as the database:
+
+[source,shell]
+----
+curl -s http://localhost:8001/health/ready | jq -e '.checks.jdbc.status == "UP"'
 ----
 
 To see readiness go down before the server stops, set `health.readiness.drainDelay`, e.g. `HEALTH_READINESS_DRAINDELAY=10s`, stop the app with Ctrl-C, and ask for readiness again during the delay.

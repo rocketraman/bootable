@@ -168,7 +168,8 @@ val EntryServerTest by testSuite {
       health.aroundAppStart(ServiceContext(emptySet(), emptyList(), {}, {}), StartupTimeline(TimeSource.Monotonic.markNow())) {}
       val ready = get("/health/ready")
       assert(ready.status == HttpStatusCode.OK)
-      assert(ready.bodyAsText() == "UP\nstate: Running\njdbc: UP\n")
+      assert(ready.contentType()?.match(ContentType.Application.Json) == true)
+      assert(ready.bodyAsText() == """{"status":"UP","state":"Running","checks":{"jdbc":{"status":"UP"}}}""")
     }
   }
 

@@ -96,7 +96,7 @@ One that returns Ktor's `MockEngine` answers the clients' requests in a test, wi
 None by default.
 * With Kodein, `bootableModule` binds `Health`, adds it to the lifecycle controllers, and opens a `Set<HealthCheck>`; with Metro, `BootableDefaultBindings` does the same, and `BootableGraph` has a `healthChecks` multibinding.
 * `boot-db-jdbc` adds `JdbcHealthCheck`, which checks that a connection from the pool is valid, opt-in through Kodein's `jdbcHealthCheckModule` or Metro's `JdbcHealthCheckBindings`.
-* `boot-server-http-ktor` adds `KtorHealth`, which serves liveness at `/health/live` and readiness at `/health/ready`, `200` or `503`, on the application's server or on a listener of their own, from the `health.ktor` config section (`KtorHealthConfig`).
+* `boot-server-http-ktor` adds `KtorHealth`, which serves liveness at `/health/live` and readiness at `/health/ready`, `200` or `503`, with a JSON body of the status, the lifecycle state, and each readiness check's status and reason, by name, on the application's server or on a listener of their own, from the `health.ktor` config section (`KtorHealthConfig`).
 It now has Kodein and Metro flavors, `boot-server-http-ktor-kodein` and `boot-server-http-ktor-metro`, which provide `KtorHealth`.
 * `boot-server-http-ktor-otel` adds `KtorHealthConfig.excludeHealthFromTraces()`, which its Kodein and Metro flavors add to the SDK's customizers, so the probes aren't traced.
 
