@@ -207,7 +207,7 @@ Its costs:
 The constants keep the stylesheet and the client in step, but only as long as every use goes through them; the compiler doesn't require it, as it does for a `StyleSheet`.
 * Nothing is scoped: class names aren't generated, so features must avoid each other's names by convention.
 * Its nested rules, such as `hover { }` inside a rule, are written as native CSS nesting (`&:hover`), which needs a browser from 2023 or later.
-* Its style is property assignment (`padding = Padding(...)`), unlike a `StyleSheet`'s function calls (`padding(...)`), so an app that uses both has two CSS vocabularies.
+* Its style is property assignment (`padding = Padding(...)`), unlike a ``StyleSheet``'s function calls (`padding(...)`), so an app that uses both has two CSS vocabularies.
 * Its releases follow Kotlin closely: those from 2026.6.2 on need Kotlin 2.4, so pick a release built for the app's Kotlin version.
 
 Consider kotlin-css where full typing, or a stylesheet served from the server, matters more than checked class names; otherwise, we recommend a `StyleSheet`.
