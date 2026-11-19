@@ -27,6 +27,9 @@ data class PropertiesConfig(val values: Map<String, String>)
 // public: hoplite constructs it reflectively
 data class DefaultedConfig(val host: String = "default.example.com")
 
+// public: hoplite constructs it reflectively
+data class ClientsConfig(val named: Map<String, ServerConfig>)
+
 private fun binder(env: Map<String, String>): ConfigBinder =
   hopliteConfigBinder(report = false, environmentVariables = { env })
 
@@ -202,6 +205,24 @@ val HopliteConfigBinderTest by testSuite {
     val binder = hocon("properties.values { alphaKey = a }", mapOf("PROPERTIES_VALUES_ALPHAKEY" to "b"))
 
     assert(binder.config<PropertiesConfig>("properties").values == mapOf("alphaKey" to "b"))
+  }
+
+  test("an environment variable overrides a property of a map entry without respelling its key") {
+    val binder = hocon(
+      "clients.named { entries { host = a.example, port = 8001 }, myClient { host = b.example, port = 8001 } }",
+      mapOf("CLIENTS_NAMED_ENTRIES_PORT" to "8002", "CLIENTS_NAMED_MYCLIENT_PORT" to "8003"),
+    )
+
+    assert(
+      binder.config<ClientsConfig>("clients").named ==
+        mapOf("entries" to ServerConfig("a.example", 8002), "myClient" to ServerConfig("b.example", 8003))
+    )
+  }
+
+  test("a map entry that only environment variables define is keyed in upper case") {
+    val binder = hocon("clients.named {}", mapOf("CLIENTS_NAMED_OTHER_HOST" to "c.example", "CLIENTS_NAMED_OTHER_PORT" to "8004"))
+
+    assert(binder.config<ClientsConfig>("clients").named == mapOf("OTHER" to ServerConfig("c.example", 8004)))
   }
 
   test("environment variables override config with underscores as separators") {
