@@ -394,9 +394,8 @@ db {
 
 For anything else, such as a `SchedulerListener`, an `ExecutionInterceptor`, or another serializer, add a `DbSchedulerCustomizer`, which adjusts db-scheduler's `SchedulerBuilder` after the typed settings.
 
-With DI, the application's tasks come from `DbSchedulerTaskProvider`s, rather than from a set of db-scheduler's own `Task<*>`.
+With DI, the application's tasks come from `DbSchedulerTaskProvider`s.
 A provider is usually the class whose work its tasks do: it provides them all, and exposes each typed, such as the `OneTimeTask<T>` that code schedules instances of, so a task needs no second binding.
-A set of `Task<*>` would also miss, without a word, a task contributed as its own type, such as a `RecurringTask<Void>`.
 
 [source,kotlin]
 ----
