@@ -6,6 +6,43 @@
 
 * Modules target Kotlin API 2.3 (was 2.1), so applications need Kotlin 2.3 or later.
 
+=== Lifecycle on coroutines
+
+See link:docs/coroutine-lifecycle.adoc[A coroutine lifecycle].
+
+* `Bootable.run()` is a public suspending function that returns the exit code; `boot` exits with it.
+* `Bootable.stop(exitCode)` never blocks, works from any thread, and the first stop wins.
+* A stop during the start cancels the start; cancelling `run` stops the application.
+* `AdvancedAppService.start(scope)` gets a scope, a child of the app's, for background work.
+* A failing coroutine in a service's scope stops the app in order, with exit code 1.
+* Bootable cancels a service's scope once the service has stopped.
+* The shutdown timeout cancels the stop and exits with 1; it halts only if the stop still blocks.
+* A timed-out stop logs service states, live coroutines, and thread stacks (coroutine stacks with `DebugProbes`).
+* Bootable tracks each service's `ServiceState`, in `ServiceContext.states` and the health reports.
+* Readiness runs checks concurrently, each within `health.readiness.checkTimeout` (800 ms).
+* A blocking check can't delay readiness past its timeout, and isn't rerun while it runs.
+* `Health.states` is a `StateFlow` of the lifecycle state.
+* `ServiceStartTracing` carries its spans in the coroutine context, across threads.
+* The JVM shutdown hook waits for the stop to complete.
+
+==== Breaking changes
+
+* `AppService.start`/`shutdown`, `HealthCheck.check`, and `Health.readiness` suspend.
+* `LifecycleController` hooks `appStart`, `aroundAppStart`, `aroundServiceStart`, `appShutdown`, `appCleanup` suspend.
+* `ServiceContext.serviceStart` and `serviceShutdown` suspend.
+* `AdvancedAppService.start(die)` is now `start(scope: CoroutineScope)`; `die` and `KtorService.die` are removed.
+* `appShutdown` takes a `Duration` and no longer gets an `exitProcess` callback.
+* `boot(maxShutdownTime)` is a `Duration` (was seconds).
+* `boot` now has an API dependency on `kotlinx-coroutines-core`.
+
+==== Migrating
+
+* Add `suspend` to overrides of `start`, `shutdown`, `check`, and the controller hooks.
+* Wrap blocking calls in them in `withContext(Dispatchers.IO)`; call suspending code without `runBlocking`.
+* Launch an `AdvancedAppService`'s background work in its `start` scope, and drop its own scope.
+* Replace `die()` with a throw in the scope, or `scope.launch { throw e }` from outside it.
+* Write `boot(maxShutdownTime = 30.seconds)` for `boot(maxShutdownTime = 30)`.
+
 === Service start order: phases and milestones
 
 See link:docs/service-ordering.adoc[Service ordering].
