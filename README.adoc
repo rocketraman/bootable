@@ -701,10 +701,17 @@ Publishes nothing.
 |`dev`
 |`image`, on port 8001; `dagger start` runs it, and tunnels the port to `localhost`.
 
+|`lgtm`
+|`image`, on port 8002, as `lgtm dev`, exporting its traces and metrics over OTLP to Grafana's `otel-lgtm` stack, as `lgtm stack`, which runs alongside it.
+`dagger start server-ktor-db/lgtm` starts both, and tunnels the app's port, Grafana's, 3000, and the collector's, 4318, to `localhost`.
+
 |`env`
 |The build container before Gradle has run.
 `dagger api call server-ktor-db env terminal` opens a shell in it.
 |===
+
+`dagger start` doesn't show the services' own output, such as the app's log: its view shows only the tunnels and the ports' health checks.
+`dagger start --progress logs` prints it, under the function that defines each service, such as `ServerKtorDb.dev`.
 
 Jib builds the image, without a container runtime, and the module trains the cache in a container of it, then adds the cache to that same container, so the JDK build, and the jars' sizes and modification times, are the training's by construction.
 The image is defined once, in the Jib example's build, for both Gradle and Dagger: its base image, JVM flags, class path, port and environment.

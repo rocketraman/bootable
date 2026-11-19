@@ -205,11 +205,80 @@ type ServerKtorDb {
   """
   @up
   pub dev: Service! {
-    image
-      .withExposedPort(8001)
+    serve(image, 8001)
+  }
+
+  """
+  `dev`, on port 8002, exporting its traces and metrics over OTLP to Grafana's `otel-lgtm` stack, which runs alongside
+  it. `dagger start server-ktor-db/lgtm` starts both.
+  """
+  pub lgtm: Lgtm! {
+    Lgtm(parent: self)
+  }
+
+  """
+  Runs `ctr` as the image's entrypoint does, as a service on `port`.
+
+  The script unsets Dagger's own `OTEL_*` variables, as `startAndStop` does, then exports `OTLP_ENDPOINT`, if set,
+  as `OTEL_EXPORTER_OTLP_ENDPOINT`: a variable of the app's own, without the `OTEL_` prefix, so the unset leaves it.
+  """
+  let serve(ctr: Container!, port: Int!): Service! {
+    ctr
+      .withEnvVariable("SERVER_HOSTPORT", `:${port}`)
+      # the runtime exposes 8001, its default
+      .withoutExposedPort(8001)
+      .withExposedPort(port)
       .asService(args: ["bash", "-c", """
         for var in $(compgen -e | grep -E '^(OTEL_|TRACEPARENT$|TRACESTATE$)' || true); do unset "$var"; done
-        exec java -XX:AOTCache=/app/aot/server-ktor-db.aot -cp @/app/jib-classpath-file AppKt
+        [ -z "$OTLP_ENDPOINT" ] || export OTEL_EXPORTER_OTLP_ENDPOINT="$OTLP_ENDPOINT"
+        # the relay's client calls the server back, on its own port: a system property, as an environment variable
+        # would add a client named ENTRIES, in upper case, beside the config's entries
+        exec java -XX:AOTCache=/app/aot/server-ktor-db.aot \\
+          "-Dconfig.override.http.client.named.entries.baseUrl=http://localhost$SERVER_HOSTPORT/" \\
+          -cp @/app/jib-classpath-file AppKt
         """])
+  }
+}
+
+"""
+The image, with Grafana's `otel-lgtm` stack: an OpenTelemetry collector, Prometheus, Tempo, Loki and Grafana, in one
+container. `dagger start server-ktor-db/lgtm` starts both, and tunnels the app's port, 8002, Grafana's, 3000, and the
+collector's, 4318, to `localhost`.
+The app is on 8002, not `dev`'s 8001, so a plain `dagger start`, which starts every service, can tunnel both.
+"""
+type Lgtm {
+  let parent: ServerKtorDb!
+
+  new(parent: ServerKtorDb!) {
+    self.parent = parent
+    self
+  }
+
+  """
+  Grafana's `otel-lgtm` stack: Grafana on port 3000, and its collector's OTLP receiver on 4318, over HTTP.
+  The app reaches it by its binding's hostname, `lgtm`.
+  """
+  @up
+  pub stack: Service! {
+    container
+      .from("docker.io/grafana/otel-lgtm:0.41.0")
+      .withExposedPort(3000)
+      .withExposedPort(4318)
+      .asService
+  }
+
+  """
+  The image, on port 8002, exporting its traces and metrics to `stack`, its metrics every 5 seconds, rather than
+  every minute, so they show in Grafana soon after the requests.
+  """
+  @up
+  pub dev: Service! {
+    parent.serve(
+      parent.image
+        .withServiceBinding("lgtm", stack)
+        .withEnvVariable("OTLP_ENDPOINT", "http://lgtm:4318")
+        .withEnvVariable("TELEMETRY_SDK_METRICS_INTERVAL", "5s"),
+      8002,
+    )
   }
 }
