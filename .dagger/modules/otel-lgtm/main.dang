@@ -1,0 +1,24 @@
+"""
+Grafana's `otel-lgtm` stack, to demo the examples' traces and metrics. LGTM is Grafana's name for its observability
+stack: Loki for logs, Grafana to see them, Tempo for traces, and Mimir for metrics; the `otel-lgtm` image puts an
+OpenTelemetry collector in front of them, with Prometheus for the metrics, all in one container. It isn't part of
+Bootable; an example's module takes it as its OTLP collector, a service setting, which `dagger.toml` wires to
+`otelStack`.
+"""
+type OtelLgtm {
+  """
+  The OTEL stack: Grafana on port 3000, and an OTLP collector on 4318.
+
+  Grafana's LGTM stack, of Loki for logs, Grafana, Tempo for traces, and Prometheus for metrics, behind an
+  OpenTelemetry collector, whose OTLP receiver is on 4318, over HTTP. `dagger start` tunnels both ports to
+  `localhost`.
+  """
+  @up
+  pub otelStack: Service! {
+    container
+      .from("docker.io/grafana/otel-lgtm:0.41.0")
+      .withExposedPort(3000)
+      .withExposedPort(4318)
+      .asService
+  }
+}

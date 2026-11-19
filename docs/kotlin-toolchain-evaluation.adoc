@@ -250,7 +250,7 @@ So `metro.module-template.yaml` applies `common.module-template.yaml` and sets 2
 * *A declarative build.*
 The spike's build is ~350 lines of YAML (one `project.yaml`, four small templates, one `module.yaml` per module, much of it repeated `apply:` boilerplate), compared with ~570 lines of Gradle Kotlin DSL and properties.
 None of it is imperative code.
-* *Built-in JDK provisioning* (`settings.jvm.jdk.version: 21` + `release: 17`), replacing `.mise.toml` / `setup-java` for builds.
+* *Built-in JDK provisioning* (`settings.jvm.jdk.version: 21` + `release: 17`), replacing `mise.toml` / `setup-java` for builds.
 * *Good diagnostics*: precise file/line errors, e.g. "Maven Central requires artifact signatures" pointing at both conflicting lines.
 
 == Build speed

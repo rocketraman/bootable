@@ -875,7 +875,7 @@ It is one file, with no generated code and no package manager.
 
 Dagger needs a container runtime: Docker, or Podman with its socket enabled.
 `mise install` provides the Dagger CLI.
-The module needs the 1.0 beta, which the stable CLI downloads and runs when `DAGGER_X_RELEASE` names it; `.mise.toml` sets that variable.
+The module needs the 1.0 beta, which the stable CLI downloads and runs when `DAGGER_X_RELEASE` names it; `mise.toml` sets that variable.
 Without mise, install a stable CLI of 0.21.3 or later, and export `DAGGER_X_RELEASE=v1.0.0-beta.28`.
 Bootable sends no traces to Dagger Cloud unless you provide your own `DAGGER_CLOUD_TOKEN` or run `dagger login`.
 
@@ -915,20 +915,34 @@ Publishes nothing.
 |Starts `image`, and fails unless at least `--min-percent`, by default 90, of the classes it loads come from the cache.
 `verify stdout` says how many.
 
-|`dev`
-|`image`, on port 8001; `dagger start` runs it, and tunnels the port to `localhost`.
-
-|`lgtm`
-|`image`, on port 8002, as `lgtm dev`, exporting its traces and metrics over OTLP to Grafana's `otel-lgtm` stack, as `lgtm stack`, which runs alongside it.
-`dagger start server-ktor-db/lgtm` starts both, and tunnels the app's port, Grafana's, 3000, and the collector's, 4318, to `localhost`.
-
 |`env`
 |The build container before Gradle has run.
 `dagger api call server-ktor-db env terminal` opens a shell in it.
+
+|`dev`
+|`image`, on port 8001, exporting its traces and metrics over OTLP to the module's `collector` setting, which `dagger.toml` wires to the `otel-lgtm` module's `otel-stack`.
+`--tracing=false` exports nothing, and starts no collector.
+|===
+
+The `otel-lgtm` module, in `.dagger/modules/otel-lgtm/main.dang`, runs Grafana's `otel-lgtm` stack, to demo the traces and metrics: an OpenTelemetry collector, Prometheus, Tempo, Loki and Grafana, in one container.
+It isn't part of Bootable, so it is a module of its own, and `dagger.toml` wires its `otel-stack` into `server-ktor-db`'s `collector` setting, as `dag://otel-lgtm/otel-stack`.
+`mise.toml` has a task for each way to run the example, each on port 8001:
+
+[cols="1,3"]
+|===
+|Task |What it runs
+
+|`mise run demo`
+|`dagger start server-ktor-db/dev otel-lgtm/otel-stack`: the app, exporting to the stack, and the stack, tunneling the app's port, 8001, Grafana's, 3000, and the collector's, 4318, to `localhost`.
+
+|`mise run demo-without-tracing`
+|`dagger api call server-ktor-db dev --tracing=false up`: the app alone, exporting nothing.
+`dagger start` can't pass a function's arguments, so this calls `dev` with `--tracing=false`, and `up` tunnels its port.
+
 |===
 
 `dagger start` doesn't show the services' own output, such as the app's log: its view shows only the tunnels and the ports' health checks.
-`dagger start --progress logs` prints it, under the function that defines each service, such as `ServerKtorDb.dev`.
+`dagger start --progress logs` prints it, under the function that defines each service, such as `ServerKtorDb.dev`, and `mise run demo -- --progress logs` passes the flag on.
 
 Jib builds the image, without a container runtime, and the module trains the cache in a container of it, then adds the cache to that same container, so the JDK build, and the jars' sizes and modification times, are the training's by construction.
 The image is defined once, in the Jib example's build, for both Gradle and Dagger: its base image, JVM flags, class path, port and environment.

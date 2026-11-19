@@ -10,3 +10,14 @@ source = ".dagger/modules/server-ktor-db"
 [sdks.dang.scopes.".dagger/modules/server-ktor-db"]
 is-module = true
 name = "server-ktor-db"
+
+# the example exports its traces and metrics to the otel-lgtm stack, which only demos them
+[modules.server-ktor-db.settings]
+collector = "dag://otel-lgtm/otel-stack"
+
+[modules.otel-lgtm]
+source = ".dagger/modules/otel-lgtm"
+
+[sdks.dang.scopes.".dagger/modules/otel-lgtm"]
+is-module = true
+name = "otel-lgtm"
