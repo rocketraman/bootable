@@ -377,14 +377,14 @@ WHERE id = :id AND fence <= :token
 
 A write can check the token against a row it updates, as above, or against a single row that holds the highest token, updated in the same transaction as the work's writes.
 
-`KubernetesLeaderElection`'s token is the Lease's `spec.leaseTransitions`, as of the write that started its term.
-A new term increments it: when another pod takes the Lease, and when a pod that stepped down takes it again, even if the Lease still names it, since its earlier term's work might still be running.
+`KubernetesLeaderElection`'s term is a _lease term_, one pod's unbroken hold of the Lease, and its token is the Lease's `spec.leaseTransitions`, as of the write that started the lease term.
+A new lease term increments it: when another pod takes the Lease, and when a pod that stepped down takes it again, even if the Lease still names it, since its earlier lease term's work might still be running.
 Renewals leave it as it is.
 
-The tokens increase because the API server, rather than the pods, orders the writes that start terms.
+The tokens increase because the API server, rather than the pods, orders the writes that start lease terms.
 Every write to the Lease is conditional on the `resourceVersion` the pod read, a compare-and-set that etcd applies atomically: a write based on an outdated read fails with a 409 Conflict.
-So a pod can start a term only by writing `leaseTransitions + 1` over the latest Lease, and of two pods that race to take it, one write succeeds and the other must read the Lease again.
-Each term's token is therefore one more than the previous term's, whatever the pods' clocks say, or however long one of them pauses.
+So a pod can start a lease term only by writing `leaseTransitions + 1` over the latest Lease, and of two pods that race to take it, one write succeeds and the other must read the Lease again.
+Each lease term's token is therefore one more than the previous one's, whatever the pods' clocks say, or however long one of them pauses.
 Deleting the Lease starts the count again, at 0, so a store that has seen a higher token would refuse every leader's writes: leave the Lease in place, or reset the fences with it.
 `AlwaysLeader`'s token is always 0.
 

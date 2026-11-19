@@ -59,9 +59,10 @@ private val log = logger("com.github.rocketraman.bootable.leader.k8s.KubernetesL
  * `PeriodicGate.leader` cancels a run in progress then.
  *
  * The [fencingToken] covers a pause longer than that margin, where the work writes: it is the Lease's
- * `spec.leaseTransitions` as of the term this instance holds, which each new term increments, whether another instance
- * takes the Lease, or this one takes it again after it stopped leading, and which renewals leave as it is. Deleting the
- * Lease starts the count again, at 0, so a store that has seen a higher token would refuse every leader's writes.
+ * `spec.leaseTransitions` as of the lease term this instance holds, which each new lease term increments, whether
+ * another instance takes the Lease, or this one takes it again after it stopped leading, and which renewals leave as it
+ * is. Deleting the Lease starts the count again, at 0, so a store that has seen a higher token would refuse every
+ * leader's writes.
  *
  * It talks to the API server's REST API through [httpClient], one of the application's Ktor clients from
  * `boot-client-http-ktor`, such as the one named by [KubernetesLeaderElectionConfig.httpClient], whose TLS settings
@@ -86,16 +87,16 @@ class KubernetesLeaderElection(
   private val state = MutableStateFlow(config.assumeLeader)
   override val leadership: StateFlow<Boolean> = state.asStateFlow()
 
-  // the fencing token of the term this instance holds, or last held: the Lease's leaseTransitions as it took the Lease.
-  // Set before it leads, so that a reader that sees it lead reads its current term's token
+  // the lease term this instance holds, or last held, which is its fencing token: the Lease's leaseTransitions as it
+  // took the Lease. Set before it leads, so that a reader that sees it lead reads its current lease term
   @Volatile
-  private var heldToken: Long = 0
+  private var leaseTerm: Long = 0
 
   /**
-   * The Lease's `spec.leaseTransitions` as of this instance's current term, while it leads, or null; with
+   * The Lease's `spec.leaseTransitions` as of this instance's current lease term, while it leads, or null; with
    * [KubernetesLeaderElectionConfig.assumeLeader], always 0.
    */
-  override val fencingToken: Long? get() = if (state.value) heldToken else null
+  override val fencingToken: Long? get() = if (state.value) leaseTerm else null
 
   /** This instance's identity: the Lease's holder while it leads. */
   val identity: String = config.identity ?: environment["HOSTNAME"]?.ifBlank { null } ?: localHostName()
@@ -215,7 +216,7 @@ class KubernetesLeaderElection(
       }
       renewedAt = sent
       if (!state.value) {
-        heldToken = held
+        leaseTerm = held
         state.value = true
         log.info { "$identity leads, holding lease ${config.leaseName}, with fencing token $held" }
       }
@@ -237,10 +238,10 @@ class KubernetesLeaderElection(
   }
 
   /**
-   * Takes or renews the Lease, and returns the fencing token of the term it holds, the Lease's `leaseTransitions`;
-   * null if another instance holds
-   * it. It renews the Lease only while it leads: otherwise, even if the Lease still names it, it takes it for a new
-   * term, so that its work from an earlier term, which might still be running, has a lower fencing token.
+   * Takes or renews the Lease, and returns the lease term it holds, the Lease's `leaseTransitions`, which is its
+   * fencing token; null if another instance holds it. It renews the Lease only while it leads: otherwise, even if the
+   * Lease still names it, it takes it for a new lease term, so that its work from an earlier lease term, which might
+   * still be running, has a lower fencing token.
    */
   private suspend fun tryAcquireOrRenew(): Long? {
     val client = checkNotNull(client)
@@ -249,7 +250,7 @@ class KubernetesLeaderElection(
     val lease = client.get()
     if (lease == null) {
       val spec = LeaseSpec(identity, leaseDurationSeconds, formatMicroTime(now), formatMicroTime(now), 0)
-      return observe(client.create(spec)).fencingToken
+      return observe(client.create(spec)).leaseTerm
     }
     val seen = if (lease.spec != observedSpec) {
       TimeSource.Monotonic.markNow().also {
@@ -272,7 +273,7 @@ class KubernetesLeaderElection(
         identity, leaseDurationSeconds, formatMicroTime(now), formatMicroTime(now), (lease.spec.leaseTransitions ?: 0) + 1,
       )
     }
-    return observe(client.update(lease.copy(spec = spec))).fencingToken
+    return observe(client.update(lease.copy(spec = spec))).leaseTerm
   }
 
   private fun observe(lease: Lease): Lease {
@@ -283,7 +284,7 @@ class KubernetesLeaderElection(
     return lease
   }
 
-  private val Lease.fencingToken: Long get() = (spec.leaseTransitions ?: 0).toLong()
+  private val Lease.leaseTerm: Long get() = (spec.leaseTransitions ?: 0).toLong()
 
   /** Releases the Lease, as client-go does: no holder, and a lease of a second, so another instance takes it at once. */
   @Suppress("TooGenericExceptionCaught")
