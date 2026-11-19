@@ -63,6 +63,11 @@ private class Around(
   }
 }
 
+/** Stops the application as it starts, before Bootable waits for a stop, as a signal during the start would. */
+private class StopsAtStart : LifecycleController {
+  override fun appStart(serviceContext: ServiceContext, normalStop: (exitCode: Int) -> Unit) = normalStop(5)
+}
+
 val BootableTest by testSuite {
   test("a failed start stops the services that started, in reverse, but not the one that failed") {
     val events = mutableListOf<String>()
@@ -131,5 +136,21 @@ val BootableTest by testSuite {
     // each stage begins where the one before it ended
     assert(stages.zipWithNext().all { (before, after) -> before.end == after.start })
     assert(stages.first().start == started)
+  }
+
+  test("a stop asked for before the application waits for one stops it with its exit code, rather than blocking") {
+    val events = mutableListOf<String>()
+    val bootable = Bootable(
+      setOf(RecordingService("pool", Infrastructure, events)),
+      setOf(AppStartStopLifecycleController(), StopsAtStart()),
+    )
+
+    // the stop is asked for on the thread that runs the application, which a hand-off to that thread would block forever
+    var exitCode: Int? = null
+    val runner = kotlin.concurrent.thread { exitCode = bootable.run(maxShutdownTime = 1_000_000) }
+    runner.join(10_000)
+    assert(!runner.isAlive)
+    assert(exitCode == 5)
+    assert(events == listOf("start pool", "stop pool"))
   }
 }
