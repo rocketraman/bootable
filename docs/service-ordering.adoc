@@ -394,7 +394,7 @@ a service that writes a ready file once the server is listening, and, as shutdow
 before the server stops.
 
 *Replace the phases.* An app can use only phases of its own. The services it gets from libraries still declare
-`DefaultPhase`s, so it maps those onto its own in `orderingOf`; any phase left unmapped and missing from
+``DefaultPhase``s, so it maps those onto its own in `orderingOf`; any phase left unmapped and missing from
 `phases` fails the boot (see below), so nothing is silently misplaced:
 
 [source,kotlin]

@@ -73,7 +73,7 @@ Kodein's `serviceStartTracingModule` and Metro's `ServiceStartTracingBindings`, 
 
 === HTTP clients (Ktor)
 
-New modules provide the application's Ktor `HttpClient`s, tied to the application lifecycle; see the Client HTTP section of the README.
+New modules provide the application's Ktor ``HttpClient``s, tied to the application lifecycle; see the Client HTTP section of the README.
 
 * `boot-client-http-ktor`: `KtorClientService` builds a default client, and any number of named ones, from `http.client`, and closes them, and their engines, when the application stops.
 It is in the `Infrastructure` phase, so the services that make calls stop before the clients close, and provides `HttpClientMilestones.ClientsReady`.
@@ -91,7 +91,7 @@ One that returns Ktor's `MockEngine` answers the clients' requests in a test, wi
 `boot` adds `Health`, a lifecycle controller that tracks the application's `LifecycleState`, `Starting`, `Running`, `Stopping`, and `Stopped`, and answers liveness and readiness from it; see the Health section of the README.
 
 * Liveness is up until the application has stopped, and runs no checks.
-* Readiness is up only while the application is running, from when every service has started until shutdown begins, and its `HealthCheck`s all pass.
+* Readiness is up only while the application is running, from when every service has started until shutdown begins, and its ``HealthCheck``s all pass.
 * `health.readiness.drainDelay` (`ReadinessConfig`) waits, with readiness down, before the services stop, so load balancers stop routing first.
 None by default.
 * With Kodein, `bootableModule` binds `Health`, adds it to the lifecycle controllers, and opens a `Set<HealthCheck>`; with Metro, `BootableDefaultBindings` does the same, and `BootableGraph` has a `healthChecks` multibinding.

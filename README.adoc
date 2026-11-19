@@ -238,7 +238,7 @@ Cancellation is cooperative: work that blocks, such as a JDBC call, stops at its
 * `enabled = false` turns it off.
 * On shutdown it starts no further run, and waits up to `shutdownTimeout` for a run in progress to finish before cancelling it.
 * It is in the `Serving` phase, so it starts after what its work uses, and stops before it.
-* `PeriodicRunInterceptor`s run around each run.
+* ``PeriodicRunInterceptor``s run around each run.
 `boot-periodic-otel`'s `periodicTracing` makes each run a trace of its own, with a root span named for the service, such as `periodic notifications`, so the run's queries and log events belong to it.
 * It notes, by the application's `kotlin.time.Clock`, when each run started, and when one last succeeded and failed.
 
@@ -456,7 +456,7 @@ For anything else, such as a `SchedulerListener`, an `ExecutionInterceptor`, or 
 The span covers the execution's completion too, such as the statement that deletes a one-time execution's row, and records a failed execution's exception.
 db-scheduler's own statements, such as its polls for due executions and its heartbeats, run outside any execution, so, with `boot-db-jdbc-otel`, each is still a trace of its own.
 
-With DI, the application's tasks come from `DbSchedulerTaskProvider`s.
+With DI, the application's tasks come from ``DbSchedulerTaskProvider``s.
 A provider is usually the class whose work its tasks do: it provides them all, and exposes each typed, such as the `OneTimeTask<T>` that code schedules instances of, so a task needs no second binding.
 
 [source,kotlin]
@@ -707,7 +707,7 @@ It runs with `./gradlew :examples:kilua:server:run`, at http://localhost:8004, w
 [[ClientHttp]]
 === Client HTTP (Ktor)
 
-`boot-client-http-ktor` provides the application's Ktor `HttpClient`s, tied to the application lifecycle.
+`boot-client-http-ktor` provides the application's Ktor ``HttpClient``s, tied to the application lifecycle.
 `KtorClientService` builds them when it is constructed, so they can be handed to other components right away, and a bad setting, such as an unreadable key store, fails the boot; it closes them, and their engines, when the application stops.
 It is in the `Infrastructure` phase, so services that make calls, in later phases, stop before the clients close, and a call in flight isn't cut off.
 Something in the same phase that uses the clients starts after the `HttpClientMilestones.ClientsReady` milestone.
