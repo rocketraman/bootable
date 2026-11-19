@@ -6,6 +6,45 @@
 
 * Modules target Kotlin API 2.3 (was 2.1), so applications need Kotlin 2.3 or later.
 
+=== Lifecycle on coroutines
+
+See link:docs/coroutine-lifecycle.adoc[A coroutine lifecycle].
+
+* `Bootable.run()` is a public suspending function that returns the exit code; `boot` exits with it.
+* `Bootable.stop(exitCode)` never blocks, works from any thread, and the first stop wins.
+* A stop during the start cancels the start; cancelling `run` stops the application.
+* `AppService.start(scope)` gets the service's scope, a child of the app's, for background work; it calls `start()` by default.
+* A failing coroutine in a service's scope stops the app in order, with exit code 1.
+* `AppService.scopeFailurePolicy` changes that: `ScopeFailurePolicy.StopApplication(exitCode)`, or `LogAndContinue` to supervise the scope.
+* Bootable cancels a service's scope once the service has stopped.
+* The shutdown timeout cancels the stop and exits with 1; it halts only if the stop still blocks.
+* A timed-out stop logs service states, live coroutines, and thread stacks (coroutine stacks with `DebugProbes`).
+* Bootable tracks each service's `ServiceState`, in `ServiceContext.states` and the health reports.
+* Readiness runs checks concurrently, each within `health.readiness.checkTimeout` (800 ms).
+* A blocking check can't delay readiness past its timeout, and isn't rerun while it runs.
+* `HealthLifecycleController.states` is a `StateFlow` of the lifecycle state.
+* `ServiceStartTracing` carries its spans in the coroutine context, across threads.
+* The JVM shutdown hook waits for the stop to complete.
+
+==== Breaking changes
+
+* `AppService.start`/`shutdown`, `HealthCheck.check`, and `HealthLifecycleController.readiness` suspend.
+* `LifecycleController` hooks `appStart`, `aroundAppStart`, `aroundServiceStart`, `appRunning`, `appShutdown`, `appCleanup` suspend.
+* `ServiceContext.serviceStart` and `serviceShutdown` suspend.
+* `AdvancedAppService` is removed: its `start(scope)` is on `AppService`; `die` and `KtorService.die` are removed.
+* `appShutdown` takes a `Duration` and no longer gets an `exitProcess` callback.
+* `boot(maxShutdownTime)` is a `Duration` (was seconds).
+* `boot` now has an API dependency on `kotlinx-coroutines-core`.
+
+==== Migrating
+
+* Add `suspend` to overrides of `start`, `shutdown`, `check`, and the controller hooks.
+* Wrap blocking calls in them in `withContext(Dispatchers.IO)`; call suspending code without `runBlocking`.
+* Don't swallow cancellation: a `catch (e: Exception)` rethrows it with `if (e is CancellationException) currentCoroutineContext().ensureActive()`.
+* Implement `AppService` for `AdvancedAppService`, override `start(scope)`, launch background work in that scope, and drop the service's own scope.
+* Replace `die()` with a throw in the scope, or `scope.launch { throw e }` from outside it.
+* Write `boot(maxShutdownTime = 30.seconds)` for `boot(maxShutdownTime = 30)`.
+
 === Service start order: phases and milestones
 
 See link:docs/service-ordering.adoc[Service ordering].
@@ -120,6 +159,7 @@ See the Testing section of the README; the helpers test components without booti
 * `captureLogs { … }` captures Log4j2 events, with their structured fields, for assertions.
 * `TestClock` is a `kotlin.time.Clock` that tests set and advance.
 * `StaticConfigBinder` gives tests their config sections by prefix, without a config library.
+* `runSuspendCatching` is a `runCatching` for suspending code that doesn't catch the caller's cancellation.
 * `boot-test-otel`: `InMemoryTelemetry` collects recorded spans and metrics in memory.
 
 === Config

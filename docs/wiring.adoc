@@ -31,6 +31,10 @@ logging already set up. ``Bootable``'s `lifecycleControllers` argument defaults 
 — the built-in start/stop and signal-handling controllers — so you pass it only to run a custom lifecycle (e.g.
 starting/stopping services on command from an RPC or web request rather than at boot).
 
+`boot` runs the application in `runBlocking`, on the main thread, until it is asked to stop, such as by a stop signal, and then exits the process with its exit code.
+It calls `Bootable.run()`, a suspending function, which starts the services, waits for a stop, stops them, and returns the exit code, without exiting the process: a test, or a host that embeds an application, can call it in a coroutine, and stop it with `Bootable.stop()`, or by cancelling that coroutine.
+Services start and stop in suspending functions, and a service with background work launches it in the `CoroutineScope` its `start(scope)` gets, a child of the application's, so nothing a service starts outlives the application (see link:coroutine-lifecycle.adoc[A coroutine lifecycle]).
+
 `startOrder` and `tiebreaker` decide the order the services start in (see link:service-ordering.adoc[Service
 ordering]), and are optional too. With Kodein, `bootableModule` uses a `StartOrder` or `StartOrder.Tiebreaker`
 binding if there is one; with Metro, `BootableDefaultBindings` does the same, as optional bindings. Without a
