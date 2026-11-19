@@ -37,8 +37,9 @@ dependencies {
   implementation(project(path = ":boot-periodic", configuration = "kodeinElements"))
   implementation(project(path = ":boot-periodic-otel", configuration = "kodeinElements"))
   implementation(project(path = ":boot-leader-k8s", configuration = "kodeinElements"))
-  // the entry digest, a recurring db-scheduler task
+  // the entry digest, a recurring db-scheduler task, and traced, a trace for each execution
   implementation(project(path = ":boot-scheduler-db", configuration = "kodeinElements"))
+  implementation(project(path = ":boot-scheduler-db-otel", configuration = "kodeinElements"))
 }
 
 application {

@@ -28,6 +28,7 @@ import com.github.rocketraman.bootable.periodic.PeriodicGate
 import com.github.rocketraman.bootable.periodic.PeriodicServices
 import com.github.rocketraman.bootable.periodic.periodicTracing
 import com.github.rocketraman.bootable.scheduler.db.DbSchedulerService
+import com.github.rocketraman.bootable.scheduler.db.dbSchedulerTracing
 import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetryConfig
@@ -124,6 +125,8 @@ class EntriesApp(binder: ConfigBinder) {
         database.dataSource,
         binder.config("db.scheduler"),
         EntryDigest(repository, binder.config("entries.digest")).tasks(),
+        // each execution a trace of its own
+        customizer = dbSchedulerTracing(telemetry.openTelemetry),
         // db-scheduler's SQL dialect, from the JDBC URL
         jdbcUrl = sqliteConfig.jdbcUrl,
       ),

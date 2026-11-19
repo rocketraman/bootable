@@ -125,6 +125,7 @@ It calls the API server's REST API through one of the application's `boot-client
 * `KotlinxSerializationTaskDataSerializer` stores task data as JSON, and is the default.
 * `SerializableSchedule` and `PersistentScheduleData`, for recurring tasks with a schedule stored with their data.
 * `DbSchedulerHealthCheck`, opt-in.
+* `boot-scheduler-db-otel`: `dbSchedulerTracing`, a `DbSchedulerCustomizer`, makes each execution a trace of its own, with a root span named for the task, through db-scheduler's `ExecutionInterceptor`; Kodein's `dbSchedulerTracingModule` and Metro's `DbSchedulerTracingBindings` add it.
 * db-scheduler's table, as a repeatable Flyway migration for PostgreSQL, MySQL, and SQLite, in `classpath:bootable/db-scheduler/<database>`.
 * Kodein's `dbSchedulerModule` and Metro's `DbSchedulerBindings` provide the `Scheduler` and `SchedulerClient`, with the tasks of a `Set<DbSchedulerTaskProvider>`: a provider, usually the class whose work its tasks do, provides them all, and exposes each typed.
 
