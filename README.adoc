@@ -184,7 +184,22 @@ Bootable(services, defaultLifecycleControllers() + health)
 With Kodein, `bootableModule` binds `Health`, adds it to the lifecycle controllers, and opens a `Set<HealthCheck>`; import `jdbcHealthCheckModule` for the JDBC check.
 With Metro, `BootableDefaultBindings` does the same, with a `Set<HealthCheck>` multibinding; name `JdbcHealthCheckBindings` in your graph's `bindingContainers` for the JDBC check.
 
-`boot-server-http-ktor` serves them with `KtorHealth`: liveness at `/health/live` and readiness at `/health/ready`, each `200` when up and `503` when down, with a short plain-text body, such as `UP`, `state: Running`, and `jdbc: UP`.
+`boot-server-http-ktor` serves them with `KtorHealth`: liveness at `/health/live` and readiness at `/health/ready`, each `200` when up and `503` when down, with a JSON body: the overall `status`, `UP` or `DOWN`, the lifecycle `state`, and each readiness check's `status`, and an unhealthy one's `reason`, by the check's name:
+
+[source,json]
+----
+{
+  "status": "DOWN",
+  "state": "Running",
+  "checks": {
+    "jdbc": { "status": "UP" },
+    "db-scheduler": { "status": "DOWN", "reason": "paused" }
+  }
+}
+----
+
+A consumer can check one service, such as with `jq -e '.checks["db-scheduler"].status == "UP"'`.
+Liveness runs no checks, so its `checks` is empty, as is readiness's unless the application is running.
 Install it in your server's module with `installHealth(health)`, or add the routes anywhere with `healthRoutes(health)`.
 `health.ktor` configures it:
 

@@ -858,6 +858,8 @@ project("boot-server-http-ktor") {
     api(project(":boot-config-common"))
     // engine-agnostic: the engine comes from one of the boot-server-http-ktor-<engine> modules, or the application
     api(rootProject.libs.ktor.server.core)
+    // the health routes' JSON bodies
+    implementation(rootProject.libs.kotlinx.serialization.json)
     // the metro flavor contributes KtorHealth to boot's BootScope
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
 
