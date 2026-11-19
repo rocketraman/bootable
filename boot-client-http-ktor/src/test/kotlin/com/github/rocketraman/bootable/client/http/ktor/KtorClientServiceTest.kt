@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.client.http.ktor
 
+import com.github.rocketraman.bootable.test.runSuspendCatching
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.startPlan
 import com.github.rocketraman.bootable.config.Masked
@@ -48,7 +49,7 @@ val KtorClientServiceTest by testSuite {
       // a closed client's job, and engine's, completes once the last of its work is done; an open one's never does
       (listOf(service.default, service["a"]) + engine.engines).forEach { it.coroutineContext.job.join() }
       assert(engine.engines.size == 2)
-      assert(runCatching { service.default.get("/") }.isFailure)
+      assert(runSuspendCatching { service.default.get("/") }.isFailure)
     }
 
     test("the clients start in the infrastructure phase, before the services that use them, and stop after them") {
@@ -123,7 +124,7 @@ val KtorClientServiceTest by testSuite {
       )
     }
 
-    fun specs(app: KtorClientsConfig, vararg defaults: KtorClientDefaults): Map<String, KtorClientSpec> {
+    suspend fun specs(app: KtorClientsConfig, vararg defaults: KtorClientDefaults): Map<String, KtorClientSpec> {
       val engine = MockClientEngine()
       KtorClientService(app, engine, defaults = defaults.toList()).shutdown()
       return engine.specs.associateBy { it.name }

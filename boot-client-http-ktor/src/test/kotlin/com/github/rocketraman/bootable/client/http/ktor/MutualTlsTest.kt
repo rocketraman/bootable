@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.client.http.ktor
 
+import com.github.rocketraman.bootable.test.runSuspendCatching
 import com.github.rocketraman.bootable.config.Masked
 import de.infix.testBalloon.framework.core.testSuite
 import io.ktor.client.request.*
@@ -44,14 +45,14 @@ val MutualTlsTest by testSuite {
       test("fails without a client certificate") {
         MutualTlsServer(serverCertificate, clientCertificate).use { server ->
           val tls = KtorClientTlsConfig(trustStore = serverCertificate.trustStore().inline())
-          assert(runCatching { call(engine, server, tls) }.isFailure)
+          assert(runSuspendCatching { call(engine, server, tls) }.isFailure)
         }
       }
 
       test("fails when the server isn't trusted") {
         MutualTlsServer(serverCertificate, clientCertificate).use { server ->
           val tls = KtorClientTlsConfig(keyStore = clientCertificate.keyStore().inline())
-          assert(runCatching { call(engine, server, tls) }.isFailure)
+          assert(runSuspendCatching { call(engine, server, tls) }.isFailure)
         }
       }
     }

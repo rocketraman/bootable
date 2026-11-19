@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.telemetry.otel
 
+import com.github.rocketraman.bootable.test.runSuspendCatching
 import de.infix.testBalloon.framework.core.testSuite
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.common.AttributeKey
@@ -162,7 +163,7 @@ val TracingTest by testSuite {
 
     test("records the exception, with an error status, when the block throws") {
       val (service, telemetry) = tracing()
-      runCatching { service.openTelemetry.getTracer("test").withRootSpan<Unit>("job") { error("failed") } }
+      runSuspendCatching { service.openTelemetry.getTracer("test").withRootSpan<Unit>("job") { error("failed") } }
       val span = telemetry.spans.finishedSpanItems.single()
       assert(span.status.statusCode == StatusCode.ERROR)
       assert(span.events.single().name == "exception")
@@ -170,7 +171,7 @@ val TracingTest by testSuite {
 
     test("records the exception, with an error status, when the block throws") {
       val (service, telemetry) = tracing()
-      val failure = runCatching {
+      val failure = runSuspendCatching {
         service.openTelemetry.getTracer("test").withSpan<Unit>("orders.find") { error("database down") }
       }.exceptionOrNull()
       assert(failure?.message == "database down")
@@ -195,7 +196,7 @@ val TracingTest by testSuite {
 
     test("records a timeout within the block as its error, since the coroutine itself isn't cancelled") {
       val (service, telemetry) = tracing()
-      val failure = runCatching {
+      val failure = runSuspendCatching {
         service.openTelemetry.getTracer("test").withSpan("orders.find") { withTimeout(10.milliseconds) { awaitCancellation() } }
       }.exceptionOrNull()
       assert(failure is TimeoutCancellationException)

@@ -99,7 +99,7 @@ private fun inaraWiringTestModule() = InaraWiringTestModule(
  * Starts the services in their planned order, as Bootable does, checks the migrated scheduler runs the tasks, and
  * shuts them down.
  */
-private fun Set<AppService>.startAndRun(record: TaskRecord, client: SchedulerClient) {
+private suspend fun Set<AppService>.startAndRun(record: TaskRecord, client: SchedulerClient) {
   // a fresh database each time, so the migration runs
   listOf("", "-wal", "-shm").forEach { Path("build/scheduler-wiring-test.db$it").deleteIfExists() }
   // shuffled, so the order holds because the services declare it, not by accident

@@ -14,7 +14,7 @@ import com.github.rocketraman.bootable.boot.HealthStatus
 class DbSchedulerHealthCheck(private val scheduler: Scheduler) : HealthCheck {
   override fun name() = "db-scheduler"
 
-  override fun check(): HealthStatus {
+  override suspend fun check(): HealthStatus {
     val state = scheduler.schedulerState
     return when {
       !state.isStarted -> HealthStatus.Unhealthy("not started")

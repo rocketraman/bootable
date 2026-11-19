@@ -27,7 +27,7 @@ private suspend fun withMigratedDatabase(block: suspend (Database) -> Unit) = wi
   block(ExposedDatabaseService(database.dataSource).database)
 }
 
-private fun failure(service: SchemaVerificationService) = runCatching { service.start() }.exceptionOrNull()
+private suspend fun failure(service: SchemaVerificationService) = runCatching { service.start() }.exceptionOrNull()
 
 val SchemaVerificationServiceTest by testSuite {
   test("passes when the schema matches the tables") {

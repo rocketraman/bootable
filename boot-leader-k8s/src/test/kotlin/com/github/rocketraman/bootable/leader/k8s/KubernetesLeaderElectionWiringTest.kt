@@ -12,6 +12,8 @@ import com.github.rocketraman.bootable.client.http.ktor.ktorClientModule
 import com.github.rocketraman.bootable.client.http.ktor.setOfNamedClientDefaults
 import dev.zacsweers.metro.BindingContainer
 import dev.zacsweers.metro.Provides
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import org.kodein.di.bindSingleton
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
@@ -52,7 +54,7 @@ object EngineBindings {
 interface InaraTestModule : ConfigModule, BootableModule, KtorClientModule, KubernetesLeaderElectionModule
 
 /** The election stops, releasing its Lease, before the HTTP clients close. */
-private fun checkOrder(services: Set<AppService>) {
+private suspend fun checkOrder(services: Set<AppService>) {
   val plan = startPlan(services, tiebreaker = StartOrder.Tiebreaker.Shuffled()).map { it::class }
   assert(plan.indexOf(KtorClientService::class) < plan.indexOf(KubernetesLeaderElection::class))
 }
@@ -93,7 +95,7 @@ val KubernetesLeaderElectionWiringTest by testSuite {
       // the election contributes the kubernetes client's defaults: none here, with assumeLeader
       assert(di.instance<Set<KtorClientDefaults>>().single().clients().isEmpty())
       checkOrder(di.instance())
-      election.start()
+      election.start(CoroutineScope(SupervisorJob()))
       assert(election.isLeader())
       election.shutdown()
     }

@@ -274,6 +274,8 @@ project("boot") {
 project("boot-client-http-ktor") {
   configureDiVariants()
   dependencies {
+    // runSuspendCatching
+    testImplementation(project(":boot-test"))
     // KtorClientService is an AppService, and the clients it owns are Ktor's own HttpClient
     api(project(":boot"))
     api(project(":boot-config-common"))
@@ -678,6 +680,8 @@ project("boot-db-jdbc-postgresql") {
 project("boot-db-exposed") {
   configureDiVariants()
   dependencies {
+    // runSuspendCatching
+    testImplementation(project(":boot-test"))
     api(project(":boot-db-jdbc"))
     api(rootProject.libs.bundles.exposed)
     // the logging API only: the application chooses the logging implementation (e.g. boot-logging-log4j2)
@@ -964,7 +968,7 @@ project("boot-logging-log4j2") {
 project("boot-server-http-ktor") {
   configureDiVariants()
   dependencies {
-    // KtorService is an AdvancedAppService, so boot is part of this module's API
+    // KtorService is an AppService, so boot is part of this module's API
     api(project(":boot"))
     api(project(":boot-config-common"))
     // engine-agnostic: the engine comes from one of the boot-server-http-ktor-<engine> modules, or the application
@@ -1034,6 +1038,8 @@ listOf(
 project("boot-telemetry-otel") {
   configureDiVariants()
   dependencies {
+    // runSuspendCatching
+    testImplementation(project(":boot-test"))
     // OpenTelemetryService is an AppService, and the OpenTelemetry instance is the module's whole point
     api(project(":boot"))
     api(project(":boot-config-common"))
