@@ -21,9 +21,10 @@ import kotlinx.coroutines.flow.first
  * VM, for longer than that margin, since it can't step down while paused: it would then carry on as though it still led.
  * The [fencingToken] closes that gap where the work writes. A lease term is one unbroken stretch of one instance's
  * leadership, from when it starts leading until it stops; each lease term has a token greater than every earlier lease
- * term's, which the work sends with its writes, and the store refuses a write with a token lower than one it has seen,
- * such as by a database `UPDATE ... WHERE fence <= :token`, so a paused leader's late writes fail once a later leader
- * has written.
+ * term's, which the work sends with its writes. The store must be configured to refuse a write with a token lower than
+ * the highest it has seen, such as by persisting the token, and writing only where the leader's token is at least the
+ * persisted one, with a database `UPDATE ... SET fence = :token WHERE fence <= :token`, so a paused leader's late
+ * writes fail once a later leader has written.
  *
  * Implementations: [AlwaysLeader], for an application with one instance, or for running locally, and
  * `KubernetesLeaderElection` from `boot-leader-k8s`, which holds a Kubernetes Lease.
