@@ -88,7 +88,7 @@ Sealed subtype names match ignoring case too, so `Shuffled` and `shuffled` selec
 Bootable now uses Hoplite 3.0.7, where an environment variable selects a sealed type's subtype by naming it as the sealed type's own value, since no environment variable can spell `_type`: `_` separates the path.
 For example, `tiebreaker { _type = Shuffled, seed = 42 }` in config, or `BOOT_SERVICE_ORDER_TIEBREAKER=Shuffled` and `BOOT_SERVICE_ORDER_TIEBREAKER_SEED=42`.
 An environment variable that selects a subtype overrides the one config selects, and config can still set the subtype's properties.
-An environment variable that overrides a map entry keeps the entry's key as config spells it, so `DB_JDBC_DATASOURCEPROPERTIES_SSLMODE` overrides `dataSourceProperties.sslMode` without renaming it `SSLMODE`.
+An environment variable that overrides a map entry keeps the entry's key as config spells it, so `DB_JDBC_DATASOURCEPROPERTIES_SSLMODE` overrides `dataSourceProperties.sslMode` without renaming it `SSLMODE`, and `HTTP_CLIENT_NAMED_ENTRIES_BASEURL` sets the `baseUrl` of the `entries` HTTP client rather than adding a client named `ENTRIES`.
 
 === Config substitutions use Hoplite's resolvers
 

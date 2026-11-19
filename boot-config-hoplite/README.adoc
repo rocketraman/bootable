@@ -37,6 +37,10 @@ Bootable injects a Hoplite `ParameterMapper` that maps configuration properties 
 
 See also https://github.com/sksamuel/hoplite/issues/410[hoplite issue #410].
 
+An environment variable overrides a map entry, or a property of one, keeping the entry's key as config spells it.
+For example, with `http.client.named.myClient { baseUrl = "http://localhost:8001/" }` in config, `HTTP_CLIENT_NAMED_MYCLIENT_BASEURL=http://localhost:8002/` changes the `baseUrl` of the `myClient` client, rather than adding a client named `MYCLIENT`.
+An entry that only the environment defines is keyed as the environment variable spells it, in upper case.
+
 ## Substitutions
 
 A config value can reference an environment variable, a system property, or another config value with Hoplite's https://github.com/sksamuel/hoplite#resolvers[resolvers]:
