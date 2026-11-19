@@ -6,7 +6,7 @@ flyway = "13.11.1"
 google-auth = "1.54.0"
 graalvm-buildtools = "0.11.5"
 hikari = "7.1.0"
-hoplite = "3.0.5"
+hoplite = "3.0.7"
 # 4.0.0 is out, but npm tags it next rather than latest, and Ktor's HTMX attributes follow htmx 2
 htmx = "2.0.11"
 jib = "3.5.4"
