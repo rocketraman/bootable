@@ -1,6 +1,5 @@
 import com.github.rocketraman.bootable.boot.AppService
 import dev.kilua.ssr.SsrEngine
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.apache.logging.log4j.kotlin.logger
 import java.net.ServerSocket
@@ -32,7 +31,7 @@ class SsrRenderer(
 
   private lateinit var engine: SsrEngine
 
-  override fun start() {
+  override suspend fun start() {
     // without it, SsrEngine only logs a warning, and then serves empty pages
     checkNotNull(javaClass.getResource("/ssr.zip")) { "No ssr.zip on the classpath: the build copies it from the client" }
 
@@ -42,9 +41,7 @@ class SsrRenderer(
 
     // SsrEngine starts Node.js in the background; rendering a page here means this service has only started once the
     // renderer works. SsrEngine waits for Node.js to start forever, so give up if it never does.
-    runBlocking {
-      withTimeout(30.seconds) { engine.getSsrContent("/?revision=-1") }
-    }
+    withTimeout(30.seconds) { engine.getSsrContent("/?revision=-1") }
     logger.info { "Renderer listening on port $port" }
   }
 

@@ -10,6 +10,8 @@ import dev.kilua.ssr.getSsrState
 import dev.kilua.ssr.ssrRouter
 import dev.kilua.startApplication
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import web.events.Event
@@ -67,9 +69,9 @@ class TodoState(private val api: TodoApi) {
     try {
       block()
       error = null
-    } catch (e: CancellationException) {
-      throw e
     } catch (e: Throwable) {
+      // a cancelled call isn't an error to show
+      if (e is CancellationException) currentCoroutineContext().ensureActive()
       // Throwable, not Exception: Ktor's JavaScript client reports a failed connection with an Error
       error = e.message ?: "Something went wrong."
     }

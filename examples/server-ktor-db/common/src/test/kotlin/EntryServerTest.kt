@@ -29,7 +29,7 @@ import org.apache.logging.log4j.Level
  * services started by hand instead of by Bootable.
  */
 @OptIn(ExperimentalPathApi::class)
-private fun withServer(block: suspend HttpClient.(health: HealthLifecycleController) -> Unit) {
+private suspend fun withServer(block: suspend HttpClient.(health: HealthLifecycleController) -> Unit) {
   val dir = createTempDirectory("server-ktor-db")
   val database = JdbcDataSourceService(SqliteConfig(path = dir.resolve("test.db").toString()), HikariConnectionPoolFactory())
   val exposed = ExposedDatabaseService(database.dataSource)

@@ -1,4 +1,6 @@
 import androidx.compose.runtime.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.attributes.*
 import org.jetbrains.compose.web.css.*
@@ -27,6 +29,8 @@ fun TodoApp(api: TodoApi) {
         block()
         error = null
       } catch (e: Exception) {
+        // a cancelled call, such as by leaving the page, isn't an error to show
+        if (e is CancellationException) coroutineContext.ensureActive()
         error = e.message ?: "Something went wrong."
       }
     }
