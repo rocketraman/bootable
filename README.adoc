@@ -199,6 +199,7 @@ With Metro, `BootableDefaultBindings` does the same, with a `Set<HealthCheck>` m
 ----
 
 A consumer can check one service, such as with `jq -e '.checks["db-scheduler"].status == "UP"'`.
+`HealthReport` and `BuildInfo` are `@Serializable`, in this form, so a Kotlin client, such as an end-to-end test, can decode them with `Json.decodeFromString<HealthReport>(body)`.
 Liveness runs no checks, so its `checks` is empty, as is readiness's unless the application is running.
 Install it in your server's module with `installHealth(health)`, or add the routes anywhere with `healthRoutes(health)`.
 `health.ktor` configures it:

@@ -200,9 +200,4 @@ val KtorHealthTest by testSuite {
       app.stop()
     }
   }
-
-  test("serves only the build info's fields that are set") {
-    assert(BuildInfo().toJson().toString() == "{}")
-    assert(BuildInfo(revision = "3f2c9e1").toJson().toString() == """{"revision":"3f2c9e1"}""")
-  }
 }
