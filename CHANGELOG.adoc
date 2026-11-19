@@ -78,6 +78,8 @@ See the Health section of the README.
 * Health responses carry a JSON body: status, lifecycle state, and each readiness check.
 * `boot-server-http-ktor` gains `-kodein` and `-metro` flavors.
 * `excludeHealthFromTraces()` keeps health probes out of traces.
+* `BuildInfo`, from the `build` config section, is served at `/health/info`.
+* Telemetry's `serviceVersion` defaults to `build.version`.
 
 === Periodic work and leader election
 

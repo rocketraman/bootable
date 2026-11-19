@@ -2,6 +2,7 @@ package com.github.rocketraman.bootable.server.http.ktor
 
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BuildInfo
 import com.github.rocketraman.bootable.boot.Health
 import com.github.rocketraman.bootable.boot.ReadinessConfig
 import com.github.rocketraman.bootable.boot.bootableModule
@@ -17,12 +18,13 @@ import org.kodein.di.direct
 import org.kodein.di.instance
 import kotlin.reflect.KClass
 
-/** Config with a `health.ktor` section that moves readiness to `/ready`. */
+/** Config with a `health.ktor` section that moves readiness to `/ready`, and a `build` section with a version. */
 private object HealthConfigBinder : ConfigBinder {
   override fun <T : Any> configOf(prefix: String, type: KClass<T>): T = type.javaObjectType.cast(
     when (type) {
       KtorHealthConfig::class -> KtorHealthConfig(readyPath = "/ready")
       ReadinessConfig::class -> ReadinessConfig()
+      BuildInfo::class -> BuildInfo(version = "1.4.2")
       else -> error("unexpected config $prefix")
     }
   )
@@ -42,7 +44,7 @@ interface HealthGraph : BootableGraph {
 }
 
 val KtorHealthWiringTest by testSuite {
-  test("KtorHealth serves the application's Health, with its config, in kodein") {
+  test("KtorHealth serves the application's Health and BuildInfo, with its config, in kodein") {
     val di = DI {
       import(bootableModule)
       import(ktorHealthModule)
@@ -51,11 +53,13 @@ val KtorHealthWiringTest by testSuite {
     val ktorHealth = di.instance<KtorHealth>()
     assert(ktorHealth.health === di.instance<Health>())
     assert(ktorHealth.config.readyPath == "/ready")
+    assert(ktorHealth.buildInfo == BuildInfo(version = "1.4.2"))
   }
 
-  test("KtorHealth serves the application's Health, with its config, in metro") {
+  test("KtorHealth serves the application's Health and BuildInfo, with its config, in metro") {
     val graph = createGraph<HealthGraph>()
     assert(graph.ktorHealth.health === graph.health)
     assert(graph.ktorHealth.config.readyPath == "/ready")
+    assert(graph.ktorHealth.buildInfo == BuildInfo(version = "1.4.2"))
   }
 }
