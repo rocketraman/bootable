@@ -27,7 +27,7 @@ fun interface DbSchedulerCustomizer {
 
 /**
  * Provides db-scheduler tasks, recurring and one-time, to [DbSchedulerService]: with DI, the application binds its
- * providers into a `Set<DbSchedulerTaskProvider>`, rather than its tasks into a set of db-scheduler's `Task<*>`.
+ * providers into a `Set<DbSchedulerTaskProvider>`.
  *
  * A provider is usually the class whose work its tasks do. It provides them all, and exposes each typed, such as the
  * `OneTimeTask<T>` that code schedules instances of, so a task needs no second binding:
