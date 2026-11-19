@@ -22,6 +22,8 @@ dependencies {
   // the entry count, a periodic loop that only the leader runs, of the instances elected through a Kubernetes Lease
   api(project(":boot-periodic"))
   api(project(":boot-leader-k8s"))
+  // the entry digest, a recurring db-scheduler task, persistent, and run once across the instances
+  api(project(":boot-scheduler-db"))
   implementation(project(":boot-logging-log4j2"))
 
   implementation(libs.ktor.server.html.builder)

@@ -10,6 +10,7 @@ import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.db.jdbc.JdbcHealthCheckBindings
 import com.github.rocketraman.bootable.db.jdbc.JdbcTelemetryConfigurer
 import com.github.rocketraman.bootable.periodic.PeriodicServices
+import com.github.rocketraman.bootable.scheduler.db.DbSchedulerTaskProvider
 import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.telemetry.otel.ServiceStartTracingBindings
@@ -46,6 +47,10 @@ interface EntriesBindings : ConfigBinderProvider {
   @Provides @IntoSet
   fun entryCountLoop(periodic: PeriodicServices, entries: EntryRepository): AppService =
     periodic.create("entry-count", config("entries.report")) { EntryCountReport(entries).report() }
+
+  /** The entry digest, a recurring db-scheduler task, every `entries.digest.interval`, once across the instances. */
+  @Provides @IntoSet
+  fun entryDigest(entries: EntryRepository): DbSchedulerTaskProvider = EntryDigest(entries, config("entries.digest"))
 
   @Provides @IntoSet
   fun entryServer(
@@ -86,6 +91,8 @@ interface EntriesBindings : ConfigBinderProvider {
  * `boot-periodic-metro` creates the loop that logs the entry count, which only the leader runs, of the instances
  * elected through a Kubernetes Lease (`boot-leader-k8s-metro`, from `leader.kubernetes`), and each run is a trace
  * (`boot-periodic-otel-metro`).
+ * `boot-scheduler-db-metro` runs db-scheduler (`db.scheduler`), with the recurring task that logs the entry digest,
+ * over the pool, and its table migrated by Flyway along with the application's.
  * `boot-metro` tracks the application's health from its lifecycle, which the server serves
  * (`boot-server-http-ktor-metro`), with readiness down while the database doesn't answer (`JdbcHealthCheckBindings`).
  * The HTTP clients (`boot-client-http-ktor-metro`, from `http.client`) run on CIO, and

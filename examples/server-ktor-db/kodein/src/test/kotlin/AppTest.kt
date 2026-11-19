@@ -13,6 +13,7 @@ import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
 import com.github.rocketraman.bootable.leader.k8s.KubernetesLeaderElection
 import com.github.rocketraman.bootable.periodic.PeriodicAppService
+import com.github.rocketraman.bootable.scheduler.db.DbSchedulerService
 import com.zaxxer.hikari.HikariDataSource
 import de.infix.testBalloon.framework.core.testSuite
 import io.ktor.server.cio.*
@@ -41,6 +42,7 @@ val AppTest by testSuite {
         SeedEntriesService::class,
         KubernetesLeaderElection::class,
         PeriodicAppService::class,
+        DbSchedulerService::class,
         EntryServer::class,
         // the scrape's own listener, which does nothing unless telemetry.ktor.hostPort is set
         noListener::class,

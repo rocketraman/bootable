@@ -38,6 +38,8 @@ dependencies {
   implementation(project(path = ":boot-periodic", configuration = "metroElements"))
   implementation(project(path = ":boot-periodic-otel", configuration = "metroElements"))
   implementation(project(path = ":boot-leader-k8s", configuration = "metroElements"))
+  // the entry digest, a recurring db-scheduler task
+  implementation(project(path = ":boot-scheduler-db", configuration = "metroElements"))
 }
 
 application {

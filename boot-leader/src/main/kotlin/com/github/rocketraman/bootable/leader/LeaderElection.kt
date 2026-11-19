@@ -9,7 +9,9 @@ import kotlinx.coroutines.flow.first
  * Whether this instance is the leader of the instances of the application, such as the replicas of a Kubernetes
  * deployment: at most one of them is, at any time.
  *
- * Use it for work that only one instance should do, such as a periodic loop that sends pending notifications.
+ * Use it for work that only one instance should do, such as a periodic loop that sends pending notifications. Work
+ * that a database already coordinates, such as `boot-scheduler-db`'s tasks, which db-scheduler runs on one instance
+ * each by locking their rows, needs no leader.
  *
  * An implementation that elects a leader among instances, such as by a lease, guarantees it by stepping down before
  * another instance can take over: [leadership] turns false a margin before then. Work that only the leader does must
