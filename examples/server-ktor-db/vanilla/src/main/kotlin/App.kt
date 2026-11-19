@@ -123,7 +123,7 @@ class EntriesApp(binder: ConfigBinder) {
       DbSchedulerService(
         database.dataSource,
         binder.config("db.scheduler"),
-        listOf(EntryDigest(repository, binder.config("entries.digest")).task),
+        EntryDigest(repository, binder.config("entries.digest")).tasks(),
         // db-scheduler's SQL dialect, from the JDBC URL
         jdbcUrl = sqliteConfig.jdbcUrl,
       ),

@@ -46,7 +46,7 @@ data class Report(override val recurrence: SerializableSchedule, val reportId: S
 val testSchedulerConfig = DbSchedulerConfig(pollingInterval = 100.milliseconds, immediateExecution = true, shutdownMaxWait = 5.seconds)
 
 /** What the test tasks did. */
-class TaskRecord {
+class TaskRecord : DbSchedulerTaskProvider {
   val recurringRuns = AtomicInteger()
   val reminders: MutableList<Reminder> = CopyOnWriteArrayList()
   val notices: MutableList<Notice> = CopyOnWriteArrayList()
@@ -65,6 +65,8 @@ class TaskRecord {
     .execute { instance, _ -> reports.merge(instance.data.reportId, 1, Int::plus) }
 
   val tasks: List<Task<*>> = listOf(recurring, reminder, notice, report)
+
+  override fun tasks() = tasks
 }
 
 fun eventually(timeout: Duration = 10.seconds, condition: () -> Boolean) {

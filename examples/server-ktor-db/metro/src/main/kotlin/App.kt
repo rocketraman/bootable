@@ -10,7 +10,7 @@ import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.db.jdbc.JdbcHealthCheckBindings
 import com.github.rocketraman.bootable.db.jdbc.JdbcTelemetryConfigurer
 import com.github.rocketraman.bootable.periodic.PeriodicServices
-import com.github.kagkarlsson.scheduler.task.Task
+import com.github.rocketraman.bootable.scheduler.db.DbSchedulerTaskProvider
 import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.telemetry.otel.ServiceStartTracingBindings
@@ -50,7 +50,7 @@ interface EntriesBindings : ConfigBinderProvider {
 
   /** The entry digest, a recurring db-scheduler task, every `entries.digest.interval`, once across the instances. */
   @Provides @IntoSet
-  fun entryDigest(entries: EntryRepository): Task<*> = EntryDigest(entries, config("entries.digest")).task
+  fun entryDigest(entries: EntryRepository): DbSchedulerTaskProvider = EntryDigest(entries, config("entries.digest"))
 
   @Provides @IntoSet
   fun entryServer(

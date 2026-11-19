@@ -2,7 +2,6 @@ package com.github.rocketraman.bootable.scheduler.db
 
 import com.github.kagkarlsson.scheduler.Scheduler
 import com.github.kagkarlsson.scheduler.SchedulerClient
-import com.github.kagkarlsson.scheduler.task.Task
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
@@ -22,7 +21,7 @@ import com.github.rocketraman.bootable.db.jdbc.sqliteConfigModule
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
 import dev.zacsweers.metro.DependencyGraph
-import dev.zacsweers.metro.ElementsIntoSet
+import dev.zacsweers.metro.IntoSet
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
 import dev.zacsweers.metro.createGraph
@@ -57,7 +56,7 @@ interface TestGraph : BootableGraph {
 object TestBindings {
   @Provides @SingleIn(TestScope::class) fun record(): TaskRecord = TaskRecord()
 
-  @Provides @ElementsIntoSet fun tasks(record: TaskRecord): Set<Task<*>> = record.tasks.toSet()
+  @Provides @IntoSet fun tasks(record: TaskRecord): DbSchedulerTaskProvider = record
 }
 
 /**
@@ -114,10 +113,7 @@ val DbSchedulerWiringTest by testSuite {
         import(dbSchedulerModule)
         import(dbSchedulerHealthCheckModule)
         bindSingleton { TaskRecord() }
-        inBindSet<Task<*>> {
-          add { singleton { instance<TaskRecord>().recurring } }
-          add { singleton { instance<TaskRecord>().reminder } }
-        }
+        inBindSet<DbSchedulerTaskProvider> { add { singleton { instance<TaskRecord>() } } }
       }.direct
 
       assert(di.instance<Scheduler>() === di.instance<DbSchedulerService>().scheduler)

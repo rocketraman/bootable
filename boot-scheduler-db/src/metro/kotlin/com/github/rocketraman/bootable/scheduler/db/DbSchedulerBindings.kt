@@ -2,7 +2,6 @@ package com.github.rocketraman.bootable.scheduler.db
 
 import com.github.kagkarlsson.scheduler.Scheduler
 import com.github.kagkarlsson.scheduler.SchedulerClient
-import com.github.kagkarlsson.scheduler.task.Task
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.HealthCheck
@@ -24,16 +23,16 @@ import kotlin.time.Clock
  * provides its [Scheduler], and the [SchedulerClient] to schedule executions with. Its dialect matches the graph's
  * [JdbcConfig]'s URL; its clock is the graph's `kotlin.time.Clock`, if it has one.
  *
- * Contribute the application's tasks, recurring and one-time, as `Task<*>`, and adjust db-scheduler beyond
- * [DbSchedulerConfig] with a [DbSchedulerCustomizer]:
+ * Contribute the application's tasks, recurring and one-time, through a [DbSchedulerTaskProvider], and adjust
+ * db-scheduler beyond [DbSchedulerConfig] with a [DbSchedulerCustomizer]:
  *
  * ```
- * @Provides @IntoSet fun purge(purger: Purger): Task<*> = Tasks.recurring("purge", fixedDelay(1.hours)).execute { _, _ -> purger.purge() }
+ * @Provides @IntoSet fun reminderTasks(reminders: Reminders): DbSchedulerTaskProvider = reminders
  * ```
  */
 @ContributesTo(BootScope::class)
 interface DbSchedulerBindings {
-  @Multibinds(allowEmpty = true) val dbSchedulerTasks: Set<Task<*>>
+  @Multibinds(allowEmpty = true) val dbSchedulerTaskProviders: Set<DbSchedulerTaskProvider>
 
   @Multibinds(allowEmpty = true) val dbSchedulerCustomizers: Set<DbSchedulerCustomizer>
 
@@ -46,13 +45,13 @@ interface DbSchedulerBindings {
       dataSource: DataSource,
       config: DbSchedulerConfig,
       jdbcConfig: JdbcConfig,
-      tasks: Set<Task<*>>,
+      taskProviders: Set<DbSchedulerTaskProvider>,
       customizers: Set<DbSchedulerCustomizer>,
       clock: Clock = Clock.System,
     ): DbSchedulerService = DbSchedulerService(
       dataSource = dataSource,
       config = config,
-      tasks = tasks,
+      tasks = taskProviders.flatMap { it.tasks() },
       customizer = { builder -> customizers.forEach { it.customize(builder) } },
       clock = clock,
       jdbcUrl = jdbcConfig.jdbcUrl,

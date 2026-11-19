@@ -22,8 +22,8 @@ import com.github.rocketraman.bootable.leader.k8s.kubernetesLeaderElectionModule
 import com.github.rocketraman.bootable.periodic.PeriodicServices
 import com.github.rocketraman.bootable.periodic.periodicModule
 import com.github.rocketraman.bootable.periodic.periodicTracingModule
+import com.github.rocketraman.bootable.scheduler.db.DbSchedulerTaskProvider
 import com.github.rocketraman.bootable.scheduler.db.dbSchedulerModule
-import com.github.kagkarlsson.scheduler.task.Task
 import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.server.http.ktor.ktorHealthModule
@@ -53,7 +53,7 @@ val entriesModule by DI.Module {
   bindSingleton { new(::EntryCountReport) }
   // the entry digest, every entries.digest.interval, once across the instances
   bindSingleton { instance<ConfigBinder>().config<EntryDigestConfig>("entries.digest") }
-  inBindSet<Task<*>> { add { singleton { new(::EntryDigest).task } } }
+  inBindSet<DbSchedulerTaskProvider> { add { singleton { new(::EntryDigest) } } }
   // the entry count, every entries.report.interval, on the leader only
   bindAppService {
     singleton {

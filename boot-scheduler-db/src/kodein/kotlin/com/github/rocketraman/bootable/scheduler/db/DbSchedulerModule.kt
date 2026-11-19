@@ -2,7 +2,6 @@ package com.github.rocketraman.bootable.scheduler.db
 
 import com.github.kagkarlsson.scheduler.Scheduler
 import com.github.kagkarlsson.scheduler.SchedulerClient
-import com.github.kagkarlsson.scheduler.task.Task
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.HealthCheck
 import com.github.rocketraman.bootable.config.ConfigBinder
@@ -24,16 +23,18 @@ import kotlin.time.Clock
  * from boot-config-hoplite's `hopliteConfigModule`). Its dialect matches the [JdbcConfig] binding's URL; its clock is
  * the `kotlin.time.Clock` binding, if there is one.
  *
- * Add the application's tasks, recurring and one-time, to the `Set<Task<*>>` it opens, and adjust db-scheduler beyond
- * [DbSchedulerConfig] with a [DbSchedulerCustomizer]:
+ * Add the application's tasks, recurring and one-time, through a [DbSchedulerTaskProvider] in the
+ * `Set<DbSchedulerTaskProvider>` it opens, and adjust db-scheduler beyond [DbSchedulerConfig] with a
+ * [DbSchedulerCustomizer]:
  *
  * ```
- * inBindSet<Task<*>> { add { singleton { Tasks.recurring("purge", fixedDelay(1.hours)).execute { _, _ -> instance<Purger>().purge() } } } }
+ * bindSingleton { new(::Reminders) }
+ * inBindSet<DbSchedulerTaskProvider> { add { singleton { instance<Reminders>() } } }
  * inBindSet<DbSchedulerCustomizer> { add { singleton { DbSchedulerCustomizer { it.addSchedulerListener(listener) } } } }
  * ```
  */
 val dbSchedulerModule by DI.Module {
-  bindSet<Task<*>>()
+  bindSet<DbSchedulerTaskProvider>()
   bindSet<DbSchedulerCustomizer>()
   bindSingleton<DbSchedulerConfig> { instance<ConfigBinder>().config("db.scheduler") }
   bindSingleton {
@@ -41,7 +42,7 @@ val dbSchedulerModule by DI.Module {
     DbSchedulerService(
       dataSource = instance(),
       config = instance(),
-      tasks = instance<Set<Task<*>>>(),
+      tasks = instance<Set<DbSchedulerTaskProvider>>().flatMap { it.tasks() },
       customizer = { builder -> customizers.forEach { it.customize(builder) } },
       clock = instanceOrNull<Clock>() ?: Clock.System,
       jdbcUrl = instanceOrNull<JdbcConfig>()?.jdbcUrl,

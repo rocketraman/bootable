@@ -26,6 +26,25 @@ fun interface DbSchedulerCustomizer {
 }
 
 /**
+ * Provides db-scheduler tasks, recurring and one-time, to [DbSchedulerService]: with DI, the application binds its
+ * providers into a `Set<DbSchedulerTaskProvider>`, rather than its tasks into a set of db-scheduler's `Task<*>`.
+ *
+ * A provider is usually the class whose work its tasks do. It provides them all, and exposes each typed, such as the
+ * `OneTimeTask<T>` that code schedules instances of, so a task needs no second binding:
+ *
+ * ```
+ * class Reminders(private val mailer: Mailer) : DbSchedulerTaskProvider {
+ *   val send: OneTimeTask<Reminder> = Tasks.oneTime("send-reminder", Reminder::class.java).execute { i, _ -> mailer.send(i.data) }
+ *   val sweep: RecurringTask<Void> = Tasks.recurring("sweep-reminders", fixedDelay(1.hours)).execute { _, _ -> mailer.sweep() }
+ *   override fun tasks() = listOf(send, sweep)
+ * }
+ * ```
+ */
+fun interface DbSchedulerTaskProvider {
+  fun tasks(): Collection<Task<*>>
+}
+
+/**
  * Runs [db-scheduler](https://github.com/kagkarlsson/db-scheduler)'s [Scheduler] over the application's [DataSource],
  * usually the pool of `boot-db-jdbc`'s `JdbcDataSourceService`: persistent tasks, recurring and one-time, that survive
  * restarts, and that run once across all the application's instances, each execution on whichever instance locks its
