@@ -400,8 +400,44 @@ An application that sets `ThreadContext` around a start would use log4j-api-kotl
 `Health`'s drain `Thread.sleep(drainDelay)` becomes `delay(drainDelay)`, so it is virtual in tests, and cancellable.
 Its `aroundAppStart` and `appShutdown` become `suspend`; the `LifecycleState` transitions are unchanged, including that a cancelled start, like a failed one, goes from `Starting` to `Stopping` without draining.
 
-`HealthCheck.check()` stays blocking: `KtorHealth` already runs readiness in `withContext(Dispatchers.IO)`.
-Making it `suspend` is a separate change, which would let a check call a suspending client with a timeout.
+[#health-checks]
+==== Suspending health checks, with the caller's timeout
+
+`HealthCheck.check()` becomes `suspend`, and `Health.readiness()` with it; `liveness()` runs no checks, and stays plain.
+The caller, `Health`, bounds each check, rather than each check bounding itself:
+
+[source,kotlin]
+----
+interface HealthCheck {
+  fun name(): String = javaClass.simpleName
+  suspend fun check(): HealthStatus
+}
+
+data class ReadinessConfig(
+  val drainDelay: Duration = Duration.ZERO,
+  /** How long readiness waits for each check, after which the check is unhealthy. Below a probe's own timeout. */
+  val checkTimeout: Duration = 800.milliseconds,
+)
+
+suspend fun readiness(): HealthReport {
+  // ...not running: down, without running the checks, as today
+  val results = coroutineScope {
+    checks.map { check -> async { check.name() to check.runCheck(config.checkTimeout) } }.awaitAll().toMap()
+  }
+  // ...
+}
+----
+
+* The checks run concurrently, so readiness answers within `checkTimeout`, rather than within the sum of the checks' times.
+  A check that hasn't answered by then is `Unhealthy("no answer within 800ms")`, and one that throws is unhealthy, as today.
+* The default is below Kubernetes's default probe timeout, one second, so a slow dependency makes the probe fail with a reason, rather than time out without one.
+* A check that suspends, such as one calling a Ktor client, is cancelled at the timeout.
+  A check that blocks, such as `JdbcHealthCheck`'s `isValid`, can't be: it runs in `withContext(Dispatchers.IO)`, and the caller's timeout would wait for it.
+  So `Health` runs each check in a coroutine of its own, in the application scope (which `ServiceContext` gains, as `scope`), and only its await is under the timeout: readiness answers at the deadline, and the blocked check finishes on its own thread later.
+  A check still running from an earlier readiness isn't started again; the next readiness awaits the same run, so a dependency that hangs doesn't pile up blocked threads, one per probe.
+  A blocking check still bounds its own wait, as `JdbcHealthCheck` does with its `timeout`, so that run ends.
+* `KtorHealth` calls `health.readiness()` from its route directly, without its `withContext(Dispatchers.IO)`.
+* The `HealthCheck(name) { ... }` factory takes a suspending lambda.
 
 Optionally, `Health.state` can become backed by a `StateFlow<LifecycleState>`, so a test or a host awaits a state, rather than polling it as `HealthTest` and `KtorHealthTest` do.
 
@@ -431,7 +467,7 @@ This is part of this change, since the timeout's log needs it.
 ----
 interface AppService {
   /** This service's readiness, while it runs, for `Health.readiness`. None by default. */
-  fun health(): HealthStatus? = null
+  suspend fun health(): HealthStatus? = null
 }
 ----
 
@@ -439,7 +475,7 @@ A service knows best whether it can take work: a scheduler whose poller has stop
 Today each of those needs a separate `HealthCheck` bound beside the service, and an application must remember to bind it.
 With `health()`, the module's service brings its own, and readiness names it after the service.
 
-It is a feature rather than part of the move to coroutines, so I'd do it in a PR of its own, after this one, together with making checks `suspend` (see above), since a service's check most often asks something over the network.
+It is a feature rather than part of the move to coroutines, so I'd do it in a PR of its own, after this one; it would be `suspend`, and run under the same timeout as the other checks (see <<health-checks>>).
 
 === 9. Migration
 
@@ -522,6 +558,22 @@ The Kodein modules and Metro bindings bind the same types, so they don't change.
 | None: it implements only `appInit` and `priority`, which stay plain.
 |===
 
+==== Health checks
+
+[cols="2,5", options="header"]
+|===
+| Check | Change
+
+| `JdbcHealthCheck` (`boot-db-jdbc`)
+| `suspend fun check()`, in `withContext(Dispatchers.IO)`; it keeps its own `timeout`, for `isValid`, which bounds the blocked thread (see <<health-checks>>).
+
+| `DbSchedulerHealthCheck` (`boot-scheduler-db`)
+| `suspend fun check()`; it reads the scheduler's state, which doesn't block.
+
+| `KtorHealth` (`boot-server-http-ktor`)
+| Its readiness route calls `health.readiness()` directly.
+|===
+
 ==== Applications
 
 The changelog's migration note, under the breaking changes:
@@ -531,6 +583,7 @@ The changelog's migration note, under the breaking changes:
 * Replace `AdvancedAppService.start(die)` with `start(scope)`: launch background work in `scope` rather than in a scope of the service's own, and, for `die()`, throw in it, or fail it with `scope.launch { throw e }` from outside it.
 * `boot(maxShutdownTime = 30)` becomes `boot(maxShutdownTime = 30.seconds)`.
 * A controller's `appShutdown` no longer gets an `exitProcess` callback.
+* Add `suspend` to the overrides of `HealthCheck.check`, wrapping blocking calls in `withContext(Dispatchers.IO)`; a check no longer needs to bound its own time to answer a probe, since readiness applies `health.readiness.checkTimeout`.
 
 === 10. Testing
 
@@ -604,4 +657,5 @@ This change keeps nothing in the way of it: the lifecycle tracks each service's 
 . *5, forced shutdown:* the timeout cancels the stop at `maxShutdownTime` (after the drain), skipping the services not yet stopped, and `run` returns 1, so the process exits normally and its logs flush; a watchdog thread halts only if the stop is still blocked a grace (5 s) later.
   The timeout's log and the watchdog's name each service's state, and dump Bootable's job tree, and the full coroutine stacks when `DebugProbes` is installed.
 . *8, service states:* Bootable tracks each service's `ServiceState`, and `Health` reports them; a per-service `health()` comes in a later PR.
+. *8, health checks:* `HealthCheck.check()` and `Health.readiness()` become `suspend`; readiness runs the checks concurrently, each under `checkTimeout` (800 ms by default), and answers at the deadline even when a blocking check hasn't returned.
 . Smaller ones, each recommended above: a stop during the start cancels the start (1); `run` and `stop` are public, and the shutdown hook moves to `boot` and waits for the stop (2); `maxShutdownTime` becomes a `Duration` (2); parallel start and stop is a later opt-in.
