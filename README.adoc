@@ -356,14 +356,14 @@ Martin Kleppmann's https://martin.kleppmann.com/2016/02/08/how-to-do-distributed
 A _lease term_ is one unbroken stretch of leadership by one instance, from when it starts leading until it stops.
 Each lease term has one fencing token: `LeaderElection.fencingToken` is the current lease term's, or null while this instance doesn't lead.
 It is the same throughout a lease term, and greater in each later lease term, whichever instance leads it.
-The work reads it as it starts, with `requireFencingToken()`, which throws a `NotLeaderException` if this instance doesn't lead, and sends it with each write.
+The work reads it as it starts, skipping its writes if it is null, and sends it with each write.
 Bootable can't fence the writes itself: the store must be configured to refuse a write whose token is lower than the highest it has seen, so that once a later leader has written, a paused leader's late writes fail, rather than overwrite the newer ones.
 A good way to do this is to persist the token in the store alongside the data it guards, and make each write conditional on it, with a `WHERE` clause that the leader's token is at least the persisted one:
 
 [source,kotlin]
 ----
 PeriodicAppService("notifications", config, PeriodicGate.leader(leaderElection)) {
-  val token = leaderElection.requireFencingToken()
+  val token = leaderElection.fencingToken ?: return@PeriodicAppService
   notifications.sendPending(token)
 }
 ----

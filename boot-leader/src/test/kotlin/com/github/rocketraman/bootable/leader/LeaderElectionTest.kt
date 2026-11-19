@@ -13,15 +13,6 @@ val LeaderElectionTest by testSuite {
 
   test("AlwaysLeader has one lease term") {
     assert(AlwaysLeader.fencingToken == 0L)
-    assert(AlwaysLeader.requireFencingToken() == 0L)
-  }
-
-  test("requireFencingToken throws when this instance doesn't lead") {
-    val election = object : LeaderElection {
-      override val leadership = MutableStateFlow(false)
-      override val fencingToken: Long? = null
-    }
-    assert(runCatching { election.requireFencingToken() }.exceptionOrNull() is NotLeaderException)
   }
 
   test("awaitLeadership returns once this instance leads") {

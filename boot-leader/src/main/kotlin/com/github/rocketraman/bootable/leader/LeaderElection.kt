@@ -38,22 +38,17 @@ interface LeaderElection {
    *
    * It is the same throughout a lease term, and greater in each later lease term, of whichever instance: read it as
    * the work starts, and send it with each write, for the store to refuse a write from an earlier lease term once it
-   * has seen a later one. [requireFencingToken] reads it, or throws if this instance doesn't lead.
+   * has seen a later one. Work that finds it null, since this instance doesn't lead, skips its writes:
+   *
+   * ```
+   * val token = leaderElection.fencingToken ?: return
+   * ```
    */
   val fencingToken: Long?
 
   /** Whether this instance is the leader now. */
   fun isLeader(): Boolean = leadership.value
 }
-
-/**
- * The [fencing token][LeaderElection.fencingToken] of this instance's current lease term as leader, or throws a
- * [NotLeaderException] if it doesn't lead: for work that only the leader does, as it starts.
- */
-fun LeaderElection.requireFencingToken(): Long = fencingToken ?: throw NotLeaderException("$this doesn't lead")
-
-/** Work that only the leader does found that this instance doesn't lead. */
-class NotLeaderException(message: String) : IllegalStateException(message)
 
 /** Suspends until this instance is the leader. */
 suspend fun LeaderElection.awaitLeadership() {
