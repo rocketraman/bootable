@@ -35,4 +35,6 @@ dependencies {
   testImplementation(project(":boot-db-flyway"))
   testImplementation(project(":boot-telemetry-otel-prometheus"))
   testImplementation(libs.ktor.server.test.host)
+  // the server's log, captured
+  testImplementation(project(":boot-test"))
 }

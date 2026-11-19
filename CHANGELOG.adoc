@@ -137,6 +137,16 @@ A stop asked for before the application is waiting for one, such as a stop signa
 Such a stop is now kept until the application is running, and then stops it, with its exit code.
 Only the first stop asked for counts.
 
+=== Test helpers: boot-test and boot-test-otel
+
+New modules of helpers for unit tests, in plain Kotlin; see the Testing section of the README.
+They deliberately don't boot the application: test a component by constructing it, with fakes for what it uses.
+
+* `boot-test`: `checkShuffledStartPlans(services) { plan -> … }` checks the start plan under shuffled tiebreakers, without starting anything, and names the seed of a plan that fails.
+`captureLogs { … }` and `LogCapture` capture Log4j2's events, with their level, message, and structured `fields`, after `testLoggingInit()` initializes Bootable's logging for the test.
+`TestClock` is a `kotlin.time.Clock` a test sets and advances.
+* `boot-test-otel`: `InMemoryTelemetry`, an `OpenTelemetryCustomizer` that collects the spans and metrics an SDK records, in memory, with Kodein's `inMemoryTelemetryModule` and Metro's `InMemoryTelemetryBindings(telemetry)`.
+
 === Masked config values
 
 `boot-config-common` adds `Masked`, for a config property of a Bootable module that holds a secret, such as a password, an API key, or an auth header.

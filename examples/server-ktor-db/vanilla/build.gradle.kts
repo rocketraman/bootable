@@ -34,6 +34,9 @@ dependencies {
   implementation(project(":boot-periodic-otel"))
   // the entry digest's db-scheduler executions, traced, a trace for each
   implementation(project(":boot-scheduler-db-otel"))
+
+  // checks the start plan under shuffled tiebreakers
+  testImplementation(project(":boot-test"))
 }
 
 application {

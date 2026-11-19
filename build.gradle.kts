@@ -66,6 +66,8 @@ dependencies {
   dokka(project(":boot-telemetry-otel-micrometer-bridge"))
   dokka(project(":boot-telemetry-otel-prometheus"))
   dokka(project(":boot-telemetry-otel-signoz"))
+  dokka(project(":boot-test"))
+  dokka(project(":boot-test-otel"))
 }
 
 // The published version comes from a `vX.Y.Z` tag on HEAD, so a release is driven purely by tagging; any
@@ -995,6 +997,47 @@ project("boot-server-http-ktor-otel") {
     testImplementation(project(path = ":boot-telemetry-otel-prometheus", configuration = "kodeinElements"))
     testImplementation(project(path = ":boot-telemetry-otel-prometheus", configuration = "metroElements"))
     testImplementation(project(":boot-logging-log4j2"))
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+  }
+}
+
+// Helpers for unit tests: check the start plan under shuffled tiebreakers, capture logs, and set the clock. Plain
+// Kotlin, so any test framework can use them. Deliberately nothing that boots an application: test a component by
+// constructing it, with fakes for what it uses, rather than through the application's wiring.
+project("boot-test") {
+  dependencies {
+    // startPlan, for the shuffled start plans
+    api(project(":boot"))
+    // Bootable's logging, initialized for tests, and captured: the events are Log4j2's own
+    api(project(":boot-logging-log4j2"))
+    api(rootProject.libs.log4j.core)
+  }
+}
+
+// Collects the spans and metrics an OpenTelemetry SDK records, in memory, through boot-telemetry-otel's customizers
+project("boot-test-otel") {
+  configureDiVariants()
+  dependencies {
+    api(project(":boot-telemetry-otel"))
+    api(rootProject.libs.opentelemetry.sdk.testing)
+    // each flavor adds to boot-telemetry-otel's customizers, so it brings its matching flavor
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+
+    // TestClock
+    testImplementation(project(":boot-test"))
+    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
   }
 
   sourceSets.named("test") {

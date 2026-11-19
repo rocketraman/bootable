@@ -1,6 +1,4 @@
 import com.github.rocketraman.bootable.boot.Health
-import com.github.rocketraman.bootable.boot.StartOrder
-import com.github.rocketraman.bootable.boot.startPlan
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientService
 import com.github.rocketraman.bootable.db.exposed.ExposedDatabaseService
@@ -15,6 +13,8 @@ import com.github.rocketraman.bootable.leader.k8s.KubernetesLeaderElection
 import com.github.rocketraman.bootable.periodic.PeriodicAppService
 import com.github.rocketraman.bootable.scheduler.db.DbSchedulerService
 import com.zaxxer.hikari.HikariDataSource
+import com.github.rocketraman.bootable.test.checkShuffledStartPlans
+import com.github.rocketraman.bootable.test.indexOfService
 import de.infix.testBalloon.framework.core.testSuite
 import io.ktor.server.cio.*
 
@@ -58,10 +58,9 @@ val AppTest by testSuite {
   test("seeds the entries after the migrations, and before the server, in any tie order") {
     val services = EntriesApp(hopliteConfigBinder(report = false)).services
 
-    repeat(20) {
-      val plan = startPlan(services, tiebreaker = StartOrder.Tiebreaker.Shuffled()).map { it::class }
-      assert(plan.indexOf(FlywayMigrationService::class) < plan.indexOf(SeedEntriesService::class))
-      assert(plan.indexOf(SeedEntriesService::class) < plan.indexOf(EntryServer::class))
+    checkShuffledStartPlans(services) { plan ->
+      assert(plan.indexOfService<FlywayMigrationService>() < plan.indexOfService<SeedEntriesService>())
+      assert(plan.indexOfService<SeedEntriesService>() < plan.indexOfService<EntryServer>())
     }
   }
 }

@@ -796,6 +796,59 @@ With Metro, `boot-client-http-ktor-metro` contributes the service and the defaul
 
 link:./examples/server-ktor-db[examples/server-ktor-db]'s `GET /relay/{name}` gets an entry by calling the server back through a named client, so one trace shows the request, the client's call within it, and the server's handling of that call within that.
 
+[[Testing]]
+=== Testing
+
+`boot-test` and `boot-test-otel` are helpers for unit tests, in plain Kotlin, so JUnit, Kotest, and TestBalloon can all use them.
+Add them as test dependencies.
+
+They deliberately don't boot the application.
+
+NOTE: Bootable won't add a way to boot the application in tests.
+Where one exists, as in the Spring Boot ecosystem, it tends to become the way every test is written, because it is the easy way out: nobody has to think about injecting fakes.
+That makes tests slow and brittle, and replaces unit tests rather than complementing them.
+
+Test a component by constructing it, with fakes for what it uses; test a Ktor server's routes by running its module in Ktor's `testApplication`, with the server constructed the same way.
+Check the wiring without starting anything: build the application's graph, or call its vanilla wiring, and check the services it builds, and their start plan.
+With Metro, the compiler checks that the graph is complete.
+
+==== The start plan
+
+`checkShuffledStartPlans(services) { plan -> … }` computes the services' start plan under twenty shuffled tiebreakers, without starting anything, and names the seed of a plan that fails the check.
+A service that relies on an order its ordering doesn't declare fails it:
+
+[source,kotlin]
+----
+checkShuffledStartPlans(graph.appServices) { plan ->
+  assert(plan.indexOfService<FlywayMigrationService>() < plan.indexOfService<SeedEntriesService>())
+}
+----
+
+==== Logs
+
+`captureLogs(loggerName) { … }` returns the Log4j2 events logged to a logger and its descendants while the block ran, and `LogCapture` captures them until it is closed.
+Each event is Log4j2's own `LogEvent`, with its level, message, thrown, and context data, such as the trace id; `fields` has the structured fields of a map message.
+`single(level) { … }` finds the one event that matches, and lists what was captured if there isn't one:
+
+[source,kotlin]
+----
+val logs = captureLogs("EntryServer") {
+  client.put("/entries/greeting") { setBody("hello") }
+}
+assert(logs.messages(Level.INFO) == listOf("Stored entry greeting"))
+----
+
+A `level` lowers the logger's level while it captures, such as to `Level.DEBUG`.
+Both initialize Bootable's logging for the test first, with `testLoggingInit()`, as `boot` does for an application, but leave standard out and error alone.
+
+==== Clock and telemetry
+
+`TestClock` is a `kotlin.time.Clock` that stands still until the test moves it, with `advanceBy` or `set`.
+Pass it to what takes a `Clock`, such as `OpenTelemetryService`, `ServiceStartTracing`, or a periodic service.
+
+`InMemoryTelemetry`, from `boot-test-otel`, collects the spans and metrics an OpenTelemetry SDK records, in memory: `spans(name)`, `metric(name)`.
+Pass it to `OpenTelemetryService` as a customizer, or add it to the customizers of a graph: with Kodein, import `inMemoryTelemetryModule`; with Metro, include `InMemoryTelemetryBindings(telemetry)` through the graph's factory.
+
 == How to Use
 
 See xref:./docs/wiring.adoc[Wiring Bootable] for the full guide, and the projects in the `examples` directory — there is one per wiring style, so you can copy the one that matches your choice of DI (or no DI).
