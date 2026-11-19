@@ -118,6 +118,12 @@ dagger start server-ktor-db/lgtm
 ----
 
 It sets the example's OTLP endpoint to the stack's, and its metrics interval to 5 seconds, and tunnels the example's port, 8002, Grafana's, 3000, and the collector's, 4318, to `localhost`.
+`dagger start` doesn't show the example's log; to see it, run it with `--progress logs`:
+
+[source,shell]
+----
+dagger start --progress logs server-ktor-db/lgtm
+----
 
 === Traces only, with Jaeger
 
