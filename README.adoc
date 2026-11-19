@@ -43,6 +43,7 @@ Another basic implementation, intended to be used in conjunction with `AppStartS
 Other implementations are possible: for example starting/stopping services at runtime based on a command system, like start/stop messages from RPCs or web requests.
 A controller can also run code around the application's start, and each service's, by overriding `aroundAppStart` and `aroundServiceStart`, as `ServiceStartTracing` does to trace them.
 * Tracks the application's lifecycle state, and answers liveness and readiness from it, with an optional drain delay before shutdown; see <<Health>>.
+* Runs periodic background work, on the elected leader only if you like, with leader election through a Kubernetes Lease; see <<Periodic>>.
 
 == Modules
 
@@ -211,6 +212,137 @@ See link:./examples/server-ktor-db[examples/server-ktor-db], which serves them i
 This module provides all the necessary imports to configure Log4j2 as the logging system for the application.
 It provides good default logging layouts, and supports multiple output types e.g. plain (both color and not), JSON, and GCloud.
 See https://github.com/rocketraman/bootable/blob/HEAD/boot-logging-log4j2/src/main/kotlin/com/github/rocketraman/bootable/logging/log4j2/LoggingType.kt[LoggingType].
+
+[[Periodic]]
+=== Periodic work and leader election
+
+Many applications run a loop in the background: every few seconds, send the notifications that are pending, or sweep what has expired.
+`boot-periodic` provides that loop, `PeriodicAppService`, so an application writes only its work:
+
+[source,kotlin]
+----
+PeriodicAppService("notifications", binder.config("notifications.loop"), PeriodicGate.leader(leaderElection)) {
+  notifications.sendPending()
+}
+----
+
+* It runs the work every `interval`, a fixed delay after the previous run ends, so runs never overlap, on a coroutine of its own under a `SupervisorJob`.
+* A run that throws is logged, or handed to a `PeriodicFailureHandler`, and the loop carries on.
+`maxConsecutiveFailures` guards against a poison pill, such as a record that fails every run: once that many runs in a row have failed, the loop stops, or, with `onFailureLimit = Shutdown`, shuts the application down, so that its platform restarts it.
+`runTimeout` cancels a run that hangs.
+* Before each run, it asks its `PeriodicGate`, and skips the run when the gate is closed.
+`PeriodicGate.leader(leaderElection)` runs it on one instance of the application only, and `PeriodicGate.running(health)` only while the application is running; `and` combines gates.
+A gate that closes while a run is in progress, as the leader gate does when this instance stops leading, cancels the run, which isn't counted as a failure.
+Cancellation is cooperative: work that blocks, such as a JDBC call, stops at its next suspension point, unless it blocks in `runInterruptible`.
+* `enabled = false` turns it off.
+* On shutdown it starts no further run, and waits up to `shutdownTimeout` for a run in progress to finish before cancelling it.
+* It is in the `Serving` phase, so it starts after what its work uses, and stops before it.
+* `PeriodicRunInterceptor`s run around each run.
+`boot-periodic-otel`'s `periodicTracing` makes each run a trace of its own, with a root span named for the service, such as `periodic notifications`, so the run's queries and log events belong to it.
+* It notes, by the application's `kotlin.time.Clock`, when each run started, and when one last succeeded and failed.
+
+Each loop has a config section of the application's choosing, decoded as a `PeriodicConfig`; every setting has a default:
+
+[source,hocon]
+----
+notifications {
+  loop {
+    interval = 5s
+    maxConsecutiveFailures = 10
+  }
+}
+----
+
+`PeriodicServices` holds what the application's loops share, their default gate, clock, interceptors, and failure handler, so each loop needs only its name, config, and work: `periodic.create("notifications", config) { … }`.
+With Kodein, `periodicModule` binds it, gated on the `LeaderElection` binding if there is one, and opens a `Set<PeriodicRunInterceptor>`; import `periodicTracingModule()` from `boot-periodic-otel-kodein` to trace the runs.
+With Metro, `boot-periodic-metro` contributes it, gated on the graph's `LeaderElection` if it has one, and `boot-periodic-otel-metro` contributes the tracing.
+
+==== Leader election
+
+`boot-leader` defines `LeaderElection`: whether this instance is the leader of the application's instances, as a `StateFlow<Boolean>`, with `isLeader()` and `awaitLeadership()`.
+`AlwaysLeader` is the leader of an application that runs as one instance.
+
+`boot-leader-k8s` provides `KubernetesLeaderElection`, which elects a leader among an application's pods with a `coordination.k8s.io/v1` Lease, as Kubernetes's own controllers do, following client-go's algorithm.
+It is an app service in the `Infrastructure` phase, so it leads, if it can, before the loops that ask it start.
+The leader renews the Lease every `retryPeriod`, and gives up leadership when it can't renew it within `renewDeadline`; another pod takes the Lease once it hasn't been renewed for `leaseDuration`.
+On shutdown the leader releases the Lease, so another pod takes over at once.
+Its first attempt is part of its start, which fails if the API server refuses access, such as for a missing permission; it retries every other failure.
+
+It is configured from `leader.kubernetes`, where only the Lease's name is required:
+
+[source,hocon]
+----
+leader {
+  kubernetes {
+    leaseName = notifications-leader
+    # the pod's own namespace, from its service account, unless set
+    # namespace = apps
+    # the pod's name, from HOSTNAME, unless set
+    # identity = ${POD_NAME}
+    # leaseDuration = 15s
+    # renewDeadline = 10s
+    # retryPeriod = 2s
+    # outside Kubernetes, such as when running locally, skip the election, and lead
+    # assumeLeader = true
+  }
+}
+----
+
+The pod's service account needs a Role that allows `get`, `create`, and `update` on `leases` in the `coordination.k8s.io` API group:
+
+[source,yaml]
+----
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: leader-election
+rules:
+  - apiGroups: [coordination.k8s.io]
+    resources: [leases]
+    verbs: [get, create, update]
+----
+
+It talks to the API server's REST API through one of the application's own Ktor clients, from `boot-client-http-ktor` (see <<ClientHttp>>), rather than through a Kubernetes client library: leader election needs only three calls on one Lease.
+So the API server's TLS, timeouts, retries, and tracing are configured, and debugged, as every other HTTP call the application makes is, and the engine is the application's choice.
+It uses the client named by `leader.kubernetes.httpClient`, `kubernetes` by default, or the default client if there is none of that name.
+In a cluster, that client trusts the API server with no TLS config of the application's: the module defaults its trust store to the service account's CA certificate, `ca.crt`, through `boot-client-http-ktor`'s `KtorClientDefaults`, so `leaseName` is the only setting the election needs.
+The application's own config of the client, in `http.client.named.kubernetes`, applies over that default, and its `tls`, if it sets one, replaces it, e.g. to trust another CA:
+
+[source,hocon]
+----
+http {
+  client {
+    named {
+      kubernetes {
+        requestTimeout = 5s
+        tls {
+          trustStore { path = "/etc/k8s/ca.crt", type = PEM }
+        }
+      }
+    }
+  }
+}
+----
+
+With vanilla wiring, give `kubernetesClientDefaults(config)` to `KtorClientService`'s `defaults`; the Kodein and Metro flavors contribute it.
+
+Each request authenticates with the pod's service account token, read from its file for each request, since Kubernetes rotates it.
+The API server's address comes from `KUBERNETES_SERVICE_HOST` and `KUBERNETES_SERVICE_PORT`, which Kubernetes gives every pod, unless `leader.kubernetes.apiServer` is set.
+The Lease is JSON with kotlinx-serialization, whose serializers are generated, so a native image needs nothing for it.
+The election starts after the HTTP clients, in the same phase, so it stops, releasing its Lease, before they close.
+
+With Kodein, import `kubernetesLeaderElectionModule`, which binds it as the `LeaderElection`, alongside `ktorClientModule`; with Metro, `boot-leader-k8s-metro` contributes it, and `boot-client-http-ktor-metro` the clients.
+
+Two pods never lead at once, because a leader steps down before another pod can take over:
+
+* The leader steps down `renewDeadline` after it sent its last successful renewal, even if a request is still in flight then.
+* Another pod takes the Lease only `leaseDuration` after it saw that renewal, which was after it was sent.
+* Both are timed by each pod's monotonic clock, so the pods' clocks need not agree, and a clock that jumps elects no second leader; the Lease's own times are only informational.
+
+The leader's work must stop within the margin between the two, 5 seconds by default, once `leadership` turns false; the leader gate cancels a run in progress then, as above.
+The guarantee holds as long as the leader doesn't pause, such as for a long garbage collection or a suspended VM, for longer than that margin, since a paused pod can't step down: it would then carry on as though it still led.
+
+See link:./examples/server-ktor-db[examples/server-ktor-db], whose loop logs the entry count, on the leader only, in all three wiring styles.
 
 [[Telemetry]]
 === Telemetry (OpenTelemetry)

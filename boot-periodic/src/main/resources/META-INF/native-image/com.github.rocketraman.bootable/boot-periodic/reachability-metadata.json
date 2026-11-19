@@ -1,0 +1,10 @@
+{
+  "reflection": [
+    {
+      "type": "com.github.rocketraman.bootable.periodic.PeriodicConfig",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    }
+  ]
+}

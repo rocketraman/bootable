@@ -30,6 +30,8 @@ dependencies {
   // the HTTP clients on CIO, each request traced within its caller's trace
   implementation(project(":boot-client-http-ktor-cio"))
   implementation(project(":boot-client-http-ktor-otel"))
+  // the entry count's loop, traced, a trace for each run
+  implementation(project(":boot-periodic-otel"))
 }
 
 application {

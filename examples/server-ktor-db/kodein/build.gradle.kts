@@ -33,6 +33,10 @@ dependencies {
   // the HTTP clients, each request traced within its caller's trace
   implementation(project(path = ":boot-client-http-ktor", configuration = "kodeinElements"))
   implementation(project(path = ":boot-client-http-ktor-otel", configuration = "kodeinElements"))
+  // the entry count's loop, gated on the leader election, and traced, a trace for each run
+  implementation(project(path = ":boot-periodic", configuration = "kodeinElements"))
+  implementation(project(path = ":boot-periodic-otel", configuration = "kodeinElements"))
+  implementation(project(path = ":boot-leader-k8s", configuration = "kodeinElements"))
 }
 
 application {

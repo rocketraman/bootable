@@ -100,6 +100,22 @@ None by default.
 It now has Kodein and Metro flavors, `boot-server-http-ktor-kodein` and `boot-server-http-ktor-metro`, which provide `KtorHealth`.
 * `boot-server-http-ktor-otel` adds `KtorHealthConfig.excludeHealthFromTraces()`, which its Kodein and Metro flavors add to the SDK's customizers, so the probes aren't traced.
 
+=== Periodic work, and leader election
+
+New modules run periodic background work, on the elected leader only if you like; see the Periodic work and leader election section of the README.
+
+* `boot-periodic`: `PeriodicAppService` runs a suspending function every `interval`, a fixed delay apart, on a coroutine of its own, in the `Serving` phase.
+A run that fails is logged, or handed to a `PeriodicFailureHandler`, and the loop carries on, up to `maxConsecutiveFailures` runs in a row, after which it stops, or shuts the application down.
+A `PeriodicGate`, such as `PeriodicGate.leader(leaderElection)` or `PeriodicGate.running(health)`, decides whether each run happens; the leader gate cancels a run in progress when this instance stops leading.
+Shutdown waits up to `shutdownTimeout` for a run in progress, and then cancels it.
+Each loop's settings are a `PeriodicConfig`, decoded from a config section of the application's choosing.
+`PeriodicServices` holds what the loops share, for DI: Kodein's `periodicModule` and Metro's `PeriodicBindings` provide it, gated on the `LeaderElection` binding if there is one.
+* `boot-periodic-otel`: `periodicTracing` makes each run a trace of its own, through `PeriodicRunInterceptor`, the hook any code can run around each run with.
+* `boot-leader`: `LeaderElection`, whether this instance leads, as a `StateFlow<Boolean>`, and `AlwaysLeader`.
+* `boot-leader-k8s`: `KubernetesLeaderElection` holds a `coordination.k8s.io/v1` Lease, following client-go's leader election, from the `leader.kubernetes` config section (`KubernetesLeaderElectionConfig`), and releases it on shutdown.
+Two pods never lead at once, unless one pauses for longer than the margin between `leaseDuration` and `renewDeadline`: the leader steps down at the renew deadline, timed from when it sent its last renewal, even with a request in flight, and every expiry is timed by the monotonic clock.
+It calls the API server's REST API through one of the application's `boot-client-http-ktor` clients, `kubernetes` by default (`leader.kubernetes.httpClient`), rather than a Kubernetes client library, so its TLS and HTTP settings are configured as every other client's are; in a cluster, `kubernetesClientDefaults` defaults that client's trust store to the service account's `ca.crt`, so `leaseName` is the only required setting.
+
 === Masked config values
 
 `boot-config-common` adds `Masked`, for a config property of a Bootable module that holds a secret, such as a password, an API key, or an auth header.

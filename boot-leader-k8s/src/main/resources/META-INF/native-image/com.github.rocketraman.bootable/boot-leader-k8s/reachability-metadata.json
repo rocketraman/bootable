@@ -1,0 +1,10 @@
+{
+  "reflection": [
+    {
+      "type": "com.github.rocketraman.bootable.leader.k8s.KubernetesLeaderElectionConfig",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true,
+      "allDeclaredFields": true
+    }
+  ]
+}

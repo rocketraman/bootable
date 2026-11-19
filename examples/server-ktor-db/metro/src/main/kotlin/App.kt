@@ -9,6 +9,7 @@ import com.github.rocketraman.bootable.config.ConfigBinderProvider
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.db.jdbc.JdbcHealthCheckBindings
 import com.github.rocketraman.bootable.db.jdbc.JdbcTelemetryConfigurer
+import com.github.rocketraman.bootable.periodic.PeriodicServices
 import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.telemetry.otel.ServiceStartTracingBindings
@@ -40,6 +41,11 @@ interface EntriesBindings : ConfigBinderProvider {
 
   @Provides @IntoSet
   fun seedEntries(entries: EntryRepository): AppService = SeedEntriesService(entries)
+
+  /** The entry count, every `entries.report.interval`, on the leader only. */
+  @Provides @IntoSet
+  fun entryCountLoop(periodic: PeriodicServices, entries: EntryRepository): AppService =
+    periodic.create("entry-count", config("entries.report")) { EntryCountReport(entries).report() }
 
   @Provides @IntoSet
   fun entryServer(
@@ -77,6 +83,9 @@ interface EntriesBindings : ConfigBinderProvider {
  * contribute the application's OpenTelemetry SDK, its Prometheus export, the Ktor instrumentation the server
  * installs, and the pool's metrics (`boot-db-pool-hikari-otel-metro`). `boot-db-jdbc-otel-metro` makes each query a
  * span within its request's trace, as is each connection taken from the pool (`JdbcTelemetryConfigurer`).
+ * `boot-periodic-metro` creates the loop that logs the entry count, which only the leader runs, of the instances
+ * elected through a Kubernetes Lease (`boot-leader-k8s-metro`, from `leader.kubernetes`), and each run is a trace
+ * (`boot-periodic-otel-metro`).
  * `boot-metro` tracks the application's health from its lifecycle, which the server serves
  * (`boot-server-http-ktor-metro`), with readiness down while the database doesn't answer (`JdbcHealthCheckBindings`).
  * The HTTP clients (`boot-client-http-ktor-metro`, from `http.client`) run on CIO, and
