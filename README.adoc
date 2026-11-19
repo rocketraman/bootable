@@ -261,6 +261,7 @@ With Metro, `boot-periodic-metro` contributes it, gated on the graph's `LeaderEl
 ==== Leader election
 
 `boot-leader` defines `LeaderElection`: whether this instance is the leader of the application's instances, as a `StateFlow<Boolean>`, with `isLeader()` and `awaitLeadership()`.
+Its `fencingToken` numbers the current term of leadership, for the store to refuse a write from an earlier term; see <<FencingToken>>.
 `AlwaysLeader` is the leader of an application that runs as one instance.
 
 `boot-leader-k8s` provides `KubernetesLeaderElection`, which elects a leader among an application's pods with a `coordination.k8s.io/v1` Lease, as Kubernetes's own controllers do, following client-go's algorithm.
@@ -345,6 +346,39 @@ The guarantee holds as long as the leader doesn't pause, such as for a long garb
 Work that db-scheduler runs needs no leader at all: it runs each execution on one instance by locking its row; see <<Scheduler>>.
 
 See link:./examples/server-ktor-db[examples/server-ktor-db], whose loop logs the entry count, on the leader only, in all three wiring styles.
+
+[[FencingToken]]
+===== Fencing tokens
+
+A fencing token closes that remaining gap, a leader that pauses for longer than `leaseDuration - renewDeadline`, where the work writes.
+`LeaderElection.fencingToken` is a `Long` for the current term of leadership, or null while this instance doesn't lead.
+It is the same throughout a term, and greater in each later term, whichever instance leads it.
+The work reads it as it starts, with `requireFencingToken()`, which throws a `NotLeaderException` if this instance doesn't lead, and sends it with each write.
+The store refuses a write whose token is lower than the highest it has seen, so once a later leader has written, a paused leader's late writes fail, rather than overwrite the newer ones:
+
+[source,kotlin]
+----
+PeriodicAppService("notifications", config, PeriodicGate.leader(leaderElection)) {
+  val token = leaderElection.requireFencingToken()
+  notifications.sendPending(token)
+}
+----
+
+[source,sql]
+----
+-- a row's fence is the highest token that has written it
+UPDATE notifications SET sent_at = now(), fence = :token
+WHERE id = :id AND fence <= :token
+-- no row updated: a later leader has written it, and this term is over
+----
+
+A write can check the token against a row it updates, as above, or against a single row that holds the highest token, updated in the same transaction as the work's writes.
+
+`KubernetesLeaderElection`'s token is the Lease's `spec.leaseTransitions` as of the term it holds.
+A new term increments it: when another pod takes the Lease, and when a pod that stepped down takes it again, even if the Lease still names it, since its earlier term's work might still be running.
+Renewals leave it as it is.
+Deleting the Lease starts the count again, at 0, so a store that has seen a higher token would refuse every leader's writes: leave the Lease in place, or reset the fences with it.
+`AlwaysLeader`'s token is always 0.
 
 [[Scheduler]]
 === Scheduled tasks (db-scheduler)

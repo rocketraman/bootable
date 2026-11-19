@@ -29,6 +29,7 @@ import kotlin.time.Duration.Companion.milliseconds
 /** A leader election a test controls. */
 class TestLeaderElection(leading: Boolean) : LeaderElection {
   override val leadership = MutableStateFlow(leading)
+  override val fencingToken get() = if (leadership.value) 1L else null
 }
 
 /** Counts the runs of the loop the wiring creates. */

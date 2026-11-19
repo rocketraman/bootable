@@ -112,8 +112,11 @@ Each loop's settings are a `PeriodicConfig`, decoded from a config section of th
 `PeriodicServices` holds what the loops share, for DI: Kodein's `periodicModule` and Metro's `PeriodicBindings` provide it, gated on the `LeaderElection` binding if there is one.
 * `boot-periodic-otel`: `periodicTracing` makes each run a trace of its own, through `PeriodicRunInterceptor`, the hook any code can run around each run with.
 * `boot-leader`: `LeaderElection`, whether this instance leads, as a `StateFlow<Boolean>`, and `AlwaysLeader`.
+Its `fencingToken`, greater in each term of leadership, closes the remaining gap, a leader that pauses for longer than `leaseDuration - renewDeadline`: the work sends it with its writes, and the store refuses a write with a lower token than one it has seen, so a paused leader's late writes fail.
+`requireFencingToken()` reads it, or throws a `NotLeaderException` if this instance doesn't lead.
 * `boot-leader-k8s`: `KubernetesLeaderElection` holds a `coordination.k8s.io/v1` Lease, following client-go's leader election, from the `leader.kubernetes` config section (`KubernetesLeaderElectionConfig`), and releases it on shutdown.
 Two pods never lead at once, unless one pauses for longer than the margin between `leaseDuration` and `renewDeadline`: the leader steps down at the renew deadline, timed from when it sent its last renewal, even with a request in flight, and every expiry is timed by the monotonic clock.
+Its fencing token is the Lease's `spec.leaseTransitions` as of the term it holds, which each new term increments, including a pod's own, when it takes the Lease again after it stepped down.
 It calls the API server's REST API through one of the application's `boot-client-http-ktor` clients, `kubernetes` by default (`leader.kubernetes.httpClient`), rather than a Kubernetes client library, so its TLS and HTTP settings are configured as every other client's are; in a cluster, `kubernetesClientDefaults` defaults that client's trust store to the service account's `ca.crt`, so `leaseName` is the only required setting.
 
 === Scheduled tasks with db-scheduler
