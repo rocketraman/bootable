@@ -17,7 +17,7 @@ data class GreetingConfig(val message: String)
 
 class GreetingService(private val cfg: GreetingConfig) : AppService {
   private val log = logger()
-  override fun start() = log.info { "greeting: ${cfg.message}" }
+  override suspend fun start() = log.info { "greeting: ${cfg.message}" }
 }
 
 // Kodein: assemble the sets with Kodein's runtime multibindings, then hand the resolved Bootable to boot.

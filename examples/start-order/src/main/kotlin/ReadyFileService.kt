@@ -1,5 +1,7 @@
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.Ordering
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.kotlin.logger
 import java.nio.file.Path
 import kotlin.io.path.absolute
@@ -22,13 +24,13 @@ class ReadyFileService(config: ReadyFileConfig) : AppService {
   private val logger = logger()
   private val path = Path.of(config.path)
 
-  override fun start() {
-    path.createParentDirectories().writeText("ready\n")
+  override suspend fun start() {
+    withContext(Dispatchers.IO) { path.createParentDirectories().writeText("ready\n") }
     logger.info { "Ready: wrote ${path.absolute()}" }
   }
 
-  override fun shutdown() {
-    if (path.deleteIfExists()) logger.info { "Not ready: removed ${path.absolute()}" }
+  override suspend fun shutdown() {
+    if (withContext(Dispatchers.IO) { path.deleteIfExists() }) logger.info { "Not ready: removed ${path.absolute()}" }
   }
 
   override fun ordering() = Ordering(AppPhase.Announce)

@@ -9,7 +9,7 @@ data class GreetingConfig(val message: String)
 
 class GreetingService(private val cfg: GreetingConfig) : AppService {
   private val log = logger()
-  override fun start() = log.info { "greeting: ${cfg.message}" }
+  override suspend fun start() = log.info { "greeting: ${cfg.message}" }
 }
 
 // Vanilla: no DI framework at all. Load config, construct the services, hand them to boot.

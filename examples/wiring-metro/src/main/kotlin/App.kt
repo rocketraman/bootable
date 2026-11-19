@@ -23,7 +23,7 @@ data class GreetingConfig(val message: String)
 @Inject
 class GreetingService(private val cfg: GreetingConfig) : AppService {
   private val log = logger()
-  override fun start() = log.info { "greeting: ${cfg.message}" }
+  override suspend fun start() = log.info { "greeting: ${cfg.message}" }
 }
 
 // config bindings are just a type and a key (ConfigBinderProvider supplies the binder as a graph accessor)

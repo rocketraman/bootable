@@ -2,9 +2,6 @@ import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.DefaultPhase
 import com.github.rocketraman.bootable.boot.Ordering
 import com.github.rocketraman.bootable.db.jdbc.DbMilestones
-import io.opentelemetry.context.Context
-import io.opentelemetry.extension.kotlin.asContextElement
-import kotlinx.coroutines.runBlocking
 import org.apache.logging.log4j.kotlin.logger
 
 /**
@@ -19,10 +16,10 @@ import org.apache.logging.log4j.kotlin.logger
 class SeedEntriesService(private val entries: EntryRepository) : AppService {
   private val logger = logger()
 
-  // the span the service starts in, if any, is only current on this thread: the coroutine carries it to the threads
-  // the repository's transactions run on
-  override fun start() = runBlocking(Context.current().asContextElement()) {
-    if (entries.all().isNotEmpty()) return@runBlocking
+  // the span the service starts in, if any, is carried in the coroutine context, to the threads the repository's
+  // transactions run on
+  override suspend fun start() {
+    if (entries.all().isNotEmpty()) return
     for ((name, value) in SEED_ENTRIES) entries.put(name, value)
     logger.info { "Seeded ${SEED_ENTRIES.size} sample entries" }
   }
