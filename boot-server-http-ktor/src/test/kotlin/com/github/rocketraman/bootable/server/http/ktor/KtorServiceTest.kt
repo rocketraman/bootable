@@ -7,7 +7,6 @@ import de.infix.testBalloon.framework.core.testSuite
 import io.ktor.server.application.*
 import io.ktor.server.cio.*
 import io.ktor.server.engine.*
-import io.ktor.server.jetty.jakarta.*
 import io.ktor.server.netty.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -19,7 +18,6 @@ import java.net.http.HttpResponse
 
 val KtorServiceTest by testSuite {
   testSuite("CIO") { engineTests(CIO) }
-  testSuite("Jetty") { engineTests(Jetty) }
   testSuite("Netty") { engineTests(Netty) }
 }
 

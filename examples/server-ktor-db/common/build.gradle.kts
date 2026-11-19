@@ -10,7 +10,7 @@ kotlin {
 // plain Bootable modules here; each app adds the DI flavor it wires with.
 dependencies {
   api(project(":boot"))
-  // the server runs on Ktor's CIO engine; boot-server-http-ktor-netty and -jetty are the other choices
+  // the server runs on Ktor's CIO engine; boot-server-http-ktor-netty is the other choice
   api(project(":boot-server-http-ktor-cio"))
   // the server traces and measures its requests, and serves the metrics scrape
   api(project(":boot-server-http-ktor-otel"))
