@@ -62,7 +62,7 @@ type ServerKtorDb {
   # ---------------------------------------------------------------------------------------------------------------
 
   """
-  The build environment with the source checked out, before any Gradle task has run: JDK 25, as `.mise.toml` and
+  The build environment with the source checked out, before any Gradle task has run: JDK 25, as `mise.toml` and
   the build's Java toolchain ask for.
   """
   pub env: Container! {
