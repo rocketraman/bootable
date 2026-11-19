@@ -394,6 +394,10 @@ db {
 
 For anything else, such as a `SchedulerListener`, an `ExecutionInterceptor`, or another serializer, add a `DbSchedulerCustomizer`, which adjusts db-scheduler's `SchedulerBuilder` after the typed settings.
 
+`boot-scheduler-db-otel`'s `dbSchedulerTracing` is such a customizer: it makes each execution a trace of its own, with a root span named for the task, such as `db-scheduler send-reminder`, so the execution's queries and log events belong to it.
+The span covers the execution's completion too, such as the statement that deletes a one-time execution's row, and records a failed execution's exception.
+db-scheduler's own statements, such as its polls for due executions and its heartbeats, run outside any execution, so, with `boot-db-jdbc-otel`, each is still a trace of its own.
+
 With DI, the application's tasks come from `DbSchedulerTaskProvider`s.
 A provider is usually the class whose work its tasks do: it provides them all, and exposes each typed, such as the `OneTimeTask<T>` that code schedules instances of, so a task needs no second binding.
 
@@ -406,8 +410,8 @@ class Reminders(private val mailer: Mailer) : DbSchedulerTaskProvider {
 }
 ----
 
-With Kodein, import `dbSchedulerModule`, which binds the `Scheduler` and `SchedulerClient`, and opens a `Set<DbSchedulerTaskProvider>` and a `Set<DbSchedulerCustomizer>`; import `dbSchedulerHealthCheckModule` for the readiness check.
-With Metro, `boot-scheduler-db-metro` contributes them; contribute tasks with `@Provides @IntoSet fun reminderTasks(reminders: Reminders): DbSchedulerTaskProvider`, and name `DbSchedulerHealthCheckBindings` in your graph's `bindingContainers` for the readiness check.
+With Kodein, import `dbSchedulerModule`, which binds the `Scheduler` and `SchedulerClient`, and opens a `Set<DbSchedulerTaskProvider>` and a `Set<DbSchedulerCustomizer>`; import `dbSchedulerHealthCheckModule` for the readiness check, and `dbSchedulerTracingModule()` from `boot-scheduler-db-otel-kodein` to trace the executions.
+With Metro, `boot-scheduler-db-metro` contributes them; contribute tasks with `@Provides @IntoSet fun reminderTasks(reminders: Reminders): DbSchedulerTaskProvider`, and name `DbSchedulerHealthCheckBindings` in your graph's `bindingContainers` for the readiness check; `boot-scheduler-db-otel-metro` contributes the tracing.
 Without DI, pass the tasks to `DbSchedulerService` directly.
 
 ==== Its table

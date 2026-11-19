@@ -56,6 +56,7 @@ dependencies {
   dokka(project(":boot-periodic"))
   dokka(project(":boot-periodic-otel"))
   dokka(project(":boot-scheduler-db"))
+  dokka(project(":boot-scheduler-db-otel"))
   dokka(project(":boot-server-http-ktor"))
   dokka(project(":boot-server-http-ktor-cio"))
   dokka(project(":boot-server-http-ktor-netty"))
@@ -781,6 +782,51 @@ project("boot-scheduler-db") {
     testImplementation(project(":boot-logging-log4j2"))
     testImplementation(rootProject.libs.testcontainers.postgresql)
     testImplementation(rootProject.libs.testcontainers.mysql)
+  }
+
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+  }
+}
+
+// traces each db-scheduler execution through the application's OpenTelemetry, as an ExecutionInterceptor
+project("boot-scheduler-db-otel") {
+  configureDiVariants()
+  dependencies {
+    api(project(":boot-scheduler-db"))
+    // ALWAYS_SAMPLE and Sample, and the OpenTelemetry of boot-telemetry-otel's SDK
+    api(project(":boot-telemetry-otel"))
+    // each flavor adds to boot-scheduler-db's customizers, over the OpenTelemetry of boot-telemetry-otel's SDK, so it
+    // brings both modules' matching flavors
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-scheduler-db", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot-scheduler-db", configuration = "kodeinElements"))
+    "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+
+    testImplementation(rootProject.libs.opentelemetry.sdk.testing)
+    // the tests run the scheduler over SQLite, migrated by Flyway, with its statements traced, to check that an
+    // execution's statements, and its completion's, belong to the execution's span
+    testImplementation(project(":boot-db-jdbc-otel"))
+    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-scheduler-db", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-scheduler-db", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-jdbc-sqlite", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-jdbc-sqlite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-db-flyway", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-db-flyway", configuration = "metroElements"))
+    testImplementation(project(":boot-logging-log4j2"))
   }
 
   sourceSets.named("test") {
