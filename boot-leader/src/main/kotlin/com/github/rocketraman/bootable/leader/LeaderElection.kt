@@ -19,7 +19,8 @@ import kotlinx.coroutines.flow.first
  *
  * The guarantee holds as long as this instance doesn't pause, such as for a long garbage collection, or a suspended
  * VM, for longer than that margin, since it can't step down while paused: it would then carry on as though it still led.
- * The [fencingToken] closes that gap where the work writes: each term of leadership has a token greater than every
+ * The [fencingToken] closes that gap where the work writes. A term is one unbroken stretch of one instance's
+ * leadership, from when it starts leading until it stops; each term has a token greater than every
  * earlier term's, which the work sends with its writes, and the store refuses a write with a token lower than one it has
  * seen, such as by a database `UPDATE ... WHERE fence <= :token`, so a paused leader's late writes fail once a later
  * leader has written.

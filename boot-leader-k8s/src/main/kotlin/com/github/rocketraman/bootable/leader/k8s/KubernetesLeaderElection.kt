@@ -86,16 +86,16 @@ class KubernetesLeaderElection(
   private val state = MutableStateFlow(config.assumeLeader)
   override val leadership: StateFlow<Boolean> = state.asStateFlow()
 
-  // the Lease's leaseTransitions as of the term this instance holds, or last held: set before it leads, so that a
-  // reader that sees it lead reads its term's token
+  // the fencing token of the term this instance holds, or last held: the Lease's leaseTransitions as it took the Lease.
+  // Set before it leads, so that a reader that sees it lead reads its current term's token
   @Volatile
-  private var term: Long = 0
+  private var heldToken: Long = 0
 
   /**
    * The Lease's `spec.leaseTransitions` as of this instance's current term, while it leads, or null; with
    * [KubernetesLeaderElectionConfig.assumeLeader], always 0.
    */
-  override val fencingToken: Long? get() = if (state.value) term else null
+  override val fencingToken: Long? get() = if (state.value) heldToken else null
 
   /** This instance's identity: the Lease's holder while it leads. */
   val identity: String = config.identity ?: environment["HOSTNAME"]?.ifBlank { null } ?: localHostName()
@@ -215,9 +215,9 @@ class KubernetesLeaderElection(
       }
       renewedAt = sent
       if (!state.value) {
-        term = held
+        heldToken = held
         state.value = true
-        log.info { "$identity leads, holding lease ${config.leaseName}, in term $held" }
+        log.info { "$identity leads, holding lease ${config.leaseName}, with fencing token $held" }
       }
       Attempt.Held
     } else {
@@ -237,7 +237,8 @@ class KubernetesLeaderElection(
   }
 
   /**
-   * Takes or renews the Lease, and returns the term it holds, its `leaseTransitions`; null if another instance holds
+   * Takes or renews the Lease, and returns the fencing token of the term it holds, the Lease's `leaseTransitions`;
+   * null if another instance holds
    * it. It renews the Lease only while it leads: otherwise, even if the Lease still names it, it takes it for a new
    * term, so that its work from an earlier term, which might still be running, has a lower fencing token.
    */
@@ -248,7 +249,7 @@ class KubernetesLeaderElection(
     val lease = client.get()
     if (lease == null) {
       val spec = LeaseSpec(identity, leaseDurationSeconds, formatMicroTime(now), formatMicroTime(now), 0)
-      return observe(client.create(spec)).term
+      return observe(client.create(spec)).fencingToken
     }
     val seen = if (lease.spec != observedSpec) {
       TimeSource.Monotonic.markNow().also {
@@ -271,7 +272,7 @@ class KubernetesLeaderElection(
         identity, leaseDurationSeconds, formatMicroTime(now), formatMicroTime(now), (lease.spec.leaseTransitions ?: 0) + 1,
       )
     }
-    return observe(client.update(lease.copy(spec = spec))).term
+    return observe(client.update(lease.copy(spec = spec))).fencingToken
   }
 
   private fun observe(lease: Lease): Lease {
@@ -282,7 +283,7 @@ class KubernetesLeaderElection(
     return lease
   }
 
-  private val Lease.term: Long get() = (spec.leaseTransitions ?: 0).toLong()
+  private val Lease.fencingToken: Long get() = (spec.leaseTransitions ?: 0).toLong()
 
   /** Releases the Lease, as client-go does: no holder, and a lease of a second, so another instance takes it at once. */
   @Suppress("TooGenericExceptionCaught")
