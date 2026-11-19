@@ -244,7 +244,7 @@ If we migrate, or the variant machinery becomes a maintenance problem, split int
 * *Simpler flavor publishing*, at the cost of more modules (see <<flavors>>).
 * *Layered configuration through nested templates.*
 The Metro modules need `languageVersion: 2.3` while everything else uses 2.1.
-Two sibling templates setting different values is a conflict error, but a template that `apply`s another one overrides it.
+Two sibling templates setting different values is a conflict error, but a template that ``apply``s another one overrides it.
 So `metro.module-template.yaml` applies `common.module-template.yaml` and sets 2.3, and the Metro modules apply only the Metro template.
 `kotlin show settings -m <module>` shows which file each effective value came from.
 * *A declarative build.*

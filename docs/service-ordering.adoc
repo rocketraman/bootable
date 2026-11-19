@@ -2,7 +2,7 @@
 :toc: macro
 
 Status: *implemented* in 3.1, as recommended below, except that `priority()` was removed at once rather than
-deprecated first (see _Migration from `priority()`_). Prompted by the database modules in rocketraman/bootable#34.
+deprecated first (see _Migration from ``priority()``_). Prompted by the database modules in rocketraman/bootable#34.
 
 toc::[]
 
@@ -394,7 +394,7 @@ a service that writes a ready file once the server is listening, and, as shutdow
 before the server stops.
 
 *Replace the phases.* An app can use only phases of its own. The services it gets from libraries still declare
-`DefaultPhase`s, so it maps those onto its own in `orderingOf`; any phase left unmapped and missing from
+``DefaultPhase``s, so it maps those onto its own in `orderingOf`; any phase left unmapped and missing from
 `phases` fails the boot (see below), so nothing is silently misplaced:
 
 [source,kotlin]
@@ -457,7 +457,7 @@ How ties are actually broken is a `StartOrder.Tiebreaker`, given to `Bootable`:
 
 The natural choice depends on the environment: shuffled in development and tests, where a surprise is cheap,
 and by name in production, where it isn't. That is an ordinary per-environment setting, so it is read from
-config, from Bootable's own `boot.service.order` section, rather than derived from `boot-env`'s environment. The
+config, from Bootable's own `boot.service.order` section, rather than derived from ``boot-env``'s environment. The
 tiebreaker uses the environment, but isn't part of it, and `boot` can't see `boot-env` anyway (`boot-env` depends
 on `boot`, and the environment is only set during `appInit`, after the plan is made):
 
@@ -489,7 +489,7 @@ properties, so the seed is `tiebreaker.seed`, where it means something. No envir
 since `_` separates the path, so an environment variable names the subtype as the tiebreaker's own value instead.
 Subtype names match in any case, as enum values do.
 
-`boot`'s Kodein and Metro flavors read it this way when the app has a `ConfigBinder`, so an app sets it in config
+``boot``'s Kodein and Metro flavors read it this way when the app has a `ConfigBinder`, so an app sets it in config
 and writes no code; one without a `ConfigBinder` gets `ByName`. Keeping the tiebreaker apart from the `StartOrder`
 lets the two be chosen independently: an app's custom `StartOrder` needn't know about config.
 
@@ -500,7 +500,7 @@ so a missing overlay can only mean the deterministic order, never a shuffled one
 Bootable deliberately doesn't load per-environment files such as `application-${env}.conf`, in the manner of
 Spring Boot's profiles. Which files are read would then depend on a variable outside the config, a mistyped
 environment would silently load nothing, and the config would no longer say where a value came from. An app that
-wants profiles anyway can add them explicitly with `hopliteConfigBinder`'s stage hooks, required rather than
+wants profiles anyway can add them explicitly with ``hopliteConfigBinder``'s stage hooks, required rather than
 optional, so a typo fails the boot:
 
 [source,kotlin]
@@ -553,7 +553,7 @@ abstract class KtorService(...) : AdvancedAppService {
 
 Flyway needs no `after(DataSourceReady)`: the pool is in an earlier phase. The application's own
 `EntryRepository`/`EntryServer` declare nothing. Every `PRIORITY` constant goes away. With no migration tool in
-the set, `SchemaVerificationService`'s `after` has no providers and is simply satisfied; with Liquibase instead
+the set, ``SchemaVerificationService``'s `after` has no providers and is simply satisfied; with Liquibase instead
 of Flyway, nothing in `boot-db-exposed` changes.
 
 === Algorithm and validation

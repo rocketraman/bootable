@@ -26,7 +26,7 @@ fun main() = boot { /* return the Bootable to run */ }
 ----
 
 `boot` initializes logging first, then runs the lambda, so config loading and component construction happen with
-logging already set up. `Bootable`'s `lifecycleControllers` argument defaults to `defaultLifecycleControllers()`
+logging already set up. ``Bootable``'s `lifecycleControllers` argument defaults to `defaultLifecycleControllers()`
 — the built-in start/stop and signal-handling controllers — so you pass it only to run a custom lifecycle (e.g.
 starting/stopping services on command from an RPC or web request rather than at boot).
 
@@ -219,7 +219,7 @@ duplicate binding.
 
 Unit tests need no DI (domain classes take plain constructor parameters). To override a binding in an
 integration test, `createDynamicGraph<AppGraph>(FakeBindings)` builds the real graph with one container
-substituted, still at compile time. See `examples/server-ktor`'s tests.
+substituted, still at compile time. See ``examples/server-ktor``'s tests.
 
 == A note on performance
 

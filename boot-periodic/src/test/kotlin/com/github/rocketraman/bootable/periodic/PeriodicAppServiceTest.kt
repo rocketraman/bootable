@@ -75,6 +75,7 @@ val PeriodicAppServiceTest by testSuite {
     val leading = MutableStateFlow(false)
     val election = object : LeaderElection {
       override val leadership = leading
+      override val fencingToken get() = if (leading.value) 1L else null
     }
     val runs = AtomicInteger()
     val service = PeriodicAppService("led", testConfig(), PeriodicGate.leader(election)) { runs.incrementAndGet() }
@@ -99,6 +100,7 @@ val PeriodicAppServiceTest by testSuite {
     val leading = MutableStateFlow(true)
     val election = object : LeaderElection {
       override val leadership = leading
+      override val fencingToken get() = if (leading.value) 1L else null
     }
     val started = AtomicBoolean(false)
     val cancelled = AtomicBoolean(false)
@@ -134,6 +136,7 @@ val PeriodicAppServiceTest by testSuite {
     val leading = MutableStateFlow(true)
     val election = object : LeaderElection {
       override val leadership = leading
+      override val fencingToken get() = if (leading.value) 1L else null
     }
     val cancelled = AtomicBoolean(false)
     val started = AtomicBoolean(false)

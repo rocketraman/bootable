@@ -15,6 +15,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.nio.file.Path
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.createTempDirectory
@@ -129,7 +130,7 @@ val KubernetesLeaderElectionTest by testSuite {
           val first = server.spec("renewTime")
           eventually { server.spec("renewTime") != first }
           sleep(1500.milliseconds)
-          // longer than the lease duration, and still the leader, of the same term
+          // longer than the lease duration, and still the leader, of the same lease term
           assert(a.isLeader())
           assert(server.holder() == "pod-a")
           assert(server.transitions() == 0)
@@ -289,6 +290,102 @@ val KubernetesLeaderElectionTest by testSuite {
     }
   }
 
+  test("the fencing token is the lease's transitions, stable across renewals") {
+    FakeApiServer(setOf("token-a")).use { server ->
+      withServiceAccounts("token-a") { accounts ->
+        listOf(KubernetesLeaderElection(testConfig(server, accounts.getValue("token-a"), "pod-a"), http)).use { (a) ->
+          a.start()
+          assert(a.fencingToken == 0L)
+          val first = server.spec("renewTime")
+          eventually { server.spec("renewTime") != first }
+          sleep(1500.milliseconds)
+          assert(a.fencingToken == 0L)
+          assert(server.transitions() == 0)
+        }
+      }
+    }
+  }
+
+  test("the fencing token increases with each takeover, and is null while not leading") {
+    FakeApiServer(setOf("token-a", "token-b", "token-c")).use { server ->
+      withServiceAccounts("token-a", "token-b", "token-c") { accounts ->
+        val a = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-a"), "pod-a"), http)
+        val b = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-b"), "pod-b"), http)
+        val c = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-c"), "pod-c"), http)
+        listOf(a, b, c).use {
+          a.start()
+          b.start()
+          assert(a.fencingToken == 0L && b.fencingToken == null)
+          // pod-a releases the lease, and pod-b takes over
+          a.shutdown()
+          assert(a.fencingToken == null)
+          eventually { b.isLeader() }
+          assert(b.fencingToken == 1L)
+          c.start()
+          assert(c.fencingToken == null)
+          // pod-b stops renewing, and pod-c takes over once the lease expires
+          server.unavailableTo += "token-b"
+          eventually { c.isLeader() }
+          assert(c.fencingToken == 2L)
+          assert(b.fencingToken == null)
+          assert(server.transitions() == 2)
+        }
+      }
+    }
+  }
+
+  test("a leader that stepped down takes the lease again for a new lease term, though it still holds it") {
+    FakeApiServer(setOf("token-a")).use { server ->
+      withServiceAccounts("token-a") { accounts ->
+        val config = testConfig(server, accounts.getValue("token-a"), "pod-a").copy(requestTimeout = 3.seconds)
+        listOf(KubernetesLeaderElection(config, http)).use { (a) ->
+          a.start()
+          assert(a.fencingToken == 0L)
+          // its requests hang past the renew deadline, so it steps down, though no other instance takes the lease
+          server.stalledFor += "token-a"
+          eventually { !a.isLeader() }
+          assert(a.fencingToken == null)
+          server.stalledFor -= "token-a"
+          eventually { a.isLeader() }
+          // a work run of its first lease term might still be running: its token is lower than this lease term's
+          assert(server.holder() == "pod-a")
+          assert(a.fencingToken == 1L)
+          assert(server.transitions() == 1)
+        }
+      }
+    }
+  }
+
+  test("a fenced write refuses a paused leader's late write once a later leader has written") {
+    FakeApiServer(setOf("token-a", "token-b")).use { server ->
+      withServiceAccounts("token-a", "token-b") { accounts ->
+        // the store's fence: the highest token that has written, as a database row's fence column would hold it
+        val fence = AtomicLong(-1)
+        fun write(token: Long): Boolean {
+          while (true) {
+            val seen = fence.get()
+            if (token < seen) return false
+            if (fence.compareAndSet(seen, token)) return true
+          }
+        }
+        val a = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-a"), "pod-a"), http)
+        val b = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-b"), "pod-b"), http)
+        listOf(a, b).use {
+          a.start()
+          b.start()
+          // pod-a's work reads its token as it starts, and then pauses, longer than the lease
+          val paused = a.fencingToken!!
+          assert(write(paused))
+          server.unavailableTo += "token-a"
+          eventually { b.isLeader() }
+          assert(write(b.fencingToken!!))
+          // pod-a's work carries on, as though it still led: its write is refused
+          assert(!write(paused))
+        }
+      }
+    }
+  }
+
   test("dates the lease by its clock, in the API server's MicroTime format") {
     val now = Instant.parse("2026-11-18T12:34:56.789Z")
     val clock = object : Clock {
@@ -356,6 +453,7 @@ val KubernetesLeaderElectionTest by testSuite {
     )
     a.start()
     assert(a.isLeader())
+    assert(a.fencingToken == 0L)
     a.shutdown()
     assert(a.identity == "local")
   }
