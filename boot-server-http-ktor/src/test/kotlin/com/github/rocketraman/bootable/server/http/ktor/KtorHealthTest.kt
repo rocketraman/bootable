@@ -2,6 +2,7 @@ package com.github.rocketraman.bootable.server.http.ktor
 
 import com.github.rocketraman.bootable.boot.AdvancedAppService
 import com.github.rocketraman.bootable.boot.AppService
+import com.github.rocketraman.bootable.boot.BuildInfo
 import com.github.rocketraman.bootable.boot.DefaultPhase
 import com.github.rocketraman.bootable.boot.Health
 import com.github.rocketraman.bootable.boot.HealthCheck
@@ -67,12 +68,22 @@ private class App(private val health: Health, vararg services: AppService) {
 
 private val client = HttpClient.newHttpClient()
 
-private data class Response(val status: Int, val body: String, val contentType: String? = null)
+private data class Response(
+  val status: Int,
+  val body: String,
+  val contentType: String? = null,
+  val cacheControl: String? = null,
+)
 
 private fun get(port: Int, path: String): Response {
   val request = HttpRequest.newBuilder(URI("http://127.0.0.1:$port$path")).build()
   val response = client.send(request, HttpResponse.BodyHandlers.ofString())
-  return Response(response.statusCode(), response.body(), response.headers().firstValue("Content-Type").orElse(null))
+  return Response(
+    response.statusCode(),
+    response.body(),
+    response.headers().firstValue("Content-Type").orElse(null),
+    response.headers().firstValue("Cache-Control").orElse(null),
+  )
 }
 
 /** A health route's answer: its status, and its body, parsed as JSON. */
@@ -136,7 +147,11 @@ val KtorHealthTest by testSuite {
 
   test("serves them on a listener of their own, which starts first, when hostPort is set") {
     val health = Health()
-    val ktorHealth = KtorHealth(health, KtorHealthConfig(livePath = "/live", readyPath = "/ready", hostPort = "127.0.0.1:0"))
+    val ktorHealth = KtorHealth(
+      health,
+      KtorHealthConfig(livePath = "/live", readyPath = "/ready", infoPath = "/info", hostPort = "127.0.0.1:0"),
+      BuildInfo(version = "1.4.2"),
+    )
     val listener = ktorHealth.listener(CIO)
     assert(listener is HealthKtorService<*, *>)
     assert(listener.ordering().phase == DefaultPhase.Telemetry)
@@ -149,8 +164,10 @@ val KtorHealthTest by testSuite {
       val healthPort = (listener as HealthKtorService<*, *>).port()
       assert(get(healthPort, "/live").status == 200)
       assert(getHealth(healthPort, "/ready") == health(200, """{"status": "UP", "state": "Running", "checks": {}}"""))
+      assert(getHealth(healthPort, "/info") == health(200, """{"version": "1.4.2"}"""))
       // not on the application's server
       assert(get(server.port(), "/ready").status == 404)
+      assert(get(server.port(), "/info").status == 404)
     } finally {
       app.stop()
     }
@@ -159,6 +176,33 @@ val KtorHealthTest by testSuite {
   test("has no listener of its own, and serves on the application's server, by default") {
     val ktorHealth = KtorHealth(Health())
     assert(ktorHealth.listener(CIO) !is HealthKtorService<*, *>)
-    assert(ktorHealth.config.applicationServerPaths == setOf("/health/live", "/health/ready"))
+    assert(ktorHealth.config.applicationServerPaths == setOf("/health/live", "/health/ready", "/health/info"))
+  }
+
+  test("serves the build info, whatever the lifecycle state, which no cache keeps") {
+    val health = Health()
+    val buildInfo = BuildInfo(version = "1.4.2", revision = "3f2c9e1", attributes = mapOf("branch" to "main"))
+    val server = AppServer(KtorHealth(health, buildInfo = buildInfo))
+    val app = App(health, server)
+
+    app.start {
+      val port = kotlinx.coroutines.runBlocking { server.port() }
+      assert(getHealth(port, "/health/info").status == 200)
+    }
+    try {
+      val port = server.port()
+      assert(
+        getHealth(port, "/health/info") ==
+          health(200, """{"version": "1.4.2", "revision": "3f2c9e1", "attributes": {"branch": "main"}}"""),
+      )
+      assert(get(port, "/health/info").cacheControl == "no-store")
+    } finally {
+      app.stop()
+    }
+  }
+
+  test("serves only the build info's fields that are set") {
+    assert(BuildInfo().toJson().toString() == "{}")
+    assert(BuildInfo(revision = "3f2c9e1").toJson().toString() == """{"revision":"3f2c9e1"}""")
   }
 }

@@ -99,6 +99,10 @@ None by default.
 * `boot-server-http-ktor` adds `KtorHealth`, which serves liveness at `/health/live` and readiness at `/health/ready`, `200` or `503`, with a JSON body of the status, the lifecycle state, and each readiness check's status and reason, by name, on the application's server or on a listener of their own, from the `health.ktor` config section (`KtorHealthConfig`).
 It now has Kodein and Metro flavors, `boot-server-http-ktor-kodein` and `boot-server-http-ktor-metro`, which provide `KtorHealth`.
 * `boot-server-http-ktor-otel` adds `KtorHealthConfig.excludeHealthFromTraces()`, which its Kodein and Metro flavors add to the SDK's customizers, so the probes aren't traced.
+* `boot` adds `BuildInfo`, the application's `version`, `revision`, and `attributes`, from the `build` config section, such as the `BUILD_VERSION` and `BUILD_REVISION` environment variables.
+`bootableModule` binds it with Kodein, and `BootableDefaultBindings` provides it with Metro.
+* `KtorHealth` serves `BuildInfo` as JSON at `/health/info` (`KtorHealthConfig.infoPath`), so a client, such as an end-to-end test during a rollout, can check which build answered it.
+* ``boot-telemetry-otel``'s `serviceVersion` defaults to `build.version`.
 
 === Periodic work, and leader election
 

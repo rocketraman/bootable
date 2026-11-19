@@ -21,6 +21,8 @@ import org.kodein.di.singleton
  * `Set<HealthCheck>` it opens, and the [ReadinessConfig] of the `health.readiness` config section if there is a
  * [ConfigBinder] binding. Add a readiness check with
  * `inBindSet<HealthCheck> { add { singleton { MyCheck() } } }`.
+ *
+ * It binds the application's [BuildInfo], from the `build` config section if there is a [ConfigBinder] binding.
  */
 val bootableModule by DI.Module {
   bindSet<AppService>()
@@ -29,6 +31,7 @@ val bootableModule by DI.Module {
   bindSingleton {
     Health(instance(), instanceOrNull<ConfigBinder>()?.let { readinessConfig(it) } ?: ReadinessConfig())
   }
+  bindSingleton { instanceOrNull<ConfigBinder>()?.let { buildInfo(it) } ?: BuildInfo() }
   inBindSet<LifecycleController> {
     add { singleton { AppStartStopLifecycleController() } }
     add { singleton { StopSignalHandlerLifecycleController() } }

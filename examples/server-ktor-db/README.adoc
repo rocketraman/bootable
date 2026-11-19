@@ -51,6 +51,13 @@ curl -s http://localhost:8001/health/ready | jq -e '.checks.jdbc.status == "UP"'
 
 To see readiness go down before the server stops, set `health.readiness.drainDelay`, e.g. `HEALTH_READINESS_DRAINDELAY=10s`, stop the app with Ctrl-C, and ask for readiness again during the delay.
 
+The build info is at http://localhost:8001/health/info, from the `build` config section: start the app with, e.g., `BUILD_VERSION=1.4.2`, and a test can check which build answered it:
+
+[source,shell]
+----
+curl -s http://localhost:8001/health/info | jq -e '.version == "1.4.2"'
+----
+
 == Starting faster, with an AOT cache
 
 The `vanilla` app has an `aotCache` task, which runs the installed app once, serving a few requests, to write its JVM AOT cache:

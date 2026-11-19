@@ -5,8 +5,8 @@ import org.kodein.di.bindSingleton
 import org.kodein.di.instance
 
 /**
- * A Kodein module that provides [KtorHealth], over the `Health` of `bootableModule` (from boot-kodein), with its
- * [KtorHealthConfig] decoded from the `health.ktor` config section. Requires a `ConfigBinder` binding (e.g. from
+ * A Kodein module that provides [KtorHealth], over the `Health` and `BuildInfo` of `bootableModule` (from
+ * boot-kodein), with its [KtorHealthConfig] decoded from the `health.ktor` config section. Requires a `ConfigBinder` binding (e.g. from
  * boot-config-hoplite's `hopliteConfigModule`).
  *
  * Install it in a server with `installHealth(instance<KtorHealth>())`. For the routes' listener of their own, add
@@ -18,5 +18,5 @@ import org.kodein.di.instance
  */
 val ktorHealthModule by DI.Module {
   bindSingleton { ktorHealthConfig(instance()) }
-  bindSingleton { KtorHealth(instance(), instance()) }
+  bindSingleton { KtorHealth(instance(), instance(), instance()) }
 }

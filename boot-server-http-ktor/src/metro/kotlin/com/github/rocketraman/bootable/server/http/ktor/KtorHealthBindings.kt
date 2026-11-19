@@ -1,6 +1,7 @@
 package com.github.rocketraman.bootable.server.http.ktor
 
 import com.github.rocketraman.bootable.boot.BootScope
+import com.github.rocketraman.bootable.boot.BuildInfo
 import com.github.rocketraman.bootable.boot.Health
 import com.github.rocketraman.bootable.config.ConfigBinder
 import dev.zacsweers.metro.ContributesTo
@@ -8,8 +9,8 @@ import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
 
 /**
- * Provides [KtorHealth], over the `Health` of `BootableDefaultBindings` (from boot-metro), with its
- * [KtorHealthConfig] decoded from the `health.ktor` config section.
+ * Provides [KtorHealth], over the `Health` and `BuildInfo` of `BootableDefaultBindings` (from boot-metro), with
+ * its [KtorHealthConfig] decoded from the `health.ktor` config section.
  *
  * Install it in a server with `installHealth(health)`. For the routes' listener of their own, add the listener on
  * your engine to the app services:
@@ -25,6 +26,7 @@ interface KtorHealthBindings {
     fun healthConfig(binder: ConfigBinder): KtorHealthConfig = ktorHealthConfig(binder)
 
     @Provides @SingleIn(BootScope::class)
-    fun ktorHealth(health: Health, config: KtorHealthConfig): KtorHealth = KtorHealth(health, config)
+    fun ktorHealth(health: Health, config: KtorHealthConfig, buildInfo: BuildInfo): KtorHealth =
+      KtorHealth(health, config, buildInfo)
   }
 }

@@ -84,12 +84,35 @@ val TelemetryWiringTest by testSuite {
       val binder = FakeConfigBinder(
         "telemetry.sdk" to TelemetryConfig(environment = "configured"),
         "env" to EnvironmentSection("from-env"),
+        "build" to BuildSection(),
       )
       assert(telemetryConfig(binder, env = emptyMap()).environment == "configured")
     }
 
-    test("as all defaults when both sections are absent") {
-      val binder = FakeConfigBinder("telemetry.sdk" to TelemetryConfig(), "env" to EnvironmentSection())
+    test("with serviceVersion from build.version, the key of boot's BuildInfo") {
+      val binder = FakeConfigBinder(
+        "telemetry.sdk" to TelemetryConfig(),
+        "env" to EnvironmentSection(),
+        "build" to BuildSection("2.0.0"),
+      )
+      assert(telemetryConfig(binder, env = emptyMap()).serviceVersion == "2.0.0")
+    }
+
+    test("preferring telemetry.sdk.serviceVersion to build.version") {
+      val binder = FakeConfigBinder(
+        "telemetry.sdk" to TelemetryConfig(serviceVersion = "configured"),
+        "env" to EnvironmentSection(),
+        "build" to BuildSection("2.0.0"),
+      )
+      assert(telemetryConfig(binder, env = emptyMap()).serviceVersion == "configured")
+    }
+
+    test("as all defaults when the sections are absent") {
+      val binder = FakeConfigBinder(
+        "telemetry.sdk" to TelemetryConfig(),
+        "env" to EnvironmentSection(),
+        "build" to BuildSection(),
+      )
       assert(telemetryConfig(binder, env = emptyMap()) == TelemetryConfig())
       assert(hopliteConfigBinder(report = false).configOf("absent.sdk", TelemetryConfig::class) == TelemetryConfig())
     }
