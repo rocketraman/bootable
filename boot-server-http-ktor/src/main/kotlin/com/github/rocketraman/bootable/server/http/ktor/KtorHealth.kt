@@ -16,6 +16,10 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 
 /**
  * Where a Ktor server serves the application's [Health]. Every field is optional.
@@ -58,8 +62,19 @@ fun ktorHealthConfig(binder: ConfigBinder): KtorHealthConfig = binder.config("he
 
 /**
  * Serves the application's [Health] from a Ktor server: liveness at [KtorHealthConfig.livePath] and readiness at
- * [KtorHealthConfig.readyPath], each `200 OK` when healthy and `503 Service Unavailable` when not, with a short
- * plain-text body: `UP` or `DOWN`, the lifecycle state, and each readiness check's result.
+ * [KtorHealthConfig.readyPath], each `200 OK` when healthy and `503 Service Unavailable` when not, with a JSON body:
+ * `UP` or `DOWN`, the lifecycle state, and each readiness check's result, by name, so a consumer can check one:
+ *
+ * ```
+ * {
+ *   "status": "DOWN",
+ *   "state": "Running",
+ *   "checks": {
+ *     "jdbc": { "status": "UP" },
+ *     "db-scheduler": { "status": "DOWN", "reason": "paused" }
+ *   }
+ * }
+ * ```
  *
  * Install it in your server's module with [installHealth]:
  *
@@ -107,7 +122,7 @@ fun Application.installHealth(health: KtorHealth) = health.install(this)
 
 /**
  * Serves [health]'s liveness at [livePath] and readiness at [readyPath]: `200 OK` when healthy, `503 Service
- * Unavailable` when not, with a short plain-text body, which no cache keeps.
+ * Unavailable` when not, with a JSON body, which no cache keeps: see [KtorHealth].
  */
 fun Route.healthRoutes(
   health: Health,
@@ -122,20 +137,31 @@ fun Route.healthRoutes(
 private suspend fun ApplicationCall.respondHealth(report: HealthReport) {
   response.header(HttpHeaders.CacheControl, "no-store")
   respondText(
-    report.describe(),
-    ContentType.Text.Plain,
+    report.toJson().toString(),
+    ContentType.Application.Json,
     if (report.healthy) HttpStatusCode.OK else HttpStatusCode.ServiceUnavailable,
   )
 }
 
-/** The report as a few lines of text: `UP` or `DOWN`, the state, and each check's result. */
-internal fun HealthReport.describe(): String = buildString {
-  appendLine(if (healthy) "UP" else "DOWN")
-  appendLine("state: $state")
-  checks.forEach { (name, status) ->
-    appendLine("$name: " + if (status is HealthStatus.Unhealthy) "DOWN (${status.reason})" else "UP")
+/**
+ * The report as JSON: its `status`, `UP` or `DOWN`, its lifecycle `state`, and its `checks`, each by name, with its
+ * `status`, and an unhealthy one's `reason`.
+ */
+internal fun HealthReport.toJson(): JsonObject = buildJsonObject {
+  put("status", if (healthy) UP else DOWN)
+  put("state", state.name)
+  putJsonObject("checks") {
+    checks.forEach { (name, status) ->
+      putJsonObject(name) {
+        put("status", if (status.healthy) UP else DOWN)
+        if (status is HealthStatus.Unhealthy) put("reason", status.reason)
+      }
+    }
   }
 }
+
+private const val UP = "UP"
+private const val DOWN = "DOWN"
 
 /**
  * A listener that serves only [health]'s routes, on a port of its own, e.g. one that only the platform's probes
