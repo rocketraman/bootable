@@ -7,7 +7,8 @@ import com.github.rocketraman.bootable.logging.log4j2.LoggingType
 import com.github.rocketraman.bootable.logging.log4j2.loggingInit
 import java.util.Collections
 import java.util.IdentityHashMap
-import java.util.concurrent.SynchronousQueue
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.timer
 import kotlin.system.exitProcess
 import kotlin.time.TimeMark
@@ -36,7 +37,13 @@ class Bootable(
 ) {
 
   @Volatile private var running = true
-  private val terminationQueue = SynchronousQueue<Int>()
+  /** Whether the application has been asked to stop, once, by [appTerminate]. */
+  private val terminating = AtomicBoolean(false)
+  /**
+   * The exit code [appTerminate] was asked to stop with. It holds the code until [awaitTermination] takes it, so a stop
+   * asked for before the application is waiting for one, such as while it starts, is neither lost nor blocks its caller.
+   */
+  private val terminationQueue = LinkedBlockingQueue<Int>()
   private val shutdownHook = Thread { appTerminate() }
   /** The services started, and not yet stopped. */
   private val startedServices: MutableSet<AppService> =
@@ -137,10 +144,9 @@ class Bootable(
   }
 
   private fun awaitTermination(): Int {
-    while(running) {
+    while(true) {
       try { return terminationQueue.take() } catch (e: InterruptedException) { Ignore }
     }
-    return 0
   }
 
   private fun appShutdown(maxShutdownTime: Long) {
@@ -188,7 +194,7 @@ class Bootable(
   }
 
   private fun appTerminate(exitCode: Int = 0) {
-    if(running) {
+    if(terminating.compareAndSet(false, true)) {
       running = false
       terminationQueue.put(exitCode)
     }
