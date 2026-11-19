@@ -2,7 +2,24 @@ package com.github.rocketraman.bootable.boot
 
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.config
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -51,20 +68,23 @@ sealed interface HealthStatus {
  *
  * Readiness only: liveness runs no checks, since an application whose dependency is down isn't helped by restarting.
  *
- * A check runs on the thread asking for readiness, such as the request's, so it must return promptly, bounding its
- * own wait: a probe gives up after a second or so, by default. A check that throws is [HealthStatus.Unhealthy].
+ * [HealthLifecycleController] bounds each check by [ReadinessConfig.checkTimeout]: a check that hasn't answered by
+ * then is [HealthStatus.Unhealthy], and one that throws is too. A check that suspends is cancelled at the timeout;
+ * one that blocks, which it does in `withContext(Dispatchers.IO)`, can't be, so readiness answers without it, and the
+ * check finishes later on its own thread, which it bounds itself. While it runs, readiness doesn't run it again, but
+ * awaits the same run.
  */
 interface HealthCheck {
   /** The check's name, in the readiness report, which defaults to the simple java class name. */
   fun name(): String = javaClass.simpleName
 
-  fun check(): HealthStatus
+  suspend fun check(): HealthStatus
 }
 
 /** A [HealthCheck] named [name], which runs [check]. */
-fun HealthCheck(name: String, check: () -> HealthStatus): HealthCheck = object : HealthCheck {
+fun HealthCheck(name: String, check: suspend () -> HealthStatus): HealthCheck = object : HealthCheck {
   override fun name() = name
-  override fun check() = check()
+  override suspend fun check() = check()
   override fun toString() = "HealthCheck($name)"
 }
 
@@ -76,6 +96,7 @@ fun HealthCheck(name: String, check: () -> HealthStatus): HealthCheck = object :
  * health {
  *   readiness {
  *     drainDelay = 5s
+ *     checkTimeout = 800ms
  *   }
  * }
  * ```
@@ -90,13 +111,21 @@ data class ReadinessConfig(
    * `terminationGracePeriodSeconds`, must cover both.
    */
   val drainDelay: Duration = Duration.ZERO,
+
+  /**
+   * How long readiness waits for each check, which all run at once, after which the check is unhealthy. Below
+   * Kubernetes's default probe timeout of a second, so a slow dependency fails the probe with a reason, rather than
+   * time it out.
+   */
+  val checkTimeout: Duration = 800.milliseconds,
 )
 
 /** Decodes [ReadinessConfig] from the `health.readiness` config section using the given [ConfigBinder]. */
 fun readinessConfig(binder: ConfigBinder): ReadinessConfig = binder.config("health.readiness")
 
 /**
- * A liveness answer: whether the application is [healthy], and its [state]. Liveness runs no checks, so it has none.
+ * A liveness answer: whether the application is [healthy], its [state], and each service's state. Liveness runs no
+ * checks, so it has none.
  *
  * It is [Serializable], with its status as `UP` or `DOWN`, and decodes back, such as in a client of the health routes:
  *
@@ -108,10 +137,12 @@ fun readinessConfig(binder: ConfigBinder): ReadinessConfig = binder.config("heal
 data class HealthLiveReport(
   @SerialName("status") @Serializable(with = UpDownSerializer::class) val healthy: Boolean,
   val state: LifecycleState,
+  /** Each service's state, by name, in the order of the start plan: empty, and left out, until the application starts. */
+  val services: Map<String, ServiceState> = emptyMap(),
 )
 
 /**
- * A readiness answer: whether the application is [healthy], its [state], and each check's result.
+ * A readiness answer: whether the application is [healthy], its [state], each check's result, and each service's state.
  *
  * It is [Serializable], with its status as `UP` or `DOWN`, and each check by name, so a consumer can check one:
  *
@@ -137,6 +168,8 @@ data class HealthReadyReport(
    * Serialized even when empty, so a consumer always finds it.
    */
   @EncodeDefault val checks: Map<String, HealthStatus> = emptyMap(),
+  /** Each service's state, by name, in the order of the start plan: empty, and left out, until the application starts. */
+  val services: Map<String, ServiceState> = emptyMap(),
 )
 
 /**
@@ -168,41 +201,70 @@ class HealthLifecycleController(
   val config: ReadinessConfig = ReadinessConfig(),
 ) : LifecycleController {
 
+  private val stateFlow = MutableStateFlow(LifecycleState.Starting)
+
+  /** The application's state, to await one, rather than poll [state]. */
+  val states: StateFlow<LifecycleState> = stateFlow.asStateFlow()
+
+  val state: LifecycleState get() = stateFlow.value
+
   @Volatile
-  var state: LifecycleState = LifecycleState.Starting
-    private set
+  private var serviceStates: StateFlow<Map<AppService, ServiceState>>? = null
+
+  /** The checks running, each awaited by every readiness that asks while it runs. */
+  private val running = ConcurrentHashMap<HealthCheck, Deferred<HealthStatus>>()
+
+  /** Where the checks run: blocking checks block a thread of [Dispatchers.IO], rather than the caller's. */
+  private val checkScope = CoroutineScope(SupervisorJob() + Dispatchers.IO + CoroutineName("health-checks"))
 
   /** Healthy until the application has stopped. */
   fun liveness(): HealthLiveReport {
     val state = state
-    return HealthLiveReport(state != LifecycleState.Stopped, state)
+    return HealthLiveReport(state != LifecycleState.Stopped, state, services = services())
   }
 
-  /** Healthy while the application is running, and every check is healthy. */
-  fun readiness(): HealthReadyReport {
+  /** Healthy while the application is running, and every check is healthy, within [ReadinessConfig.checkTimeout]. */
+  suspend fun readiness(): HealthReadyReport {
     val state = state
-    if (state != LifecycleState.Running) return HealthReadyReport(false, state)
-    val results = checks.associate { it.name() to it.runCheck() }
+    if (state != LifecycleState.Running) return HealthReadyReport(false, state, services = services())
+    val results = coroutineScope {
+      checks.map { check -> async { check.name() to check.runCheck() } }.awaitAll().toMap()
+    }
     // shutdown may have begun while the checks ran
-    return HealthReadyReport(results.values.all { it.healthy } && this.state == LifecycleState.Running, state, results)
+    val healthy = results.values.all { it.healthy } && this.state == LifecycleState.Running
+    return HealthReadyReport(healthy, state, results, services())
   }
 
-  // a start that fails never calls it, leaving the state Starting, until the shutdown that follows
-  override fun appRunning() {
-    if (state == LifecycleState.Starting) state = LifecycleState.Running
+  private fun services(): Map<String, ServiceState> =
+    serviceStates?.value?.entries?.associate { (service, state) -> service.name() to state }.orEmpty()
+
+  override suspend fun aroundAppStart(
+    serviceContext: ServiceContext,
+    timeline: StartupTimeline,
+    start: suspend () -> Unit,
+  ) {
+    serviceStates = serviceContext.states
+    start()
   }
 
-  override fun appShutdown(serviceContext: ServiceContext, maxShutdownTime: Duration, exitProcess: (exitCode: Int) -> Unit) {
+  // a start that fails, or that a stop cancels, never calls it, leaving the state Starting, until the shutdown that
+  // follows
+  override suspend fun appRunning() {
+    stateFlow.compareAndSet(LifecycleState.Starting, LifecycleState.Running)
+  }
+
+  override suspend fun appShutdown(serviceContext: ServiceContext, maxShutdownTime: Duration) {
     val wasRunning = state == LifecycleState.Running
-    state = LifecycleState.Stopping
+    stateFlow.value = LifecycleState.Stopping
     if (wasRunning && config.drainDelay.isPositive()) {
       log.info { "==> Not ready; draining for ${config.drainDelay} before stopping the services…" }
-      Thread.sleep(config.drainDelay.inWholeMilliseconds)
+      delay(config.drainDelay)
     }
   }
 
-  override fun appCleanup() {
-    state = LifecycleState.Stopped
+  override suspend fun appCleanup() {
+    stateFlow.value = LifecycleState.Stopped
+    checkScope.cancel()
   }
 
   /**
@@ -212,9 +274,20 @@ class HealthLifecycleController(
    */
   override fun priority() = Int.MIN_VALUE
 
+  /** Runs this check, or awaits its run already running, within the check timeout. */
+  private suspend fun HealthCheck.runCheck(): HealthStatus {
+    val run = running.compute(this) { _, earlier ->
+      earlier?.takeIf { it.isActive } ?: checkScope.async { checkCatching() }
+    }!!
+    return withTimeoutOrNull(config.checkTimeout) { run.await() }
+      ?: HealthStatus.Unhealthy("no answer within ${config.checkTimeout}")
+  }
+
   @Suppress("TooGenericExceptionCaught")
-  private fun HealthCheck.runCheck(): HealthStatus = try {
+  private suspend fun HealthCheck.checkCatching(): HealthStatus = try {
     check()
+  } catch (e: CancellationException) {
+    throw e
   } catch (e: Exception) {
     log.debug(e) { "Health check ${name()} failed" }
     HealthStatus.Unhealthy(e.message ?: e.javaClass.name)

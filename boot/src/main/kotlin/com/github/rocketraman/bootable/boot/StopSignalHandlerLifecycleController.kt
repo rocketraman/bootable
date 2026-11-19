@@ -13,7 +13,7 @@ import sun.misc.SignalHandler
 class StopSignalHandlerLifecycleController: LifecycleController {
   val log = logger()
 
-  override fun appStart(serviceContext: ServiceContext, normalStop: (exitCode: Int) -> Unit) {
+  override suspend fun appStart(serviceContext: ServiceContext, normalStop: (exitCode: Int) -> Unit) {
     StopSignalHandler(normalStop)
     log.debug("Stop signal handler installed")
   }
@@ -21,7 +21,8 @@ class StopSignalHandlerLifecycleController: LifecycleController {
   /**
    * Gracefully handle SIGHUP, SIGINT, or SIGTERM. This is cleaner than executing a shutdown hook because it will
    * run *before* other shutdown hooks installed in the system. The exit code in these cases is normally 128+signum
-   * but we'll consider this a normal exit and have an exit code of 0.
+   * but we'll consider this a normal exit and have an exit code of 0. [normalStop] never blocks, so the signal thread
+   * returns at once.
    */
   private class StopSignalHandler private constructor(val normalStop: (exitCode: Int) -> Unit): SignalHandler {
     companion object {

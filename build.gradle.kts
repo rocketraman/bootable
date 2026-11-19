@@ -240,6 +240,8 @@ project("boot") {
     // StaticConfigBinder, for the wiring tests' config
     testImplementation(project(":boot-test"))
     testImplementation(rootProject.libs.kotlinx.serialization.json)
+    // the lifecycle is suspending, and services launch their background work in a CoroutineScope
+    api(rootProject.libs.kotlinx.coroutines.core)
     implementation(project(":boot-common"))
     // todo for now, we depend on boot-logging-log4j2, later we could use service loaders to discover implementations at runtime
     implementation(project(":boot-logging-log4j2"))
@@ -249,6 +251,11 @@ project("boot") {
     "inaraApi"(project(path = ":boot-config-common", configuration = "inaraElements"))
     // the tests compose the inara flavor's BootableModule into a module of their own, as an application does
     "kspTest"(rootProject.libs.inara.processor)
+  }
+
+  dependencies {
+    // virtual time, for the drain, the shutdown timeout, and the stop races
+    testImplementation(rootProject.libs.kotlinx.coroutines.test)
   }
 
   // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would
