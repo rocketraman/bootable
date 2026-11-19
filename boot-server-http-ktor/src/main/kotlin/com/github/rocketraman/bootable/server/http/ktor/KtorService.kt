@@ -15,9 +15,9 @@ import org.slf4j.LoggerFactory
  * be called by implementations when a fatal service occurs to force the entire system to shut down.
  *
  * The engine is supplied by [engineFactory], so this class carries no engine dependency. Rather than naming the
- * engine's types here, extend the engine's own subclass: `NettyKtorService`, `CioKtorService`, or
- * `JettyKtorService`, from the `boot-server-http-ktor-<engine>` modules. Any other engine works too, by extending
- * this class with that engine's factory, e.g. `KtorService<MyEngine, MyEngine.Configuration>(name, hostPort, MyEngine)`.
+ * engine's types here, extend the engine's own subclass: `NettyKtorService` or `CioKtorService`, from the
+ * `boot-server-http-ktor-<engine>` modules. Any other engine, such as Jetty, works too, by extending this class with
+ * that engine's factory, e.g. `KtorService<MyEngine, MyEngine.Configuration>(name, hostPort, MyEngine)`.
  *
  * Every engine is configured the same way: one connector at [hostPort] (port 8080 if it has none), a shutdown grace
  * period of [DEFAULT_SHUTDOWN_GRACE_PERIOD] ms, and a shutdown timeout of [DEFAULT_SHUTDOWN_TIMEOUT] ms. Override

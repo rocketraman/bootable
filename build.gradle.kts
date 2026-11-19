@@ -57,7 +57,6 @@ dependencies {
   dokka(project(":boot-periodic-otel"))
   dokka(project(":boot-server-http-ktor"))
   dokka(project(":boot-server-http-ktor-cio"))
-  dokka(project(":boot-server-http-ktor-jetty"))
   dokka(project(":boot-server-http-ktor-netty"))
   dokka(project(":boot-server-http-ktor-otel"))
   dokka(project(":boot-telemetry-otel"))
@@ -775,7 +774,6 @@ project("boot-server-http-ktor") {
 
     // the lifecycle tests run a real server on each engine
     testImplementation(rootProject.libs.ktor.server.cio)
-    testImplementation(rootProject.libs.ktor.server.jetty.jakarta)
     testImplementation(rootProject.libs.ktor.server.netty)
     testImplementation(project(":boot-logging-log4j2"))
     // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
@@ -792,7 +790,6 @@ project("boot-server-http-ktor") {
 // Each engine module is a thin, non-generic KtorService for its engine, and brings that engine transitively
 listOf(
   "cio" to rootProject.libs.ktor.server.cio,
-  "jetty" to rootProject.libs.ktor.server.jetty.jakarta,
   "netty" to rootProject.libs.ktor.server.netty,
 ).forEach { (engine, engineLibrary) ->
   project("boot-server-http-ktor-$engine") {

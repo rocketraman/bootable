@@ -25,7 +25,7 @@ repositories {
 dependencies {
   // Mix-and-match bootable modules as necessary.
   // This basic set provides the basic boot functionality configuration via hoplite, logging via log4j2, and convenience
-  // methods for exposing ktor services, on the Netty engine (or -cio / -jetty for the other engines).
+  // methods for exposing ktor services, on the Netty engine (or -cio for the CIO engine).
   implementation(project(":boot"))
   implementation(project(":boot-config-hoplite"))
   implementation(project(":boot-logging-log4j2"))

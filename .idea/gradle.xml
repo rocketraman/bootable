@@ -26,7 +26,6 @@
             <option value="$PROJECT_DIR$/boot-logging-log4j2" />
             <option value="$PROJECT_DIR$/boot-server-http-ktor" />
             <option value="$PROJECT_DIR$/boot-server-http-ktor-cio" />
-            <option value="$PROJECT_DIR$/boot-server-http-ktor-jetty" />
             <option value="$PROJECT_DIR$/boot-server-http-ktor-netty" />
             <option value="$PROJECT_DIR$/boot-server-http-ktor-otel" />
             <option value="$PROJECT_DIR$/boot-telemetry-otel" />

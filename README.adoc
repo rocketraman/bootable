@@ -518,7 +518,6 @@ The Ktor engine is your choice.
 
 | `boot-server-http-ktor-cio` | `CioKtorService` | CIO: pure Kotlin, and the engine to use for a GraalVM native image
 | `boot-server-http-ktor-netty` | `NettyKtorService` | Netty
-| `boot-server-http-ktor-jetty` | `JettyKtorService` | Jetty 12 (`ktor-server-jetty-jakarta`)
 |===
 
 [source,kotlin]
@@ -530,7 +529,7 @@ class MyServer(config: ServerConfig) : CioKtorService("my-server", config) {
 }
 ----
 
-Any other engine works too: depend on `boot-server-http-ktor` and that engine, and extend `KtorService` with the engine's factory, e.g. `KtorService<MyEngine, MyEngine.Configuration>("my-server", config, MyEngine)`.
+Any other engine, such as Jetty, works too: depend on `boot-server-http-ktor` and that engine, and extend `KtorService` with the engine's factory, e.g. `KtorService<JettyApplicationEngine, JettyApplicationEngineBase.Configuration>("my-server", config, Jetty)`.
 
 Every engine is configured the same way: one connector at the service's `HostPort` (port 8080 if it has none), a 50 ms shutdown grace period, and a 1 s shutdown timeout.
 To change those, add connectors, or set the engine's own options, override `configureEngine`, whose receiver is the engine's configuration type:
