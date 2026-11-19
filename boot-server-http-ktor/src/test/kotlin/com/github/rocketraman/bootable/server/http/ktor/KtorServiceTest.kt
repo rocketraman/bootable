@@ -15,6 +15,14 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 val KtorServiceTest by testSuite {
   testSuite("CIO") { engineTests(CIO) }
@@ -31,7 +39,7 @@ private fun <TEngine : ApplicationEngine, TConfiguration : ApplicationEngine.Con
   test("serves once started, and stops serving once shut down") {
     val service = HelloService(engineFactory)
     val appService: AdvancedAppService = service
-    appService.start {}
+    appService.start(CoroutineScope(SupervisorJob()))
     val port = service.port()
     try {
       assert(get(port, "/hello") == "hello")
@@ -71,13 +79,13 @@ private fun <TEngine : ApplicationEngine, TConfiguration : ApplicationEngine.Con
     }
   }
 
-  test("die is the callback the service was started with") {
-    var died = false
+  test("a route can fail the service's scope, which stops the application") {
+    val failure = CompletableDeferred<Throwable>()
     val service = HelloService(engineFactory)
-    service.start { died = true }
+    service.start(CoroutineScope(Job() + CoroutineExceptionHandler { _, e -> failure.complete(e) }))
     try {
       assert(get(service.port(), "/die") == "dying")
-      assert(died)
+      assert(withTimeout(10.seconds) { failure.await() }.message == "died")
     } finally {
       service.shutdown()
     }
@@ -98,7 +106,7 @@ private class HelloService<TEngine : ApplicationEngine, TConfiguration : Applica
     routing {
       get("/hello") { call.respondText("hello") }
       get("/die") {
-        die()
+        this@HelloService.scope.launch { error("died") }
         call.respondText("dying")
       }
     }
@@ -106,7 +114,7 @@ private class HelloService<TEngine : ApplicationEngine, TConfiguration : Applica
 }
 
 private suspend fun <S : KtorService<*, *>> withStarted(service: S, block: suspend S.() -> Unit) {
-  service.start {}
+  service.start(CoroutineScope(SupervisorJob()))
   try {
     service.block()
   } finally {

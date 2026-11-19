@@ -120,7 +120,7 @@ val FlywayMigrationServiceTest by testSuite {
 }
 
 @OptIn(ExperimentalPathApi::class)
-internal fun withTempDir(block: (Path) -> Unit) {
+internal suspend fun withTempDir(block: suspend (Path) -> Unit) {
   val dir = createTempDirectory("boot-db-flyway")
   try {
     block(dir)
@@ -130,7 +130,7 @@ internal fun withTempDir(block: (Path) -> Unit) {
 }
 
 /** A started SQLite pool in a temporary directory. */
-private fun withDatabase(block: (DataSource) -> Unit) = withTempDir { dir ->
+private suspend fun withDatabase(block: suspend (DataSource) -> Unit) = withTempDir { dir ->
   val database = JdbcDataSourceService(SqliteConfig(path = dir.resolve("test.db").toString()), HikariConnectionPoolFactory())
   database.start()
   try {

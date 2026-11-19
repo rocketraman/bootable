@@ -25,7 +25,7 @@ interface TestGraph : BootableGraph {
   val jdbcConfig: JdbcConfig
 }
 
-private fun JdbcDataSourceService.startAndStop() {
+private suspend fun JdbcDataSourceService.startAndStop() {
   start()
   try {
     dataSource.connection.use { connection ->

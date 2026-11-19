@@ -5,19 +5,17 @@ import com.github.rocketraman.bootable.boot.DefaultPhase
 import com.github.rocketraman.bootable.boot.Ordering
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.apache.logging.log4j.kotlin.logger
@@ -35,7 +33,7 @@ internal val log = logger("com.github.rocketraman.bootable.periodic.PeriodicAppS
  * sends pending notifications, or sweeps expired records, that an application would otherwise write by hand.
  *
  * - It runs [work] every [PeriodicConfig.interval], a fixed delay after the previous run ends, on a coroutine of its
- *   own, under a `SupervisorJob`. A run that throws is handed to the [onFailure] handler, which logs it by default, and
+ *   own, in the service's scope. A run that throws is handed to the [onFailure] handler, which logs it by default, and
  *   the loop carries on, unless [PeriodicConfig.maxConsecutiveFailures] runs in a row have failed.
  * - Before each run, it asks its [gate], and skips the run when the gate is closed: use [PeriodicGate.leader] so that
  *   only one instance of the application runs it. If the gate closes while a run is in progress, such as when this
@@ -75,7 +73,6 @@ class PeriodicAppService(
   private val work: suspend () -> Unit,
 ) : AdvancedAppService {
 
-  private var scope: CoroutineScope? = null
   private var loop: Job? = null
   private var stopping = CompletableDeferred<Unit>()
 
@@ -106,41 +103,33 @@ class PeriodicAppService(
 
   override fun ordering() = ordering
 
-  override fun start(die: () -> Unit) {
+  override suspend fun start(scope: CoroutineScope) {
     if (!config.enabled) {
       log.info { "Periodic service $name is disabled" }
       return
     }
-    val scope = CoroutineScope(
-      SupervisorJob() + dispatcher + CoroutineName(name) + CoroutineExceptionHandler { _, e ->
-        log.error(e) { "Periodic service $name stopped unexpectedly" }
-      }
-    )
-    this.scope = scope
     stopping = CompletableDeferred()
-    loop = scope.launch { loop(die) }
+    loop = scope.launch(dispatcher + CoroutineName(name)) { loop() }
     log.info { "Periodic service $name started, every ${config.interval}" }
   }
 
-  override fun shutdown() {
+  override suspend fun shutdown() {
     val loop = loop ?: return
     stopping.complete(Unit)
-    runBlocking {
-      if (withTimeoutOrNull(config.shutdownTimeout) { loop.join() } == null) {
-        log.warn { "Periodic service $name's run didn't finish within ${config.shutdownTimeout}; cancelling it" }
-      }
+    if (withTimeoutOrNull(config.shutdownTimeout) { loop.join() } == null) {
+      log.warn { "Periodic service $name's run didn't finish within ${config.shutdownTimeout}; cancelling it" }
+      loop.cancelAndJoin()
     }
-    scope?.cancel()
   }
 
-  private suspend fun loop(die: () -> Unit) {
+  private suspend fun loop() {
     if (pause(config.initialDelay)) return
     while (true) {
       if (gateOpen()) {
         if (!runOnce()) {
           val limit = config.maxConsecutiveFailures
           if (limit != null && consecutiveFailures >= limit) {
-            failureLimitReached(limit, die)
+            failureLimitReached(limit)
             return
           }
         }
@@ -213,16 +202,18 @@ class PeriodicAppService(
     }
   }
 
-  private fun failureLimitReached(limit: Int, die: () -> Unit) {
+  private fun failureLimitReached(limit: Int) {
     when (config.onFailureLimit) {
       FailureLimitAction.StopLoop ->
         log.error { "Periodic service $name stopped: its last $limit runs failed" }
-      FailureLimitAction.Shutdown -> {
-        log.error { "Periodic service $name's last $limit runs failed; shutting the application down" }
-        die()
-      }
+      // failing the loop fails the service's scope, which stops the application
+      FailureLimitAction.Shutdown ->
+        throw PeriodicFailureLimitException("Periodic service $name's last $limit runs failed; stopping the application")
     }
   }
 
   override fun toString() = "PeriodicAppService($name)"
 }
+
+/** Thrown by a [PeriodicAppService]'s loop when [FailureLimitAction.Shutdown] stops the application. */
+class PeriodicFailureLimitException(message: String) : IllegalStateException(message)

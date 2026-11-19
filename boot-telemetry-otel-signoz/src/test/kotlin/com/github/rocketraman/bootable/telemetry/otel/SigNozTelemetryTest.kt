@@ -33,7 +33,7 @@ private fun service(sigNoz: SigNozTelemetry, endpoint: String? = null, environme
 )
 
 /** The headers of every export to a local OTLP receiver, by path, after a span and a counter are recorded. */
-private fun exportedHeaders(sigNoz: SigNozTelemetry): Map<String, List<Map<String, String>>> {
+private suspend fun exportedHeaders(sigNoz: SigNozTelemetry): Map<String, List<Map<String, String>>> {
   val requests = CopyOnWriteArrayList<Pair<String, Map<String, String>>>()
   val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
   server.createContext("/") { exchange ->

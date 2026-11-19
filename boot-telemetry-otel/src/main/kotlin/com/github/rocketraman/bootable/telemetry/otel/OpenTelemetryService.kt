@@ -27,6 +27,8 @@ import io.opentelemetry.sdk.trace.export.BatchSpanProcessor
 import io.opentelemetry.sdk.trace.data.LinkData
 import io.opentelemetry.sdk.trace.samplers.Sampler
 import io.opentelemetry.sdk.trace.samplers.SamplingResult
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.kotlin.logger
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -86,16 +88,17 @@ class OpenTelemetryService(
 
   private var runtimeTelemetry: RuntimeTelemetry? = null
 
-  override fun start() {
+  override suspend fun start() {
     if (sdk != null && config.metrics.enabled && config.metrics.runtime) {
       runtimeTelemetry = RuntimeTelemetry.create(openTelemetry)
     }
   }
 
-  override fun shutdown() {
+  override suspend fun shutdown() {
     runtimeTelemetry?.close()
     runtimeTelemetry = null
-    sdk?.shutdown()?.join(config.shutdownTimeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)
+    // flushes what is still buffered, blocking until it is exported or the timeout passes
+    withContext(Dispatchers.IO) { sdk?.shutdown()?.join(config.shutdownTimeout.inWholeMilliseconds, TimeUnit.MILLISECONDS) }
   }
 
   override fun ordering() = Ordering(DefaultPhase.Telemetry)

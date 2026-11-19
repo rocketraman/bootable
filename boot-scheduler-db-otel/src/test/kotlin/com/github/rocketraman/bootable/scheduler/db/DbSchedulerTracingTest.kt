@@ -94,7 +94,7 @@ private fun eventually(timeout: Duration = 10.seconds, condition: () -> Boolean)
 }
 
 @OptIn(ExperimentalPathApi::class)
-private fun withTempDir(block: (Path) -> Unit) {
+private suspend fun withTempDir(block: suspend (Path) -> Unit) {
   val dir = createTempDirectory("boot-scheduler-db-otel")
   try {
     block(dir)
@@ -122,7 +122,7 @@ private fun telemetryService(spans: InMemorySpans) =
  * Runs a scheduler over a migrated SQLite database whose statements are traced, with [TestTasks] and the tracing of
  * [sample], and runs [block] with it.
  */
-private fun withTracedScheduler(
+private suspend fun withTracedScheduler(
   sample: Sample = Sample.BySampler,
   block: (spans: InMemorySpans, tasks: TestTasks, scheduler: SchedulerClient) -> Unit,
 ) = withTempDir { dir ->
@@ -176,7 +176,7 @@ object TestBindings {
 }
 
 /** Starts the services in their planned order, runs an execution, checks it is traced, and shuts them down. */
-private fun Set<AppService>.startAndTrace(spans: InMemorySpans, tasks: TestTasks, client: SchedulerClient) {
+private suspend fun Set<AppService>.startAndTrace(spans: InMemorySpans, tasks: TestTasks, client: SchedulerClient) {
   // a fresh database each time, so the migration runs
   listOf("", "-wal", "-shm").forEach { Path("build/scheduler-tracing-test.db$it").deleteIfExists() }
   val ordered = startPlan(this)

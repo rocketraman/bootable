@@ -47,7 +47,7 @@ val PostgresqlDatabaseTest by testSuite(
   }
 }
 
-private fun JdbcDataSourceService.use(block: (DataSource) -> Unit) {
+private suspend fun JdbcDataSourceService.use(block: suspend (DataSource) -> Unit) {
   start()
   try {
     block(dataSource)

@@ -6,6 +6,9 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 
 /**
  * Waits, in real time, until [condition] holds, or fails after [timeout]. The loops run on real dispatchers, while
@@ -22,9 +25,14 @@ internal fun eventually(timeout: Duration = 5.seconds, condition: () -> Boolean)
 /** Sleeps, in real time, for [duration]. */
 internal fun sleep(duration: Duration) = Thread.sleep(duration.inWholeMilliseconds)
 
-/** Starts this service, as Bootable does, with [die] as its `die` callback. */
-internal fun AppService.startService(die: () -> Unit = { error("The service died") }) = when (this) {
-  is AdvancedAppService -> start(die)
+/**
+ * Starts this service, as Bootable does, in a scope of its own, whose failures go to [onFailure], as Bootable's stop the
+ * application.
+ */
+internal suspend fun AppService.startService(
+  onFailure: (Throwable) -> Unit = { throw AssertionError("The service failed", it) },
+) = when (this) {
+  is AdvancedAppService -> start(CoroutineScope(Job() + CoroutineExceptionHandler { _, e -> onFailure(e) }))
   else -> start()
 }
 

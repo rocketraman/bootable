@@ -41,7 +41,7 @@ object TestCustomizerBindings {
   fun initSql(): HikariConfigCustomizer = HikariConfigCustomizer { it.connectionInitSql = "SELECT 'metro'" }
 }
 
-private fun JdbcDataSourceService.startAndStop() {
+private suspend fun JdbcDataSourceService.startAndStop() {
   start()
   try {
     dataSource.connection.use { connection ->

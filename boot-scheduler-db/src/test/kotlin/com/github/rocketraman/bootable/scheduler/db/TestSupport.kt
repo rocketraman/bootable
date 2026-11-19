@@ -78,7 +78,7 @@ fun eventually(timeout: Duration = 10.seconds, condition: () -> Boolean) {
 }
 
 @OptIn(ExperimentalPathApi::class)
-fun withTempDir(block: (Path) -> Unit) {
+suspend fun withTempDir(block: suspend (Path) -> Unit) {
   val dir = createTempDirectory("boot-scheduler-db")
   try {
     block(dir)
@@ -88,7 +88,7 @@ fun withTempDir(block: (Path) -> Unit) {
 }
 
 /** A started pool for [config], with db-scheduler's table migrated from this module's migrations for [database]. */
-fun withMigratedDatabase(config: JdbcConfig, database: String, block: (DataSource) -> Unit) {
+suspend fun withMigratedDatabase(config: JdbcConfig, database: String, block: suspend (DataSource) -> Unit) {
   val pool = JdbcDataSourceService(config, HikariConnectionPoolFactory())
   pool.start()
   try {
@@ -103,7 +103,7 @@ fun withMigratedDatabase(config: JdbcConfig, database: String, block: (DataSourc
  * Runs the scheduler over [dataSource], with a recurring task, two one-time tasks, one with a sealed type's data, and a
  * recurring task with a persistent schedule, and checks each runs, with its data read back as it was written.
  */
-fun checkTasksRun(dataSource: DataSource, jdbcUrl: String? = null, config: DbSchedulerConfig = testSchedulerConfig) {
+suspend fun checkTasksRun(dataSource: DataSource, jdbcUrl: String? = null, config: DbSchedulerConfig = testSchedulerConfig) {
   val record = TaskRecord()
   val service = DbSchedulerService(dataSource, config, record.tasks, jdbcUrl = jdbcUrl)
   service.start()

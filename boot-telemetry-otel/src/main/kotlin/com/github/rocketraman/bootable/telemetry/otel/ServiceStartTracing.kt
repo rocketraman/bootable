@@ -9,11 +9,14 @@ import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanBuilder
 import io.opentelemetry.api.trace.StatusCode
 import io.opentelemetry.api.trace.Tracer
+import io.opentelemetry.context.Context
+import io.opentelemetry.extension.kotlin.asContextElement
 import java.time.Instant
 import kotlin.time.Clock
 import kotlin.time.ComparableTimeMark
 import kotlin.time.TimeSource
 import kotlin.time.toJavaInstant
+import kotlinx.coroutines.withContext
 
 /**
  * A [LifecycleController] that traces the application's start as one trace: a root span, `start application`, with a
@@ -65,7 +68,7 @@ class ServiceStartTracing(
 ) : LifecycleController {
   private val tracer: Tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE)
 
-  override fun aroundAppStart(serviceContext: ServiceContext, timeline: StartupTimeline, start: () -> Unit) {
+  override suspend fun aroundAppStart(serviceContext: ServiceContext, timeline: StartupTimeline, start: suspend () -> Unit) {
     // the wall-clock time of each mark, relative to one reading of the clock, so the spans are consistent
     val reference = TimeSource.Monotonic.markNow()
     val now = clock.now()
@@ -81,14 +84,19 @@ class ServiceStartTracing(
       }
   }
 
-  override fun aroundServiceStart(appService: AppService, start: () -> Unit) {
+  override suspend fun aroundServiceStart(appService: AppService, start: suspend () -> Unit) {
     tracer.spanBuilder("start ${appService.name()}").runInSpan(start)
   }
 
-  private fun SpanBuilder.runInSpan(block: () -> Unit) {
+  /**
+   * Runs [block] in a span, which is current on whatever thread [block] runs and resumes on: the span is carried in the
+   * coroutine context, rather than set on the calling thread, since a suspending start may resume on another. Its
+   * parent is the current context, so a service's start span is a child of the application's.
+   */
+  private suspend fun SpanBuilder.runInSpan(block: suspend () -> Unit) {
     val span: Span = startSpan()
     try {
-      span.makeCurrent().use { block() }
+      withContext(Context.current().with(span).asContextElement()) { block() }
     } catch (e: Throwable) {
       span.recordException(e)
       span.setStatus(StatusCode.ERROR)

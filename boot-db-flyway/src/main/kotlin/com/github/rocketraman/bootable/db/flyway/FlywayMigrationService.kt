@@ -4,6 +4,8 @@ import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.DefaultPhase
 import com.github.rocketraman.bootable.boot.Ordering
 import com.github.rocketraman.bootable.db.jdbc.DbMilestones
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.kotlin.logger
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.configuration.FluentConfiguration
@@ -38,8 +40,9 @@ class FlywayMigrationService(
   /** The configured Flyway instance, e.g. for its `info()`. Creating it opens no connection. */
   val flyway: Flyway = flywayConfiguration(dataSource, config).also(customizer::customize).load()
 
-  override fun start() {
-    val result = flyway.migrate()
+  override suspend fun start() {
+    // blocking, and not interruptible: interrupting a migration could leave a non-transactional one half applied
+    val result = withContext(Dispatchers.IO) { flyway.migrate() }
     if (result.migrationsExecuted == 0) {
       log.info { "Database schema is up to date at version ${result.initialSchemaVersion ?: "<empty>"}" }
     } else {

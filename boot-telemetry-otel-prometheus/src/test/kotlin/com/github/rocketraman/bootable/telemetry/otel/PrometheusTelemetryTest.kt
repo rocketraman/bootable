@@ -36,7 +36,7 @@ interface TestGraph : BootableGraph {
 private val CHANNEL = AttributeKey.stringKey("channel")
 private val URL_PATH = AttributeKey.stringKey("url.path")
 
-private fun withPrometheus(
+private suspend fun withPrometheus(
   config: PrometheusTelemetryConfig = PrometheusTelemetryConfig(),
   customizers: List<OpenTelemetryCustomizer> = emptyList(),
   block: (OpenTelemetry, PrometheusTelemetry) -> Unit,
@@ -58,7 +58,7 @@ private fun OpenTelemetry.recordOrders() =
     .add(2, Attributes.of(CHANNEL, "web"))
 
 /** Records a counter through the application's OpenTelemetry and checks that it is in the scrape, as configured. */
-private fun checkScrape(openTelemetry: OpenTelemetry, providers: Set<MetricsSnapshotProvider>) {
+private suspend fun checkScrape(openTelemetry: OpenTelemetry, providers: Set<MetricsSnapshotProvider>) {
   openTelemetry.recordOrders()
   val body = providers.single().snapshot(null).body.decodeToString()
   // resourceAttributesAsLabels = [service.name], and no scope labels or target_info

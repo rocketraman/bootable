@@ -123,7 +123,7 @@ val KtorClientServiceTest by testSuite {
       )
     }
 
-    fun specs(app: KtorClientsConfig, vararg defaults: KtorClientDefaults): Map<String, KtorClientSpec> {
+    suspend fun specs(app: KtorClientsConfig, vararg defaults: KtorClientDefaults): Map<String, KtorClientSpec> {
       val engine = MockClientEngine()
       KtorClientService(app, engine, defaults = defaults.toList()).shutdown()
       return engine.specs.associateBy { it.name }

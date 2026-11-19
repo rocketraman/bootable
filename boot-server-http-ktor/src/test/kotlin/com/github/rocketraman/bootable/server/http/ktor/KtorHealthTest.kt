@@ -22,6 +22,7 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import kotlin.concurrent.thread
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -29,6 +30,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.runBlocking
 
 /** An application server, which installs [health]'s routes. */
 private class AppServer(private val health: KtorHealth) :
@@ -48,20 +52,20 @@ private class App(private val health: Health, vararg services: AppService) {
   private val context = ServiceContext(
     services.toSet(),
     services.toList(),
-    { (it as AdvancedAppService).start {} },
+    { (it as AdvancedAppService).start(CoroutineScope(SupervisorJob())) },
     { it.shutdown() },
   )
 
-  fun start(whileStarting: () -> Unit = {}) {
+  suspend fun start(whileStarting: suspend () -> Unit = {}) {
     health.aroundAppStart(context, StartupTimeline(TimeSource.Monotonic.markNow())) {
-      context.startPlan.forEach(context.serviceStart)
+      context.startPlan.forEach { context.serviceStart(it) }
       whileStarting()
     }
   }
 
-  fun stop() {
-    health.appShutdown(context, 1_000_000) {}
-    context.startPlan.asReversed().forEach(context.serviceShutdown)
+  suspend fun stop() {
+    health.appShutdown(context, 1.hours)
+    context.startPlan.asReversed().forEach { context.serviceShutdown(it) }
     health.appCleanup()
   }
 }
@@ -110,7 +114,7 @@ val KtorHealthTest by testSuite {
     val app = App(health, server)
 
     app.start {
-      val port = kotlinx.coroutines.runBlocking { server.port() }
+      val port = server.port()
       assert(getHealth(port, "/health/live") == health(200, """{"status": "UP", "state": "Starting"}"""))
       assert(getHealth(port, "/health/ready") == health(503, """{"status": "DOWN", "state": "Starting", "checks": {}}"""))
     }
@@ -132,7 +136,7 @@ val KtorHealthTest by testSuite {
     dbUp = true
 
     // during the drain, the server still serves, but isn't ready
-    val stopping = thread { app.stop() }
+    val stopping = thread { runBlocking { app.stop() } }
     val mark = TimeSource.Monotonic.markNow()
     while (health.state != LifecycleState.Stopping) {
       check(mark.elapsedNow() < 10.seconds)

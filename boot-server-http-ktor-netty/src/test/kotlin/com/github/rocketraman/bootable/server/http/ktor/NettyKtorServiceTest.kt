@@ -11,6 +11,8 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 
 val NettyKtorServiceTest by testSuite {
   test("runs on Netty through the service lifecycle") {
@@ -20,7 +22,7 @@ val NettyKtorServiceTest by testSuite {
       }
     }
     val appService: AdvancedAppService = service
-    appService.start {}
+    appService.start(CoroutineScope(SupervisorJob()))
     try {
       assert(service.server.engine is NettyApplicationEngine)
       val port = service.server.engine.resolvedConnectors().single().port
