@@ -14,6 +14,7 @@ type ServerKtorDb {
 
   let requests: String!
   let rounds: Int!
+  let collector: Service
 
   new(
     ws: Workspace!,
@@ -34,6 +35,11 @@ type ServerKtorDb {
     How many times the training run sends the requests.
     """
     rounds: Int! = 20,
+    """
+    The OpenTelemetry collector `dev` exports its traces and metrics to, over OTLP on HTTP, on port 4318. The
+    workspace's `dagger.toml` wires it to the `otel-lgtm` module's `otelStack`.
+    """
+    collector: Service,
   ) {
     self.source = ws.directory("/", exclude: [
       "**/build",
@@ -47,6 +53,7 @@ type ServerKtorDb {
     ])
     self.requests = requests
     self.rounds = rounds
+    self.collector = collector
     self
   }
 
@@ -201,82 +208,42 @@ type ServerKtorDb {
   # ---------------------------------------------------------------------------------------------------------------
 
   """
-  The image, on port 8001. `dagger start` runs it and tunnels the port to `localhost`.
-  """
-  @up
-  pub dev: Service! {
-    serve(image, 8001)
-  }
+  The example app, on port 8001, exporting its telemetry to `collector` by default.
 
-  """
-  `dev`, on port 8002, exporting its traces and metrics over OTLP to Grafana's `otel-lgtm` stack, which runs alongside
-  it. `dagger start server-ktor-db/lgtm` starts both.
-  """
-  pub lgtm: Lgtm! {
-    Lgtm(parent: self)
-  }
+  With `tracing`, the default, it exports its traces and metrics over OTLP to `collector`, its metrics every 5 seconds,
+  rather than every minute, so they show in Grafana soon after the requests, and starts the collector; without it, it
+  exports nothing.
 
-  """
-  Runs `ctr` as the image's entrypoint does, as a service on `port`.
+  `dagger start` runs it, with `tracing`, and, with the workspace's `otel-lgtm` module, the collector's stack, and
+  tunnels the app's port, 8001, Grafana's, 3000, and the collector's, 4318, to `localhost`.
+  `dagger api call server-ktor-db dev --tracing=false up` runs the app alone. `mise run demo` and
+  `mise run demo-without-tracing` run each.
 
   The script unsets Dagger's own `OTEL_*` variables, as `startAndStop` does, then exports `OTLP_ENDPOINT`, if set,
   as `OTEL_EXPORTER_OTLP_ENDPOINT`: a variable of the app's own, without the `OTEL_` prefix, so the unset leaves it.
   """
-  let serve(ctr: Container!, port: Int!): Service! {
-    ctr
-      .withEnvVariable("SERVER_HOSTPORT", `:${port}`)
-      # the relay's client calls the server back, on its own port
-      .withEnvVariable("HTTP_CLIENT_NAMED_ENTRIES_BASEURL", `http://localhost:${port}/`)
-      # the runtime exposes 8001, its default
-      .withoutExposedPort(8001)
-      .withExposedPort(port)
-      .asService(args: ["bash", "-c", """
-        for var in $(compgen -e | grep -E '^(OTEL_|TRACEPARENT$|TRACESTATE$)' || true); do unset "$var"; done
-        [ -z "$OTLP_ENDPOINT" ] || export OTEL_EXPORTER_OTLP_ENDPOINT="$OTLP_ENDPOINT"
-        exec java -XX:AOTCache=/app/aot/server-ktor-db.aot -cp @/app/jib-classpath-file AppKt
-        """])
-  }
-}
-
-"""
-The image, with Grafana's `otel-lgtm` stack: an OpenTelemetry collector, Prometheus, Tempo, Loki and Grafana, in one
-container. `dagger start server-ktor-db/lgtm` starts both, and tunnels the app's port, 8002, Grafana's, 3000, and the
-collector's, 4318, to `localhost`.
-The app is on 8002, not `dev`'s 8001, so a plain `dagger start`, which starts every service, can tunnel both.
-"""
-type Lgtm {
-  let parent: ServerKtorDb!
-
-  new(parent: ServerKtorDb!) {
-    self.parent = parent
-    self
-  }
-
-  """
-  Grafana's `otel-lgtm` stack: Grafana on port 3000, and its collector's OTLP receiver on 4318, over HTTP.
-  The app reaches it by its binding's hostname, `lgtm`.
-  """
   @up
-  pub stack: Service! {
-    container
-      .from("docker.io/grafana/otel-lgtm:0.41.0")
-      .withExposedPort(3000)
-      .withExposedPort(4318)
-      .asService
-  }
-
-  """
-  The image, on port 8002, exporting its traces and metrics to `stack`, its metrics every 5 seconds, rather than
-  every minute, so they show in Grafana soon after the requests.
-  """
-  @up
-  pub dev: Service! {
-    parent.serve(
-      parent.image
-        .withServiceBinding("lgtm", stack)
-        .withEnvVariable("OTLP_ENDPOINT", "http://lgtm:4318")
-        .withEnvVariable("TELEMETRY_SDK_METRICS_INTERVAL", "5s"),
-      8002,
-    )
+  pub dev(
+    """
+    Whether the app exports its traces and metrics to `collector`.
+    """
+    tracing: Boolean! = true,
+  ): Service! {
+    let app = if (tracing) {
+      if (collector == null) {
+        raise "the collector setting isn't set; wire it in dagger.toml, or run dev with --tracing=false"
+      }
+      image
+        .withServiceBinding("collector", collector!)
+        .withEnvVariable("OTLP_ENDPOINT", "http://collector:4318")
+        .withEnvVariable("TELEMETRY_SDK_METRICS_INTERVAL", "5s")
+    } else {
+      image
+    }
+    app.asService(args: ["bash", "-c", """
+      for var in $(compgen -e | grep -E '^(OTEL_|TRACEPARENT$|TRACESTATE$)' || true); do unset "$var"; done
+      [ -z "$OTLP_ENDPOINT" ] || export OTEL_EXPORTER_OTLP_ENDPOINT="$OTLP_ENDPOINT"
+      exec java -XX:AOTCache=/app/aot/server-ktor-db.aot -cp @/app/jib-classpath-file AppKt
+      """])
   }
 }
