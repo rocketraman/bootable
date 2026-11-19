@@ -231,7 +231,11 @@ type ServerKtorDb {
       .asService(args: ["bash", "-c", """
         for var in $(compgen -e | grep -E '^(OTEL_|TRACEPARENT$|TRACESTATE$)' || true); do unset "$var"; done
         [ -z "$OTLP_ENDPOINT" ] || export OTEL_EXPORTER_OTLP_ENDPOINT="$OTLP_ENDPOINT"
-        exec java -XX:AOTCache=/app/aot/server-ktor-db.aot -cp @/app/jib-classpath-file AppKt
+        # the relay's client calls the server back, on its own port: a system property, as an environment variable
+        # would add a client named ENTRIES, in upper case, beside the config's entries
+        exec java -XX:AOTCache=/app/aot/server-ktor-db.aot \\
+          "-Dconfig.override.http.client.named.entries.baseUrl=http://localhost$SERVER_HOSTPORT/" \\
+          -cp @/app/jib-classpath-file AppKt
         """])
   }
 }
