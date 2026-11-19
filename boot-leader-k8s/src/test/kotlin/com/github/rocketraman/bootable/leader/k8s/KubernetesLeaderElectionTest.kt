@@ -130,7 +130,7 @@ val KubernetesLeaderElectionTest by testSuite {
           val first = server.spec("renewTime")
           eventually { server.spec("renewTime") != first }
           sleep(1500.milliseconds)
-          // longer than the lease duration, and still the leader, of the same term
+          // longer than the lease duration, and still the leader, of the same lease term
           assert(a.isLeader())
           assert(server.holder() == "pod-a")
           assert(server.transitions() == 0)
@@ -334,7 +334,7 @@ val KubernetesLeaderElectionTest by testSuite {
     }
   }
 
-  test("a leader that stepped down takes the lease again for a new term, though it still holds it") {
+  test("a leader that stepped down takes the lease again for a new lease term, though it still holds it") {
     FakeApiServer(setOf("token-a")).use { server ->
       withServiceAccounts("token-a") { accounts ->
         val config = testConfig(server, accounts.getValue("token-a"), "pod-a").copy(requestTimeout = 3.seconds)
@@ -347,7 +347,7 @@ val KubernetesLeaderElectionTest by testSuite {
           assert(a.fencingToken == null)
           server.stalledFor -= "token-a"
           eventually { a.isLeader() }
-          // a work run of its first term might still be running: its token is lower than this term's
+          // a work run of its first lease term might still be running: its token is lower than this lease term's
           assert(server.holder() == "pod-a")
           assert(a.fencingToken == 1L)
           assert(server.transitions() == 1)

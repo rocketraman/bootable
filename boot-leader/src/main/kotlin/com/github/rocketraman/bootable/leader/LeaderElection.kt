@@ -19,11 +19,11 @@ import kotlinx.coroutines.flow.first
  *
  * The guarantee holds as long as this instance doesn't pause, such as for a long garbage collection, or a suspended
  * VM, for longer than that margin, since it can't step down while paused: it would then carry on as though it still led.
- * The [fencingToken] closes that gap where the work writes. A term is one unbroken stretch of one instance's
- * leadership, from when it starts leading until it stops; each term has a token greater than every
- * earlier term's, which the work sends with its writes, and the store refuses a write with a token lower than one it has
- * seen, such as by a database `UPDATE ... WHERE fence <= :token`, so a paused leader's late writes fail once a later
- * leader has written.
+ * The [fencingToken] closes that gap where the work writes. A lease term is one unbroken stretch of one instance's
+ * leadership, from when it starts leading until it stops; each lease term has a token greater than every earlier lease
+ * term's, which the work sends with its writes, and the store refuses a write with a token lower than one it has seen,
+ * such as by a database `UPDATE ... WHERE fence <= :token`, so a paused leader's late writes fail once a later leader
+ * has written.
  *
  * Implementations: [AlwaysLeader], for an application with one instance, or for running locally, and
  * `KubernetesLeaderElection` from `boot-leader-k8s`, which holds a Kubernetes Lease.
@@ -33,11 +33,11 @@ interface LeaderElection {
   val leadership: StateFlow<Boolean>
 
   /**
-   * The fencing token of this instance's current term as leader, or null while it doesn't lead.
+   * The fencing token of this instance's current lease term as leader, or null while it doesn't lead.
    *
-   * It is the same throughout a term, and greater in each later term, of whichever instance: read it as the work
-   * starts, and send it with each write, for the store to refuse a write from an earlier term once it has seen a later
-   * one. [requireFencingToken] reads it, or throws if this instance doesn't lead.
+   * It is the same throughout a lease term, and greater in each later lease term, of whichever instance: read it as
+   * the work starts, and send it with each write, for the store to refuse a write from an earlier lease term once it
+   * has seen a later one. [requireFencingToken] reads it, or throws if this instance doesn't lead.
    */
   val fencingToken: Long?
 
@@ -46,7 +46,7 @@ interface LeaderElection {
 }
 
 /**
- * The [fencing token][LeaderElection.fencingToken] of this instance's current term as leader, or throws a
+ * The [fencing token][LeaderElection.fencingToken] of this instance's current lease term as leader, or throws a
  * [NotLeaderException] if it doesn't lead: for work that only the leader does, as it starts.
  */
 fun LeaderElection.requireFencingToken(): Long = fencingToken ?: throw NotLeaderException("$this doesn't lead")
@@ -66,7 +66,7 @@ suspend fun LeaderElection.awaitLeadership() {
 object AlwaysLeader : LeaderElection {
   override val leadership: StateFlow<Boolean> = MutableStateFlow(true).asStateFlow()
 
-  /** Always the same term, since nothing else ever leads. */
+  /** Always the same lease term: a single permanent lease, with an unlimited term, since nothing else ever leads. */
   override val fencingToken: Long = 0
 
   override fun toString() = "AlwaysLeader"

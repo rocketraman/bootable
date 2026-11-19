@@ -11,7 +11,7 @@ val LeaderElectionTest by testSuite {
     AlwaysLeader.awaitLeadership()
   }
 
-  test("AlwaysLeader has one term") {
+  test("AlwaysLeader has one lease term") {
     assert(AlwaysLeader.fencingToken == 0L)
     assert(AlwaysLeader.requireFencingToken() == 0L)
   }
