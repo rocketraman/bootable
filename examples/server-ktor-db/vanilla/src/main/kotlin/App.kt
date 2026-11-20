@@ -4,6 +4,7 @@ import com.github.rocketraman.bootable.boot.Health
 import com.github.rocketraman.bootable.boot.LifecycleController
 import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.boot.defaultLifecycleControllers
+import com.github.rocketraman.bootable.boot.buildInfo
 import com.github.rocketraman.bootable.boot.readinessConfig
 import com.github.rocketraman.bootable.client.http.ktor.CioClientEngine
 import com.github.rocketraman.bootable.client.http.ktor.HttpClientTelemetry
@@ -103,7 +104,7 @@ class EntriesApp(binder: ConfigBinder) {
     val repository = EntryRepository(exposed.database)
     // readiness is down while the database doesn't answer
     val health = Health(setOf(JdbcHealthCheck(database.dataSource)), readinessConfig(binder))
-    val ktorHealth = KtorHealth(health, healthConfig)
+    val ktorHealth = KtorHealth(health, healthConfig, buildInfo(binder))
     // the election calls the API server through the kubernetes client
     val leaderElection = KubernetesLeaderElection(leaderConfig, clients.getOrDefault(leaderConfig.httpClient))
     val periodic = PeriodicServices(

@@ -212,10 +212,15 @@ configure(subprojects.filter { !it.path.startsWith(":examples") }) {
 }
 
 project("boot") {
+  apply(plugin = "org.jetbrains.kotlin.plugin.serialization")
   configureDiVariants()
   dependencies {
     // ServiceOrderConfig, Bootable's own settings, is decoded with a ConfigBinder
     api(project(":boot-config-common"))
+    // HealthReport and BuildInfo are @Serializable, in any format: generated serializers, with no reflection, so
+    // nothing to add for a native image
+    api(rootProject.libs.kotlinx.serialization.core)
+    testImplementation(rootProject.libs.kotlinx.serialization.json)
     implementation(project(":boot-common"))
     // todo for now, we depend on boot-logging-log4j2, later we could use service loaders to discover implementations at runtime
     implementation(project(":boot-logging-log4j2"))

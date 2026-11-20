@@ -3,9 +3,13 @@ package com.github.rocketraman.bootable.boot
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.config
 import kotlin.time.Duration
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import org.apache.logging.log4j.kotlin.logger
 
 /** Where the application is in its lifecycle, as [Health] tracks it. */
+@Serializable
 enum class LifecycleState {
   /** Initializing and starting the services. The state until every service has started. */
   Starting,
@@ -20,7 +24,12 @@ enum class LifecycleState {
   Stopped,
 }
 
-/** The result of a [HealthCheck]. */
+/**
+ * The result of a [HealthCheck].
+ *
+ * It is [Serializable], as `{"status": "UP"}` or `{"status": "DOWN", "reason": "…"}`.
+ */
+@Serializable(with = HealthStatusSerializer::class)
 sealed interface HealthStatus {
   val healthy: Boolean
 
@@ -83,12 +92,33 @@ data class ReadinessConfig(
 /** Decodes [ReadinessConfig] from the `health.readiness` config section using the given [ConfigBinder]. */
 fun readinessConfig(binder: ConfigBinder): ReadinessConfig = binder.config("health.readiness")
 
-/** A liveness or readiness answer: whether the application is [healthy], its [state], and each check's result. */
+/**
+ * A liveness or readiness answer: whether the application is [healthy], its [state], and each check's result.
+ *
+ * It is [Serializable], with its status as `UP` or `DOWN`, and each check by name, so a consumer can check one:
+ *
+ * ```
+ * {
+ *   "status": "DOWN",
+ *   "state": "Running",
+ *   "checks": {
+ *     "jdbc": { "status": "UP" },
+ *     "db-scheduler": { "status": "DOWN", "reason": "paused" }
+ *   }
+ * }
+ * ```
+ *
+ * The same form decodes back into a [HealthReport], such as in a client of the health routes.
+ */
+@Serializable
 data class HealthReport(
-  val healthy: Boolean,
+  @SerialName("status") @Serializable(with = UpDownSerializer::class) val healthy: Boolean,
   val state: LifecycleState,
-  /** Each [HealthCheck]'s result, by name: empty for liveness, and for readiness unless the application is running. */
-  val checks: Map<String, HealthStatus> = emptyMap(),
+  /**
+   * Each [HealthCheck]'s result, by name: empty for liveness, and for readiness unless the application is running.
+   * Serialized even when empty, so a consumer always finds it.
+   */
+  @EncodeDefault val checks: Map<String, HealthStatus> = emptyMap(),
 )
 
 /**

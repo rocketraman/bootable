@@ -1,10 +1,10 @@
 package com.github.rocketraman.bootable.server.http.ktor
 
 import com.github.rocketraman.bootable.boot.AppService
+import com.github.rocketraman.bootable.boot.BuildInfo
 import com.github.rocketraman.bootable.boot.DefaultPhase
 import com.github.rocketraman.bootable.boot.Health
 import com.github.rocketraman.bootable.boot.HealthReport
-import com.github.rocketraman.bootable.boot.HealthStatus
 import com.github.rocketraman.bootable.boot.Ordering
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.common.HostPort
@@ -16,10 +16,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonObject
+import kotlinx.serialization.json.Json
 
 /**
  * Where a Ktor server serves the application's [Health]. Every field is optional.
@@ -40,6 +37,8 @@ data class KtorHealthConfig(
   val livePath: String = DEFAULT_LIVE_PATH,
   /** The path of the readiness route. */
   val readyPath: String = DEFAULT_READY_PATH,
+  /** The path of the build info route. */
+  val infoPath: String = DEFAULT_INFO_PATH,
   /**
    * Where to serve the routes on a listener of their own, such as `:9091`. Unset, they are served on the application's
    * server instead. A listener of their own starts first and stops last, so liveness is answered while the
@@ -49,11 +48,13 @@ data class KtorHealthConfig(
   val hostPort: String? = null,
 ) {
   /** The paths served on the application's server: none when the routes have a listener of their own. */
-  val applicationServerPaths: Set<String> get() = if (hostPort == null) setOf(livePath, readyPath) else emptySet()
+  val applicationServerPaths: Set<String> get() =
+    if (hostPort == null) setOf(livePath, readyPath, infoPath) else emptySet()
 
   companion object {
     const val DEFAULT_LIVE_PATH = "/health/live"
     const val DEFAULT_READY_PATH = "/health/ready"
+    const val DEFAULT_INFO_PATH = "/health/info"
   }
 }
 
@@ -76,6 +77,18 @@ fun ktorHealthConfig(binder: ConfigBinder): KtorHealthConfig = binder.config("he
  * }
  * ```
  *
+ * It also serves the application's [BuildInfo] at [KtorHealthConfig.infoPath], always `200 OK`, with a JSON body of
+ * the fields that are set, so a client, such as an end-to-end test run during a rollout, can check which build
+ * answered it:
+ *
+ * ```
+ * {
+ *   "version": "1.4.2",
+ *   "revision": "3f2c9e1",
+ *   "attributes": { "branch": "main" }
+ * }
+ * ```
+ *
  * Install it in your server's module with [installHealth]:
  *
  * ```
@@ -93,11 +106,20 @@ fun ktorHealthConfig(binder: ConfigBinder): KtorHealthConfig = binder.config("he
 class KtorHealth(
   val health: Health,
   val config: KtorHealthConfig = KtorHealthConfig(),
+  val buildInfo: BuildInfo = BuildInfo(),
 ) {
   /** Installs the routes, unless they have a listener of their own. */
   fun install(application: Application) {
     if (config.hostPort == null) {
-      application.routing { healthRoutes(health, this@KtorHealth.config.livePath, this@KtorHealth.config.readyPath) }
+      application.routing {
+        healthRoutes(
+          health,
+          this@KtorHealth.config.livePath,
+          this@KtorHealth.config.readyPath,
+          buildInfo,
+          this@KtorHealth.config.infoPath,
+        )
+      }
     }
   }
 
@@ -109,7 +131,9 @@ class KtorHealth(
     engineFactory: ApplicationEngineFactory<TEngine, TConfiguration>,
   ): AppService {
     val hostPort = config.hostPort ?: return NoHealthListener
-    return HealthKtorService(HostPort(hostPort), engineFactory, health, config.livePath, config.readyPath)
+    return HealthKtorService(
+      HostPort(hostPort), engineFactory, health, config.livePath, config.readyPath, buildInfo, config.infoPath,
+    )
   }
 
   private object NoHealthListener : AppService {
@@ -122,50 +146,38 @@ fun Application.installHealth(health: KtorHealth) = health.install(this)
 
 /**
  * Serves [health]'s liveness at [livePath] and readiness at [readyPath]: `200 OK` when healthy, `503 Service
- * Unavailable` when not, with a JSON body, which no cache keeps: see [KtorHealth].
+ * Unavailable` when not, with a JSON body, which no cache keeps; and [buildInfo] at [infoPath]: see [KtorHealth].
  */
 fun Route.healthRoutes(
   health: Health,
   livePath: String = KtorHealthConfig.DEFAULT_LIVE_PATH,
   readyPath: String = KtorHealthConfig.DEFAULT_READY_PATH,
+  buildInfo: BuildInfo = BuildInfo(),
+  infoPath: String = KtorHealthConfig.DEFAULT_INFO_PATH,
 ) {
   get(livePath) { call.respondHealth(health.liveness()) }
   // the checks may block, such as on a database
   get(readyPath) { call.respondHealth(withContext(Dispatchers.IO) { health.readiness() }) }
+  val info = Json.encodeToString(buildInfo)
+  get(infoPath) {
+    // a cache could answer for the build that was running before a rollout
+    call.response.header(HttpHeaders.CacheControl, "no-store")
+    call.respondText(info, ContentType.Application.Json)
+  }
 }
 
 private suspend fun ApplicationCall.respondHealth(report: HealthReport) {
   response.header(HttpHeaders.CacheControl, "no-store")
   respondText(
-    report.toJson().toString(),
+    Json.encodeToString(report),
     ContentType.Application.Json,
     if (report.healthy) HttpStatusCode.OK else HttpStatusCode.ServiceUnavailable,
   )
 }
 
 /**
- * The report as JSON: its `status`, `UP` or `DOWN`, its lifecycle `state`, and its `checks`, each by name, with its
- * `status`, and an unhealthy one's `reason`.
- */
-internal fun HealthReport.toJson(): JsonObject = buildJsonObject {
-  put("status", if (healthy) UP else DOWN)
-  put("state", state.name)
-  putJsonObject("checks") {
-    checks.forEach { (name, status) ->
-      putJsonObject(name) {
-        put("status", if (status.healthy) UP else DOWN)
-        if (status is HealthStatus.Unhealthy) put("reason", status.reason)
-      }
-    }
-  }
-}
-
-private const val UP = "UP"
-private const val DOWN = "DOWN"
-
-/**
- * A listener that serves only [health]'s routes, on a port of its own, e.g. one that only the platform's probes
- * reach. It isn't traced.
+ * A listener that serves only [health]'s routes, and [buildInfo]'s, on a port of its own, e.g. one that only the
+ * platform's probes reach. It isn't traced.
  *
  * Unlike other [KtorService]s, it is in the [DefaultPhase.Telemetry] phase, with what observes the application, so it
  * starts first and stops last: liveness is answered while the other services start, and readiness says the
@@ -177,11 +189,21 @@ class HealthKtorService<TEngine : ApplicationEngine, TConfiguration : Applicatio
   private val health: Health,
   private val livePath: String = KtorHealthConfig.DEFAULT_LIVE_PATH,
   private val readyPath: String = KtorHealthConfig.DEFAULT_READY_PATH,
+  private val buildInfo: BuildInfo = BuildInfo(),
+  private val infoPath: String = KtorHealthConfig.DEFAULT_INFO_PATH,
   name: String = "health",
 ) : KtorService<TEngine, TConfiguration>(name, hostPort, engineFactory) {
   override fun ordering() = Ordering(DefaultPhase.Telemetry)
 
   override fun Application.module() {
-    routing { healthRoutes(health, this@HealthKtorService.livePath, this@HealthKtorService.readyPath) }
+    routing {
+      healthRoutes(
+        health,
+        this@HealthKtorService.livePath,
+        this@HealthKtorService.readyPath,
+        this@HealthKtorService.buildInfo,
+        this@HealthKtorService.infoPath,
+      )
+    }
   }
 }

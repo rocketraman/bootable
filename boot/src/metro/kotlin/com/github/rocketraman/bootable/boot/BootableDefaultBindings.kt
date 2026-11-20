@@ -24,6 +24,8 @@ import kotlin.reflect.KClass
  * It provides the application's [Health], and adds it to the lifecycle controllers, with the checks of the
  * graph's `Set<HealthCheck>`, and the [ReadinessConfig] of the `health.readiness` config section if the graph has a
  * [ConfigBinder]. Add a readiness check with `@Provides @IntoSet fun myCheck(): HealthCheck = MyCheck()`.
+ *
+ * It provides the application's [BuildInfo], from the `build` config section if the graph has a [ConfigBinder].
  */
 @ContributesTo(BootScope::class)
 @BindingContainer
@@ -37,6 +39,11 @@ object BootableDefaultBindings {
     checks: Set<HealthCheck>,
     configBinder: ConfigBinder = NoConfigBinder,
   ): Health = Health(checks, if (configBinder === NoConfigBinder) ReadinessConfig() else readinessConfig(configBinder))
+
+  @Provides @SingleIn(BootScope::class)
+  // not named buildInfo, which would shadow the top-level function it calls
+  fun appBuildInfo(configBinder: ConfigBinder = NoConfigBinder): BuildInfo =
+    if (configBinder === NoConfigBinder) BuildInfo() else buildInfo(configBinder)
 
   @Provides @SingleIn(BootScope::class)
   fun bootable(

@@ -31,7 +31,10 @@ import kotlin.time.Duration.Companion.seconds
 data class TelemetryConfig(
   /** The resource's `service.name`, which names the application to every backend. */
   val serviceName: String? = null,
-  /** The resource's `service.version`. */
+  /**
+   * The resource's `service.version`. [telemetryConfig] defaults it to the `build.version` config key, which is the
+   * one boot's `BuildInfo` reads, so the version is set in one place.
+   */
   val serviceVersion: String? = null,
   /**
    * The resource's `service.instance.id`, which tells this instance apart from the service's others. Unset, each
@@ -100,9 +103,13 @@ data class MetricsConfig(
 /** The `env` config section as boot-env reads it, without depending on boot-env. */
 internal data class EnvironmentSection(val environment: String? = null)
 
+/** The `build` config section's version, as boot's `BuildInfo` reads it. */
+internal data class BuildSection(val version: String? = null)
+
 /**
  * Decodes [TelemetryConfig] from the `telemetry.sdk` config section. When that doesn't set an `environment`, it is
- * taken from `env.environment`, the key boot-env reads, if it is set. The standard OpenTelemetry environment
+ * taken from `env.environment`, the key boot-env reads, if it is set; and when it doesn't set a `serviceVersion`,
+ * from `build.version`, the key of boot's `BuildInfo`. The standard OpenTelemetry environment
  * variables, in [env], fill in what is still unset; see [withOtelEnvironment].
  */
 fun telemetryConfig(binder: ConfigBinder, env: Map<String, String> = System.getenv()): TelemetryConfig {
@@ -110,7 +117,10 @@ fun telemetryConfig(binder: ConfigBinder, env: Map<String, String> = System.gete
   val withEnvironment =
     if (config.environment != null) config
     else config.copy(environment = binder.config<EnvironmentSection>("env").environment)
-  return withEnvironment.withOtelEnvironment(env)
+  val withVersion =
+    if (withEnvironment.serviceVersion != null) withEnvironment
+    else withEnvironment.copy(serviceVersion = binder.config<BuildSection>("build").version)
+  return withVersion.withOtelEnvironment(env)
 }
 
 /**

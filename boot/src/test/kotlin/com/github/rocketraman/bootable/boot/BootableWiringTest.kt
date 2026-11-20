@@ -18,7 +18,9 @@ import kotlin.time.Duration.Companion.seconds
 sealed interface TestScope
 
 @DependencyGraph(TestScope::class, additionalScopes = [BootScope::class])
-interface DefaultsGraph : BootableGraph
+interface DefaultsGraph : BootableGraph {
+  val buildInfo: BuildInfo
+}
 
 private object WiredStartOrder : StartOrder by DefaultStartOrder
 
@@ -28,12 +30,13 @@ object OrderBindings {
   @Provides fun tiebreaker(): StartOrder.Tiebreaker = StartOrder.Tiebreaker.Shuffled(42)
 }
 
-/** Config with a `boot.service.order` section that shuffles ties with seed 7, and a 3s drain delay. */
+/** Config with a `boot.service.order` section that shuffles ties with seed 7, a 3s drain delay, and a version. */
 private object ShufflingConfig : ConfigBinder {
   override fun <T : Any> configOf(prefix: String, type: KClass<T>): T = type.javaObjectType.cast(
     when {
       prefix == "boot.service.order" && type == ServiceOrderConfig::class -> ServiceOrderConfig(StartOrder.Tiebreaker.Shuffled(7))
       prefix == "health.readiness" && type == ReadinessConfig::class -> ReadinessConfig(drainDelay = 3.seconds)
+      prefix == "build" && type == BuildInfo::class -> BuildInfo(version = "1.4.2")
       else -> error("unexpected config $prefix")
     }
   )
@@ -45,7 +48,9 @@ object ConfigBindings {
 }
 
 @DependencyGraph(TestScope::class, additionalScopes = [BootScope::class], bindingContainers = [ConfigBindings::class])
-interface ConfiguredGraph : BootableGraph
+interface ConfiguredGraph : BootableGraph {
+  val buildInfo: BuildInfo
+}
 
 // named rather than contributed: a @ContributesTo in test code trips the power-assert bug KT-83931 on the hint file
 // Metro generates for it
@@ -111,6 +116,28 @@ val BootableWiringTest by testSuite {
       val graph = createGraph<ConfiguredGraph>()
       assert(graph.lifecycleControllers.health().config.drainDelay == 3.seconds)
       assert(graph.healthChecks.isEmpty())
+    }
+  }
+
+  testSuite("build info") {
+    test("from config, in kodein") {
+      val di = DI {
+        import(bootableModule)
+        bindSingleton<ConfigBinder> { ShufflingConfig }
+      }.direct
+      assert(di.instance<BuildInfo>() == BuildInfo(version = "1.4.2"))
+    }
+
+    test("empty without config, in kodein") {
+      assert(DI { import(bootableModule) }.direct.instance<BuildInfo>() == BuildInfo())
+    }
+
+    test("from config, in metro") {
+      assert(createGraph<ConfiguredGraph>().buildInfo == BuildInfo(version = "1.4.2"))
+    }
+
+    test("empty without config, in metro") {
+      assert(createGraph<DefaultsGraph>().buildInfo == BuildInfo())
     }
   }
 }
