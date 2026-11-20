@@ -297,9 +297,10 @@ With Metro, `boot-periodic-metro` contributes it, gated on the graph's `LeaderEl
 
 ==== Leader election
 
-`boot-leader` defines `LeaderElection`: whether this instance is the leader of the application's instances, as a `StateFlow<Boolean>`, with `isLeader()` and `awaitLeadership()`.
+`boot-leader-common` defines `LeaderElection`: whether this instance is the leader of the application's instances, as a `StateFlow<Boolean>`, with `isLeader()` and `awaitLeadership()`.
 Its `fencingToken` numbers the current lease term, for the store to refuse a write from an earlier one; see <<FencingToken>>.
 `AlwaysLeader` is the leader of an application that runs as one instance.
+`boot-periodic` and `boot-leader-k8s` bring it in, so an application need not depend on it directly.
 
 `boot-leader-k8s` provides `KubernetesLeaderElection`, which elects a leader among an application's pods with a `coordination.k8s.io/v1` Lease, as Kubernetes's own controllers do, following client-go's algorithm.
 It is an app service in the `Infrastructure` phase, so it leads, if it can, before the loops that ask it start.

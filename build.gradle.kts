@@ -49,7 +49,7 @@ dependencies {
   dokka(project(":boot-db-pool-hikari"))
   dokka(project(":boot-db-pool-hikari-otel"))
   dokka(project(":boot-env"))
-  dokka(project(":boot-leader"))
+  dokka(project(":boot-leader-common"))
   dokka(project(":boot-leader-k8s"))
   dokka(project(":boot-logging"))
   dokka(project(":boot-logging-log4j2"))
@@ -650,7 +650,7 @@ project("boot-env") {
 }
 
 // LeaderElection, the role a periodic loop's gate asks about, with no implementation beyond AlwaysLeader
-project("boot-leader") {
+project("boot-leader-common") {
   dependencies {
     // leadership is a StateFlow
     api(rootProject.libs.kotlinx.coroutines.core)
@@ -665,7 +665,7 @@ project("boot-leader-k8s") {
     // KubernetesLeaderElection is an AppService and a LeaderElection
     api(project(":boot"))
     api(project(":boot-config-common"))
-    api(project(":boot-leader"))
+    api(project(":boot-leader-common"))
     // the API server is called with one of the application's Ktor clients; the engine is the application's choice
     api(project(":boot-client-http-ktor"))
     // the Lease, as JSON: generated serializers, with no reflection, so nothing to add for a native image
@@ -699,9 +699,9 @@ project("boot-leader-k8s") {
 project("boot-periodic") {
   configureDiVariants()
   dependencies {
-    // PeriodicAppService is an AppService, and its gates ask boot's Health and boot-leader's LeaderElection
+    // PeriodicAppService is an AppService, and its gates ask boot's Health and boot-leader-common's LeaderElection
     api(project(":boot"))
-    api(project(":boot-leader"))
+    api(project(":boot-leader-common"))
     api(rootProject.libs.kotlinx.coroutines.core)
     // the logging API only: the application chooses the logging implementation (e.g. boot-logging-log4j2)
     implementation(rootProject.libs.bundles.log4j.api)
