@@ -3,18 +3,26 @@ package com.github.rocketraman.bootable.db.exposed
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.StartOrder
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.boot.startPlan
+import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.config.HopliteConfigModule
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.db.flyway.FlywayConfig
+import com.github.rocketraman.bootable.db.flyway.FlywayMigrationModule
 import com.github.rocketraman.bootable.db.flyway.FlywayMigrationService
 import com.github.rocketraman.bootable.db.flyway.flywayMigrationModule
 import com.github.rocketraman.bootable.db.jdbc.HikariPoolConfig
+import com.github.rocketraman.bootable.db.jdbc.HikariPoolModule
+import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceModule
 import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
 import com.github.rocketraman.bootable.db.jdbc.SqliteConfig
+import com.github.rocketraman.bootable.db.jdbc.SqliteConfigSource
 import com.github.rocketraman.bootable.db.jdbc.TransactionIsolation
 import com.github.rocketraman.bootable.db.jdbc.hikariPoolModule
 import com.github.rocketraman.bootable.db.jdbc.jdbcDataSourceModule
@@ -34,6 +42,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import org.kodein.di.DI
 import org.kodein.di.direct
+import org.kodein.di.inara.DIModule
 import org.kodein.di.inBindSet
 import org.kodein.di.instance
 import org.kodein.di.singleton
@@ -61,6 +70,27 @@ object TestTableBindings {
 
   @Provides @IntoSet fun sqlLogger(): ExposedConfigCustomizer = ExposedConfigCustomizer { it.sqlLogger = StdOutSqlLogger }
 }
+
+@DIModule(composed = true)
+interface InaraTestModule :
+  ConfigModule,
+  BootableModule,
+  JdbcDataSourceModule,
+  HikariPoolModule,
+  FlywayMigrationModule,
+  ExposedDatabaseModule
+
+private fun inaraTestModule() = InaraTestModule(
+  configModule = HopliteConfigModule(),
+  bootableModule = bootableModule(),
+  jdbcDataSourceModule = jdbcDataSourceModule(SqliteConfigSource),
+  hikariPoolModule = hikariPoolModule(),
+  flywayMigrationModule = flywayMigrationModule(),
+  exposedDatabaseModule = exposedDatabaseModule(
+    setOf(GreetingTable, NoteTable),
+    setOf(ExposedConfigCustomizer { it.sqlLogger = StdOutSqlLogger }),
+  ),
+)
 
 /**
  * Starts the services in their planned order, as Bootable does, so Flyway migrates a fresh database and the schema
@@ -149,6 +179,16 @@ val ExposedWiringTest by testSuite {
       assert(db.config.defaultMaxAttempts == 1)
       assert(db.config.sqlLogger === StdOutSqlLogger)
       graph.appServices.startUseAndStop(db)
+    }
+
+    test("inara") {
+      val module = inaraTestModule()
+
+      val db = module.database
+      assert(db.config.defaultIsolationLevel == Connection.TRANSACTION_SERIALIZABLE)
+      assert(db.config.defaultMaxAttempts == 1)
+      assert(db.config.sqlLogger === StdOutSqlLogger)
+      module.setOfAppServices().startUseAndStop(db)
     }
   }
 }

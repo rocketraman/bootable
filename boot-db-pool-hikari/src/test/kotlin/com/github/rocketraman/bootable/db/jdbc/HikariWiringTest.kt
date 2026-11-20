@@ -3,7 +3,11 @@ package com.github.rocketraman.bootable.db.jdbc
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.setOfAppServices
+import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.config.HopliteConfigModule
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
 import com.github.rocketraman.bootable.config.hopliteConfigModule
@@ -16,6 +20,8 @@ import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.createGraph
 import org.kodein.di.DI
 import org.kodein.di.direct
+import org.kodein.di.inara.Binding
+import org.kodein.di.inara.DIModule
 import org.kodein.di.inBindSet
 import org.kodein.di.instance
 import org.kodein.di.singleton
@@ -40,6 +46,19 @@ object TestCustomizerBindings {
   @Provides @IntoSet
   fun initSql(): HikariConfigCustomizer = HikariConfigCustomizer { it.connectionInitSql = "SELECT 'metro'" }
 }
+
+@DIModule(composed = true)
+interface InaraTestModule : ConfigModule, BootableModule, JdbcDataSourceModule, HikariPoolModule {
+  @HikariConfigCustomizers val initSql: HikariConfigCustomizer
+}
+
+private fun inaraTestModule() = InaraTestModule(
+  configModule = HopliteConfigModule(),
+  bootableModule = bootableModule(),
+  jdbcDataSourceModule = jdbcDataSourceModule(JdbcGenericConfigSource),
+  hikariPoolModule = hikariPoolModule(),
+  initSql = Binding.value(HikariConfigCustomizer { it.connectionInitSql = "SELECT 'inara'" }),
+)
 
 private fun JdbcDataSourceService.startAndStop() {
   start()
@@ -107,6 +126,17 @@ val HikariWiringTest by testSuite {
       assert(hikari.transactionIsolation == "TRANSACTION_SERIALIZABLE")
       assert(hikari.connectionInitSql == "SELECT 'metro'")
       graph.appServices.filterIsInstance<JdbcDataSourceService>().single().startAndStop()
+    }
+
+    test("inara") {
+      val module = inaraTestModule()
+
+      val hikari = module.dataSource as HikariDataSource
+      assert(hikari.maximumPoolSize == 3)
+      assert(hikari.poolName == "hikari-wiring-test")
+      assert(hikari.transactionIsolation == "TRANSACTION_SERIALIZABLE")
+      assert(hikari.connectionInitSql == "SELECT 'inara'")
+      module.setOfAppServices().filterIsInstance<JdbcDataSourceService>().single().startAndStop()
     }
   }
 }

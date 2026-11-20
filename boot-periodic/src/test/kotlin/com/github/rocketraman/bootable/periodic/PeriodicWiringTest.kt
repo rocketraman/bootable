@@ -2,13 +2,22 @@ package com.github.rocketraman.bootable.periodic
 
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
+import com.github.rocketraman.bootable.boot.AppServices
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.config.ConfigBinder
+import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.config.HopliteConfigModule
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
 import com.github.rocketraman.bootable.config.hopliteConfigModule
+import com.github.rocketraman.bootable.leader.AlwaysLeaderModule
 import com.github.rocketraman.bootable.leader.LeaderElection
+import com.github.rocketraman.bootable.leader.LeaderElectionModule
+import com.github.rocketraman.bootable.telemetry.otel.NoopOpenTelemetryModule
+import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryApiModule
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
 import dev.zacsweers.metro.DependencyGraph
@@ -21,6 +30,8 @@ import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.kodein.di.direct
 import org.kodein.di.inBindSet
+import org.kodein.di.inara.Binding
+import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import org.kodein.di.singleton
 import java.util.concurrent.atomic.AtomicInteger
@@ -60,6 +71,26 @@ object TestBindings {
   fun counterLoop(periodic: PeriodicServices, binder: ConfigBinder, counter: Counter): AppService =
     periodic.create("counter", binder.config("jobs.counter")) { counter.runs.incrementAndGet() }
 }
+
+/** An application's module, composed as an Inara application composes it, with the loop the wiring creates. */
+@DIModule(composed = true)
+interface InaraWiringModule :
+  ConfigModule, BootableModule, LeaderElectionModule, OpenTelemetryApiModule, PeriodicModule {
+  val counter: Counter
+  @AppServices val counterLoop: PeriodicAppService
+}
+
+private fun inaraWiringModule(leaderElectionModule: LeaderElectionModule) = InaraWiringModule(
+  configModule = HopliteConfigModule(),
+  bootableModule = bootableModule(),
+  leaderElectionModule = leaderElectionModule,
+  openTelemetryApiModule = NoopOpenTelemetryModule,
+  periodicModule = periodicModule(),
+  counter = Binding.single { Counter() },
+  counterLoop = Binding.single {
+    periodicServices.create("counter", configBinder.config("jobs.counter")) { counter.runs.incrementAndGet() }
+  },
+)
 
 /** Starts the loop, checks it runs only once its instance leads, and stops it. */
 private fun checkLeaderGatedLoop(services: Set<AppService>, election: TestLeaderElection, counter: Counter) {
@@ -128,6 +159,19 @@ val PeriodicWiringTest by testSuite {
 
     test("metro, not traced without an OpenTelemetry in the graph") {
       assert(createGraph<TestGraph>().periodicServices.interceptors.isEmpty())
+    }
+
+    test("inara, gated on the LeaderElectionModule's election") {
+      val module = inaraWiringModule(LeaderElectionModule(leaderElection = Binding.value(TestLeaderElection(false))))
+      checkLeaderGatedLoop(module.setOfAppServices(), module.leaderElection as TestLeaderElection, module.counter)
+    }
+
+    test("inara, ungated with the AlwaysLeaderModule") {
+      assert(inaraWiringModule(AlwaysLeaderModule).periodicServices.gate.isOpen())
+    }
+
+    test("inara, not traced with the NoopOpenTelemetryModule") {
+      assert(inaraWiringModule(AlwaysLeaderModule).periodicServices.interceptors.isEmpty())
     }
   }
 }

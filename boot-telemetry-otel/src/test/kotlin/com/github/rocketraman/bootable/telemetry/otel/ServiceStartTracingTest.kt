@@ -3,6 +3,7 @@ package com.github.rocketraman.bootable.telemetry.otel
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.DefaultPhase
 import com.github.rocketraman.bootable.boot.LifecycleController
 import com.github.rocketraman.bootable.boot.Ordering
@@ -10,6 +11,9 @@ import com.github.rocketraman.bootable.boot.ServiceContext
 import com.github.rocketraman.bootable.boot.StartupStage
 import com.github.rocketraman.bootable.boot.StartupTimeline
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.setOfLifecycleControllers
+import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.config.HopliteConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
@@ -23,6 +27,8 @@ import io.opentelemetry.api.trace.StatusCode
 import org.kodein.di.DI
 import org.kodein.di.bindInstance
 import org.kodein.di.inBindSet
+import org.kodein.di.inara.Binding
+import org.kodein.di.inara.DIModule
 import org.kodein.di.singleton
 import org.kodein.di.direct
 import org.kodein.di.instance
@@ -61,6 +67,20 @@ object ClockedTestBindings {
 
   @Provides @IntoSet fun inMemory(telemetry: InMemoryTelemetry): OpenTelemetryCustomizer = telemetry
 }
+
+/** An application's module, composed as an Inara application composes it, tracing its start. */
+@DIModule(composed = true)
+interface InaraStartTracingModule : ConfigModule, BootableModule, OpenTelemetryModule, ServiceStartTracingModule {
+  @OpenTelemetryCustomizers val inMemoryTelemetry: InMemoryTelemetry
+}
+
+private fun inaraStartTracingModule(clock: Clock = Clock.System) = InaraStartTracingModule(
+  configModule = HopliteConfigModule(),
+  bootableModule = bootableModule(),
+  openTelemetryModule = openTelemetryModule(clock),
+  serviceStartTracingModule = serviceStartTracingModule(clock),
+  inMemoryTelemetry = Binding.single { InMemoryTelemetry() },
+)
 
 /** Does traced work as it starts, as a migration's queries would be, and fails to start if [fail]. */
 private class WorkingService(
@@ -280,6 +300,25 @@ val ServiceStartTracingTest by testSuite {
     test("metro, only when named in the graph") {
       assert(createGraph<StartTracingGraph>().lifecycleControllers.filterIsInstance<ServiceStartTracing>().size == 1)
       assert(createGraph<TestGraph>().lifecycleControllers.none { it is ServiceStartTracing })
+    }
+
+    test("inara") {
+      assert(inaraStartTracingModule().setOfLifecycleControllers().filterIsInstance<ServiceStartTracing>().size == 1)
+    }
+
+    test("inara, with a clock") {
+      val clock = FixedClock()
+      val module = inaraStartTracingModule(clock)
+      val tracing = module.setOfLifecycleControllers().filterIsInstance<ServiceStartTracing>().single()
+      try {
+        assertTimedBy(clock, traceStart(tracing, module.inMemoryTelemetry))
+      } finally {
+        module.openTelemetryService.shutdown()
+      }
+    }
+
+    test("inara, only when composed") {
+      assert(inaraTelemetryModule().setOfLifecycleControllers().none { it is ServiceStartTracing })
     }
   }
 }

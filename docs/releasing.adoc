@@ -23,7 +23,7 @@ Central Portal credentials (`mavenCentralUsername` / `mavenCentralPassword`) are
 . Push the tag: `git push origin v3.0.0`.
 . Bump `developmentVersion` in `build.gradle.kts` to the next `-SNAPSHOT` (e.g. `3.0.1-SNAPSHOT`) and commit — the only version commit.
 
-NOTE: This publishes every module, including the per-flavor coordinates (`boot-metro`, `boot-kodein`, …).
+NOTE: This publishes every module, including the per-flavor coordinates (`boot-metro`, `boot-kodein`, `boot-inara`, …).
 Confirm they all appear in the Central deployment before releasing.
 
 [[signing]]

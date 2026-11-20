@@ -3,8 +3,12 @@ package com.github.rocketraman.bootable.server.http.ktor
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.Health
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.setOfAppServices
+import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.config.HopliteConfigModule
 import com.github.rocketraman.bootable.boot.startPlan
 import com.github.rocketraman.bootable.config.common.HostPort
 import com.github.rocketraman.bootable.config.config
@@ -14,8 +18,11 @@ import com.github.rocketraman.bootable.telemetry.otel.MetricsConfig
 import com.github.rocketraman.bootable.telemetry.otel.MetricsSnapshot
 import com.github.rocketraman.bootable.telemetry.otel.MetricsSnapshotProvider
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizer
+import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizers
+import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
 import com.github.rocketraman.bootable.telemetry.otel.PrometheusTelemetry
+import com.github.rocketraman.bootable.telemetry.otel.PrometheusTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.TelemetryConfig
 import com.github.rocketraman.bootable.telemetry.otel.openTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.prometheusTelemetryModule
@@ -45,6 +52,8 @@ import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
 import org.kodein.di.DI
 import org.kodein.di.direct
 import org.kodein.di.inBindSet
+import org.kodein.di.inara.Binding
+import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import org.kodein.di.singleton
 import java.net.URI
@@ -362,6 +371,13 @@ object TestTelemetryBindings {
   @Provides @IntoSet fun inMemory(telemetry: InMemoryTelemetry): OpenTelemetryCustomizer = telemetry
 }
 
+/** An application's module, composed as an Inara application composes it, with the SDK's telemetry kept in memory. */
+@DIModule(composed = true)
+interface InaraTestModule :
+  ConfigModule, BootableModule, OpenTelemetryModule, PrometheusTelemetryModule, KtorTelemetryModule {
+  @OpenTelemetryCustomizers val inMemoryTelemetry: InMemoryTelemetry
+}
+
 private val expectedConfig = KtorTelemetryConfig(path = "/scrape", capturedRequestHeaders = listOf("X-Request-Id"))
 
 /** Serves [ktorTelemetry] on a real server, as the wired application would, and checks the traces and the scrape. */
@@ -408,6 +424,20 @@ val KtorTelemetryWiringTest by testSuite {
 
       assert(graph.ktorTelemetry.config == expectedConfig)
       checkServes(graph.appServices, graph.ktorTelemetry, graph.inMemoryTelemetry)
+    }
+
+    test("inara") {
+      val module = InaraTestModule(
+        configModule = HopliteConfigModule(),
+        bootableModule = bootableModule(),
+        openTelemetryModule = openTelemetryModule(),
+        prometheusTelemetryModule = prometheusTelemetryModule(),
+        ktorTelemetryModule = ktorTelemetryModule(),
+        inMemoryTelemetry = Binding.single { InMemoryTelemetry() },
+      )
+
+      assert(module.ktorTelemetry.config == expectedConfig)
+      checkServes(module.setOfAppServices(), module.ktorTelemetry, module.inMemoryTelemetry)
     }
   }
 }

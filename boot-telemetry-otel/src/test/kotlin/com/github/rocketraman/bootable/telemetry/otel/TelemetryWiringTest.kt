@@ -3,8 +3,12 @@ package com.github.rocketraman.bootable.telemetry.otel
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.config.ConfigBinder
+import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.config.HopliteConfigModule
 import com.github.rocketraman.bootable.config.Masked
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
 import com.github.rocketraman.bootable.config.hopliteConfigModule
@@ -19,6 +23,8 @@ import io.opentelemetry.api.OpenTelemetry
 import org.kodein.di.DI
 import org.kodein.di.direct
 import org.kodein.di.inBindSet
+import org.kodein.di.inara.Binding
+import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import org.kodein.di.singleton
 import kotlin.reflect.KClass
@@ -45,6 +51,21 @@ object TestTelemetryBindings {
 
   @Provides @IntoSet fun inMemory(telemetry: InMemoryTelemetry): OpenTelemetryCustomizer = telemetry
 }
+
+/** An application's module, composed as an Inara application composes it, with the SDK's telemetry kept in memory. */
+@DIModule(composed = true)
+interface InaraTelemetryModule : ConfigModule, BootableModule, OpenTelemetryModule {
+  @OpenTelemetryCustomizers val inMemoryTelemetry: InMemoryTelemetry
+}
+
+internal fun inaraTelemetryModule(
+  openTelemetryModule: OpenTelemetryModulePart = openTelemetryModule(),
+) = InaraTelemetryModule(
+  configModule = HopliteConfigModule(),
+  bootableModule = bootableModule(),
+  openTelemetryModule = openTelemetryModule,
+  inMemoryTelemetry = Binding.single { InMemoryTelemetry() },
+)
 
 private val expectedConfig = TelemetryConfig(
   serviceName = "wiring-test",
@@ -140,6 +161,16 @@ val TelemetryWiringTest by testSuite {
       checkRecords(graph.openTelemetry, graph.inMemoryTelemetry)
       val service = graph.appServices.filterIsInstance<OpenTelemetryService>().single()
       assert(service.openTelemetry === graph.openTelemetry)
+    }
+
+    test("inara") {
+      val module = inaraTelemetryModule()
+
+      assert(module.telemetryConfig == expectedConfig)
+      checkRecords(module.openTelemetry, module.inMemoryTelemetry)
+      val service = module.setOfAppServices().filterIsInstance<OpenTelemetryService>().single()
+      assert(service.openTelemetry === module.openTelemetry)
+      assert(module.setOfMetricsSnapshotProviders().isEmpty())
     }
   }
 }

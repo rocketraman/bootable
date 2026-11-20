@@ -153,6 +153,19 @@ See the Testing section of the README; the helpers test components without booti
 |`${{ random:int }}`, `${{ random:uuid }}`, ...
 |===
 
+=== Experimental Inara bindings
+
+Kodein's authors are sunsetting it in favour of https://kosi-libs.org/inara/[Inara], a compile-time successor run by KSP.
+Each module with Kodein bindings now also has experimental Inara bindings, as an `-inara` artifact (`boot-inara`, `boot-db-jdbc-inara`, …), for the application to compose into its own `@DIModule(composed = true)`.
+`boot-config-common-inara` adds `ConfigModule`, and `config("prefix")`, which binds a config section in any module that is a `ConfigModule`.
+`boot-config-hoplite-inara` adds `HopliteConfigModule()`, a `ConfigModule` that decodes with Hoplite.
+An application without config uses the `EmptyConfigModule`, whose `EmptyConfigBinder` fails every read.
+The other modules are partial modules, which require the modules they use, and have builder functions named as their Kodein counterparts are, such as `bootableModule()`, `jdbcDataSourceModule(configSource)`, `hikariPoolModule()`, `openTelemetryModule()`, or `ktorClientModule(engine)`.
+`boot-inara`'s `BootableModule` provides the `Bootable`, `Health`, and `BuildInfo`, and its `@AppServices`, `@LifecycleControllers`, and `@HealthChecks` sets mark the members it runs; the other modules' sets, such as `@OpenTelemetryCustomizers`, are where Kodein opens one.
+`jdbcDataSourceModule` takes a `JdbcConfigSource`, such as `SqliteConfigSource`, and requires a `ConnectionPoolModule`, such as `hikariPoolModule()`.
+`boot-telemetry-otel-common-inara` adds `OpenTelemetryApiModule`, which the modules that trace require, with `NoopOpenTelemetryModule` for no telemetry, and `boot-leader-common-inara` adds `LeaderElectionModule`, with `AlwaysLeaderModule`.
+See link:docs/wiring.adoc#inara-experimental[Wiring Bootable].
+
 === Fixes
 
 * A stop requested during the start no longer deadlocks; it takes effect once running.

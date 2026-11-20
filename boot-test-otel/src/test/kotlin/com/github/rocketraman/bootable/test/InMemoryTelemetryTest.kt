@@ -2,9 +2,13 @@ package com.github.rocketraman.bootable.test
 
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.config.HopliteConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.telemetry.otel.MetricsConfig
+import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
 import com.github.rocketraman.bootable.telemetry.otel.TelemetryConfig
 import com.github.rocketraman.bootable.telemetry.otel.openTelemetryModule
@@ -16,6 +20,7 @@ import io.opentelemetry.api.OpenTelemetry
 import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.kodein.di.direct
+import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import kotlin.time.Clock
 
@@ -37,6 +42,10 @@ internal interface TelemetryGraph : BootableGraph {
     fun create(@Includes telemetry: InMemoryTelemetryBindings): TelemetryGraph
   }
 }
+
+/** A test's module, composed as an Inara application composes it, with the in-memory telemetry. */
+@DIModule(composed = true)
+internal interface InaraTelemetryModule : ConfigModule, BootableModule, OpenTelemetryModule, InMemoryTelemetryModule
 
 val InMemoryTelemetryTest by testSuite {
   test("collects the spans and metrics of the SDK it customizes, timed by the SDK's clock") {
@@ -78,5 +87,18 @@ val InMemoryTelemetryTest by testSuite {
     graph.openTelemetry.record()
     assert(telemetry.spans("work").size == 1)
     assert(telemetry.metric("work.done") != null)
+  }
+
+  test("is added to the SDK's customizers with Inara") {
+    val module = InaraTelemetryModule(
+      configModule = HopliteConfigModule(),
+      bootableModule = bootableModule(),
+      openTelemetryModule = openTelemetryModule(TestClock()),
+      inMemoryTelemetryModule = inMemoryTelemetryModule(),
+    )
+
+    module.openTelemetry.record()
+    assert(module.inMemoryTelemetry.spans("work").size == 1)
+    assert(module.inMemoryTelemetry.metric("work.done") != null)
   }
 }

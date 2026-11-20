@@ -3,7 +3,11 @@ package com.github.rocketraman.bootable.telemetry.otel
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.setOfAppServices
+import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.config.HopliteConfigModule
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
 import com.github.rocketraman.bootable.config.hopliteConfigModule
@@ -18,6 +22,7 @@ import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
 import io.opentelemetry.sdk.metrics.View
 import org.kodein.di.DI
 import org.kodein.di.direct
+import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import java.util.logging.Handler
 import java.util.logging.Level
@@ -32,6 +37,10 @@ interface TestGraph : BootableGraph {
   val metricsSnapshotProviders: Set<MetricsSnapshotProvider>
   val openTelemetryCustomizers: Set<OpenTelemetryCustomizer>
 }
+
+/** An application's module, composed as an Inara application composes it. */
+@DIModule(composed = true)
+interface InaraTestModule : ConfigModule, BootableModule, OpenTelemetryModule, PrometheusTelemetryModule
 
 private val CHANNEL = AttributeKey.stringKey("channel")
 private val URL_PATH = AttributeKey.stringKey("url.path")
@@ -182,6 +191,19 @@ val PrometheusTelemetryTest by testSuite {
       assert(graph.openTelemetryCustomizers.single() is PrometheusTelemetry)
       checkScrape(graph.openTelemetry, graph.metricsSnapshotProviders)
       graph.appServices.filterIsInstance<OpenTelemetryService>().single().shutdown()
+    }
+
+    test("inara") {
+      val module = InaraTestModule(
+        configModule = HopliteConfigModule(),
+        bootableModule = bootableModule(),
+        openTelemetryModule = openTelemetryModule(),
+        prometheusTelemetryModule = prometheusTelemetryModule(),
+      )
+
+      assert(module.setOfOpenTelemetryCustomizers() == setOf<OpenTelemetryCustomizer>(module.prometheusTelemetry))
+      checkScrape(module.openTelemetry, module.setOfMetricsSnapshotProviders())
+      module.setOfAppServices().filterIsInstance<OpenTelemetryService>().single().shutdown()
     }
   }
 }
