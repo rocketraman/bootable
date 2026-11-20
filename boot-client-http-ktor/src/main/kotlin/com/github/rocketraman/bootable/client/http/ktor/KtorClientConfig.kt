@@ -119,7 +119,8 @@ data class KtorClientConfig(
  * way again. Only the [methods] are retried, so a request that may have changed something isn't sent twice.
  *
  * The delay between attempts grows exponentially, from [initialDelay], doubling up to [maxDelay], with up to
- * [jitter] added at random, unless the response says how long to wait with a `Retry-After` header.
+ * [jitter] added at random. If [respectRetryAfter] is set and the response has a `Retry-After` header, the client
+ * waits for the longer of that delay and the header's, which [maxDelay] doesn't cap.
  */
 data class KtorClientRetryConfig(
   /** How many times to retry a request, after its first attempt. 0 turns retries off. */
@@ -128,11 +129,14 @@ data class KtorClientRetryConfig(
   val methods: Set<String> = setOf("GET", "HEAD", "OPTIONS", "PUT", "DELETE"),
   /** The delay before the first retry. */
   val initialDelay: Duration = 500.milliseconds,
-  /** The longest delay between attempts. */
+  /** The longest the backoff grows to; a `Retry-After` header can ask for a longer wait (see [respectRetryAfter]). */
   val maxDelay: Duration = 30.seconds,
   /** Up to this much is added to each delay at random, so clients that failed together don't retry together. */
   val jitter: Duration = 500.milliseconds,
-  /** Whether to wait as long as a response's `Retry-After` header asks, up to [maxDelay]. */
+  /**
+   * Whether to wait at least as long as a response's `Retry-After` header asks, even beyond [maxDelay]. Only a
+   * header in seconds is honoured; one with a date is ignored.
+   */
   val respectRetryAfter: Boolean = true,
 )
 
