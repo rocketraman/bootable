@@ -126,17 +126,17 @@ val HealthTest by testSuite {
       )
     )
     // not run until the application is running
-    assert(health.readiness() == HealthReport(false, LifecycleState.Starting))
+    assert(health.readiness() == HealthReadyReport(false, LifecycleState.Starting))
 
     runApp(health, emptySet()) {
-      assert(health.readiness() == HealthReport(true, LifecycleState.Running, mapOf("db" to HealthStatus.Healthy, "cache" to HealthStatus.Healthy)))
+      assert(health.readiness() == HealthReadyReport(true, LifecycleState.Running, mapOf("db" to HealthStatus.Healthy, "cache" to HealthStatus.Healthy)))
 
       dbUp = false
       val ready = health.readiness()
       assert(!ready.healthy)
       assert(ready.checks["db"] == HealthStatus.Unhealthy("db is down"))
       // liveness doesn't depend on the checks
-      assert(health.liveness() == HealthReport(true, LifecycleState.Running))
+      assert(health.liveness() == HealthLiveReport(true, LifecycleState.Running))
     }
 
     val throwing = Health(setOf(HealthCheck("boom") { error("kaboom") }))

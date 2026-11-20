@@ -75,12 +75,12 @@ See the Health section of the README.
 * `health.readiness.drainDelay` holds readiness down for a while before services stop.
 * `boot-db-jdbc` adds an opt-in `JdbcHealthCheck`.
 * `KtorHealth` serves `/health/live` and `/health/ready`, on the app server or its own listener.
-* Health responses carry a JSON body: status, lifecycle state, and each readiness check.
+* Health responses carry a JSON body: status and lifecycle state, plus each check for readiness.
 * `boot-server-http-ktor` gains `-kodein` and `-metro` flavors.
 * `excludeHealthFromTraces()` keeps health probes out of traces.
 * `BuildInfo`, from the `build` config section, is served at `/health/info`.
 * Telemetry's `serviceVersion` defaults to `build.version`.
-* The health report and `BuildInfo` are `@Serializable`, so clients can decode them; `boot` now depends on `kotlinx-serialization-core`.
+* `HealthLiveReport`, `HealthReadyReport`, and `BuildInfo` are `@Serializable`, so clients can decode them; `boot` now depends on `kotlinx-serialization-core`.
 
 === Periodic work and leader election
 

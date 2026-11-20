@@ -4,7 +4,8 @@ import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BuildInfo
 import com.github.rocketraman.bootable.boot.DefaultPhase
 import com.github.rocketraman.bootable.boot.Health
-import com.github.rocketraman.bootable.boot.HealthReport
+import com.github.rocketraman.bootable.boot.HealthLiveReport
+import com.github.rocketraman.bootable.boot.HealthReadyReport
 import com.github.rocketraman.bootable.boot.Ordering
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.common.HostPort
@@ -64,7 +65,9 @@ fun ktorHealthConfig(binder: ConfigBinder): KtorHealthConfig = binder.config("he
 /**
  * Serves the application's [Health] from a Ktor server: liveness at [KtorHealthConfig.livePath] and readiness at
  * [KtorHealthConfig.readyPath], each `200 OK` when healthy and `503 Service Unavailable` when not, with a JSON body:
- * `UP` or `DOWN`, the lifecycle state, and each readiness check's result, by name, so a consumer can check one:
+ * `UP` or `DOWN`, and the lifecycle state, as `{"status": "UP", "state": "Running"}` for liveness, which runs no
+ * checks ([HealthLiveReport]); and for readiness, each check's result too, by name, so a consumer can check one
+ * ([HealthReadyReport]):
  *
  * ```
  * {
@@ -155,9 +158,15 @@ fun Route.healthRoutes(
   buildInfo: BuildInfo = BuildInfo(),
   infoPath: String = KtorHealthConfig.DEFAULT_INFO_PATH,
 ) {
-  get(livePath) { call.respondHealth(health.liveness()) }
+  get(livePath) {
+    val report = health.liveness()
+    call.respondHealth(report.healthy, Json.encodeToString(report))
+  }
   // the checks may block, such as on a database
-  get(readyPath) { call.respondHealth(withContext(Dispatchers.IO) { health.readiness() }) }
+  get(readyPath) {
+    val report = withContext(Dispatchers.IO) { health.readiness() }
+    call.respondHealth(report.healthy, Json.encodeToString(report))
+  }
   val info = Json.encodeToString(buildInfo)
   get(infoPath) {
     // a cache could answer for the build that was running before a rollout
@@ -166,13 +175,9 @@ fun Route.healthRoutes(
   }
 }
 
-private suspend fun ApplicationCall.respondHealth(report: HealthReport) {
+private suspend fun ApplicationCall.respondHealth(healthy: Boolean, json: String) {
   response.header(HttpHeaders.CacheControl, "no-store")
-  respondText(
-    Json.encodeToString(report),
-    ContentType.Application.Json,
-    if (report.healthy) HttpStatusCode.OK else HttpStatusCode.ServiceUnavailable,
-  )
+  respondText(json, ContentType.Application.Json, if (healthy) HttpStatusCode.OK else HttpStatusCode.ServiceUnavailable)
 }
 
 /**

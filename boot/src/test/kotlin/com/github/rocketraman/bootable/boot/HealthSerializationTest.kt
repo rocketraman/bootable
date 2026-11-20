@@ -6,9 +6,9 @@ import kotlinx.serialization.json.Json
 private fun json(text: String) = Json.parseToJsonElement(text)
 
 val HealthSerializationTest by testSuite {
-  testSuite("HealthReport") {
+  testSuite("HealthReadyReport") {
     test("encodes its status as UP or DOWN, and each check by name, with an unhealthy one's reason") {
-      val report = HealthReport(
+      val report = HealthReadyReport(
         healthy = false,
         state = LifecycleState.Running,
         checks = mapOf("jdbc" to HealthStatus.Healthy, "db-scheduler" to HealthStatus.Unhealthy("paused")),
@@ -27,17 +27,29 @@ val HealthSerializationTest by testSuite {
     }
 
     test("always encodes its checks, even when there are none") {
-      val report = HealthReport(healthy = true, state = LifecycleState.Starting)
+      val report = HealthReadyReport(healthy = true, state = LifecycleState.Starting)
       assert(Json.encodeToString(report) == """{"status":"UP","state":"Starting","checks":{}}""")
     }
 
     test("decodes back, such as in a client of the health routes") {
-      val report = HealthReport(
+      val report = HealthReadyReport(
         healthy = false,
         state = LifecycleState.Stopping,
         checks = mapOf("jdbc" to HealthStatus.Healthy, "queue" to HealthStatus.Unhealthy("backlog")),
       )
-      assert(Json.decodeFromString<HealthReport>(Json.encodeToString(report)) == report)
+      assert(Json.decodeFromString<HealthReadyReport>(Json.encodeToString(report)) == report)
+    }
+  }
+
+  testSuite("HealthLiveReport") {
+    test("encodes its status and state, with no checks, since liveness runs none") {
+      val report = HealthLiveReport(healthy = true, state = LifecycleState.Running)
+      assert(Json.encodeToString(report) == """{"status":"UP","state":"Running"}""")
+    }
+
+    test("decodes back") {
+      val report = HealthLiveReport(healthy = false, state = LifecycleState.Stopped)
+      assert(Json.decodeFromString<HealthLiveReport>(Json.encodeToString(report)) == report)
     }
   }
 
