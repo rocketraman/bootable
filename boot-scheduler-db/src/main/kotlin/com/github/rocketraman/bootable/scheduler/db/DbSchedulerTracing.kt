@@ -67,8 +67,11 @@ fun dbSchedulerTracing(openTelemetry: OpenTelemetry, sample: Sample = Sample.ByS
  * execution's trace, or to trace none:
  *
  * ```
- * bindSingleton { DbSchedulerTracingOptions(sample = Sample.Always) }                     // Kodein
- * @Provides fun dbSchedulerTracingOptions() = DbSchedulerTracingOptions(enabled = false)  // Metro
+ * // Kodein
+ * bindSingleton { DbSchedulerTracingOptions(sample = Sample.Always) }
+ *
+ * // Metro
+ * @Provides fun dbSchedulerTracingOptions(): DbSchedulerTracingOptions = DbSchedulerTracingOptions(enabled = false)
  * ```
  */
 data class DbSchedulerTracingOptions(

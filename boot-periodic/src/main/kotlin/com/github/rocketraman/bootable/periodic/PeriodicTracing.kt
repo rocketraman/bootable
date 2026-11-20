@@ -43,8 +43,11 @@ fun periodicTracing(openTelemetry: OpenTelemetry, sample: Sample = Sample.BySamp
  * don't trace at all when it has none. Bind one to change that, e.g. to sample every run's trace, or to trace none:
  *
  * ```
- * bindSingleton { PeriodicTracingOptions(sample = Sample.Always) }             // Kodein
- * @Provides fun periodicTracingOptions() = PeriodicTracingOptions(enabled = false)  // Metro
+ * // Kodein
+ * bindSingleton { PeriodicTracingOptions(sample = Sample.Always) }
+ *
+ * // Metro
+ * @Provides fun periodicTracingOptions(): PeriodicTracingOptions = PeriodicTracingOptions(enabled = false)
  * ```
  */
 data class PeriodicTracingOptions(

@@ -19,7 +19,8 @@ import javax.sql.DataSource
  * To adjust Flyway beyond [FlywayConfig], contribute a [FlywayConfigurationCustomizer]:
  *
  * ```
- * @Provides @IntoSet fun audit(audit: AuditCallback) = FlywayConfigurationCustomizer { it.callbacks(audit) }
+ * @Provides @IntoSet
+ * fun audit(audit: AuditCallback): FlywayConfigurationCustomizer = FlywayConfigurationCustomizer { it.callbacks(audit) }
  * ```
  */
 @ContributesTo(BootScope::class)
