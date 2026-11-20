@@ -46,6 +46,11 @@ val HealthSerializationTest by testSuite {
       assert(Json.encodeToString<HealthStatus>(HealthStatus.Healthy) == """{"status":"UP"}""")
       assert(Json.encodeToString<HealthStatus>(HealthStatus.Unhealthy("down")) == """{"status":"DOWN","reason":"down"}""")
     }
+
+    test("rejects a status that is neither UP nor DOWN") {
+      val failure = runCatching { Json.decodeFromString<HealthStatus>("""{"status":"MAYBE"}""") }.exceptionOrNull()
+      assert(failure is kotlinx.serialization.SerializationException)
+    }
   }
 
   testSuite("BuildInfo") {

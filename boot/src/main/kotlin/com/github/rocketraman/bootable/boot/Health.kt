@@ -3,6 +3,8 @@ package com.github.rocketraman.bootable.boot
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.config
 import kotlin.time.Duration
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.apache.logging.log4j.kotlin.logger
 
@@ -108,12 +110,15 @@ fun readinessConfig(binder: ConfigBinder): ReadinessConfig = binder.config("heal
  *
  * The same form decodes back into a [HealthReport], such as in a client of the health routes.
  */
-@Serializable(with = HealthReportSerializer::class)
+@Serializable
 data class HealthReport(
-  val healthy: Boolean,
+  @SerialName("status") @Serializable(with = UpDownSerializer::class) val healthy: Boolean,
   val state: LifecycleState,
-  /** Each [HealthCheck]'s result, by name: empty for liveness, and for readiness unless the application is running. */
-  val checks: Map<String, HealthStatus> = emptyMap(),
+  /**
+   * Each [HealthCheck]'s result, by name: empty for liveness, and for readiness unless the application is running.
+   * Serialized even when empty, so a consumer always finds it.
+   */
+  @EncodeDefault val checks: Map<String, HealthStatus> = emptyMap(),
 )
 
 /**

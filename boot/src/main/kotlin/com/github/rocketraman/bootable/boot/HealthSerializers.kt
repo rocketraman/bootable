@@ -3,23 +3,40 @@ package com.github.rocketraman.bootable.boot
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
-// The serial forms are surrogates, rather than the classes' own shapes, so that what a consumer reads is a status of
-// UP or DOWN, as health endpoints conventionally report, rather than a Boolean, and a check's result is the same
-// object whether it is healthy or not, with no class discriminator to configure. A healthy check's reason is a
-// default, so a format leaves it out unless it encodes defaults.
+/** A healthy Boolean as `UP` or `DOWN`, as health endpoints conventionally report it. */
+internal object UpDownSerializer : KSerializer<Boolean> {
+  override val descriptor: SerialDescriptor =
+    PrimitiveSerialDescriptor("com.github.rocketraman.bootable.boot.UpDown", PrimitiveKind.STRING)
 
-@Serializable
-private enum class SerialStatus { UP, DOWN }
+  override fun serialize(encoder: Encoder, value: Boolean) = encoder.encodeString(if (value) UP else DOWN)
 
-private fun status(healthy: Boolean) = if (healthy) SerialStatus.UP else SerialStatus.DOWN
+  override fun deserialize(decoder: Decoder): Boolean = when (val value = decoder.decodeString()) {
+    UP -> true
+    DOWN -> false
+    else -> throw SerializationException("Expected $UP or $DOWN, not $value")
+  }
 
+  private const val UP = "UP"
+  private const val DOWN = "DOWN"
+}
+
+// A check's result is told apart by its subtype, Healthy or Unhealthy, which a field-level serializer can't map: this
+// surrogate gives both the same shape, a status and, when unhealthy, a reason, with no class discriminator to
+// configure, in any format. A healthy check's reason is a default, so a format leaves it out unless it encodes
+// defaults.
 @Serializable
 @SerialName("com.github.rocketraman.bootable.boot.HealthStatus")
-private class HealthStatusSurrogate(val status: SerialStatus, val reason: String? = null)
+private class HealthStatusSurrogate(
+  @SerialName("status") @Serializable(with = UpDownSerializer::class) val healthy: Boolean,
+  val reason: String? = null,
+)
 
 /** [HealthStatus] as `{"status": "UP"}` or `{"status": "DOWN", "reason": "…"}`. */
 internal object HealthStatusSerializer : KSerializer<HealthStatus> {
@@ -27,38 +44,11 @@ internal object HealthStatusSerializer : KSerializer<HealthStatus> {
 
   override fun serialize(encoder: Encoder, value: HealthStatus) = encoder.encodeSerializableValue(
     HealthStatusSurrogate.serializer(),
-    HealthStatusSurrogate(status(value.healthy), (value as? HealthStatus.Unhealthy)?.reason),
+    HealthStatusSurrogate(value.healthy, (value as? HealthStatus.Unhealthy)?.reason),
   )
 
   override fun deserialize(decoder: Decoder): HealthStatus {
     val surrogate = decoder.decodeSerializableValue(HealthStatusSurrogate.serializer())
-    return when (surrogate.status) {
-      SerialStatus.UP -> HealthStatus.Healthy
-      SerialStatus.DOWN -> HealthStatus.Unhealthy(surrogate.reason ?: "")
-    }
-  }
-}
-
-@Serializable
-@SerialName("com.github.rocketraman.bootable.boot.HealthReport")
-private class HealthReportSurrogate(
-  val status: SerialStatus,
-  val state: LifecycleState,
-  // no default, so it is always there, even when empty
-  val checks: Map<String, @Serializable(with = HealthStatusSerializer::class) HealthStatus>,
-)
-
-/** [HealthReport] as `{"status": "UP", "state": "Running", "checks": {"jdbc": {"status": "UP"}}}`. */
-internal object HealthReportSerializer : KSerializer<HealthReport> {
-  override val descriptor: SerialDescriptor = HealthReportSurrogate.serializer().descriptor
-
-  override fun serialize(encoder: Encoder, value: HealthReport) = encoder.encodeSerializableValue(
-    HealthReportSurrogate.serializer(),
-    HealthReportSurrogate(status(value.healthy), value.state, value.checks),
-  )
-
-  override fun deserialize(decoder: Decoder): HealthReport {
-    val surrogate = decoder.decodeSerializableValue(HealthReportSurrogate.serializer())
-    return HealthReport(surrogate.status == SerialStatus.UP, surrogate.state, surrogate.checks)
+    return if (surrogate.healthy) HealthStatus.Healthy else HealthStatus.Unhealthy(surrogate.reason ?: "")
   }
 }
