@@ -111,11 +111,11 @@ val KtorHealthTest by testSuite {
 
     app.start {
       val port = kotlinx.coroutines.runBlocking { server.port() }
-      assert(getHealth(port, "/health/live") == health(200, """{"status": "UP", "state": "Starting", "checks": {}}"""))
+      assert(getHealth(port, "/health/live") == health(200, """{"status": "UP", "state": "Starting"}"""))
       assert(getHealth(port, "/health/ready") == health(503, """{"status": "DOWN", "state": "Starting", "checks": {}}"""))
     }
     val port = server.port()
-    assert(getHealth(port, "/health/live") == health(200, """{"status": "UP", "state": "Running", "checks": {}}"""))
+    assert(getHealth(port, "/health/live") == health(200, """{"status": "UP", "state": "Running"}"""))
     assert(getHealth(port, "/health/ready") == health(200, """{"status": "UP", "state": "Running", "checks": {"db": {"status": "UP"}}}"""))
 
     dbUp = false
@@ -139,7 +139,7 @@ val KtorHealthTest by testSuite {
       Thread.sleep(5)
     }
     assert(getHealth(port, "/health/ready") == health(503, """{"status": "DOWN", "state": "Stopping", "checks": {}}"""))
-    assert(getHealth(port, "/health/live") == health(200, """{"status": "UP", "state": "Stopping", "checks": {}}"""))
+    assert(getHealth(port, "/health/live") == health(200, """{"status": "UP", "state": "Stopping"}"""))
     assert(get(port, "/hello").let { it.status == 200 && it.body == "hello" })
     stopping.join()
     assert(health.state == LifecycleState.Stopped)
@@ -162,7 +162,7 @@ val KtorHealthTest by testSuite {
     app.start()
     try {
       val healthPort = (listener as HealthKtorService<*, *>).port()
-      assert(get(healthPort, "/live").status == 200)
+      assert(getHealth(healthPort, "/live") == health(200, """{"status": "UP", "state": "Running"}"""))
       assert(getHealth(healthPort, "/ready") == health(200, """{"status": "UP", "state": "Running", "checks": {}}"""))
       assert(getHealth(healthPort, "/info") == health(200, """{"version": "1.4.2"}"""))
       // not on the application's server

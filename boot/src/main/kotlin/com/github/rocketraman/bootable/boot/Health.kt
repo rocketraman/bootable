@@ -93,7 +93,22 @@ data class ReadinessConfig(
 fun readinessConfig(binder: ConfigBinder): ReadinessConfig = binder.config("health.readiness")
 
 /**
- * A liveness or readiness answer: whether the application is [healthy], its [state], and each check's result.
+ * A liveness answer: whether the application is [healthy], and its [state]. Liveness runs no checks, so it has none.
+ *
+ * It is [Serializable], with its status as `UP` or `DOWN`, and decodes back, such as in a client of the health routes:
+ *
+ * ```
+ * { "status": "UP", "state": "Running" }
+ * ```
+ */
+@Serializable
+data class HealthLiveReport(
+  @SerialName("status") @Serializable(with = UpDownSerializer::class) val healthy: Boolean,
+  val state: LifecycleState,
+)
+
+/**
+ * A readiness answer: whether the application is [healthy], its [state], and each check's result.
  *
  * It is [Serializable], with its status as `UP` or `DOWN`, and each check by name, so a consumer can check one:
  *
@@ -108,14 +123,14 @@ fun readinessConfig(binder: ConfigBinder): ReadinessConfig = binder.config("heal
  * }
  * ```
  *
- * The same form decodes back into a [HealthReport], such as in a client of the health routes.
+ * The same form decodes back into a [HealthReadyReport], such as in a client of the health routes.
  */
 @Serializable
-data class HealthReport(
+data class HealthReadyReport(
   @SerialName("status") @Serializable(with = UpDownSerializer::class) val healthy: Boolean,
   val state: LifecycleState,
   /**
-   * Each [HealthCheck]'s result, by name: empty for liveness, and for readiness unless the application is running.
+   * Each [HealthCheck]'s result, by name: empty unless the application is running, since the checks run only then.
    * Serialized even when empty, so a consumer always finds it.
    */
   @EncodeDefault val checks: Map<String, HealthStatus> = emptyMap(),
@@ -155,18 +170,18 @@ class Health(
     private set
 
   /** Healthy until the application has stopped. */
-  fun liveness(): HealthReport {
+  fun liveness(): HealthLiveReport {
     val state = state
-    return HealthReport(state != LifecycleState.Stopped, state)
+    return HealthLiveReport(state != LifecycleState.Stopped, state)
   }
 
   /** Healthy while the application is running, and every check is healthy. */
-  fun readiness(): HealthReport {
+  fun readiness(): HealthReadyReport {
     val state = state
-    if (state != LifecycleState.Running) return HealthReport(false, state)
+    if (state != LifecycleState.Running) return HealthReadyReport(false, state)
     val results = checks.associate { it.name() to it.runCheck() }
     // shutdown may have begun while the checks ran
-    return HealthReport(results.values.all { it.healthy } && this.state == LifecycleState.Running, state, results)
+    return HealthReadyReport(results.values.all { it.healthy } && this.state == LifecycleState.Running, state, results)
   }
 
   override fun aroundAppStart(serviceContext: ServiceContext, timeline: StartupTimeline, start: () -> Unit) {
