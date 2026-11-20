@@ -15,7 +15,8 @@ import dev.zacsweers.metro.SingleIn
  * To adjust HikariCP beyond [HikariPoolConfig], contribute a [HikariConfigCustomizer]:
  *
  * ```
- * @Provides @IntoSet fun metrics(registry: MeterRegistry) = HikariConfigCustomizer { it.metricRegistry = registry }
+ * @Provides @IntoSet
+ * fun metrics(registry: MeterRegistry): HikariConfigCustomizer = HikariConfigCustomizer { it.metricRegistry = registry }
  * ```
  */
 @ContributesTo(BootScope::class)
