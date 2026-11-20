@@ -1,6 +1,9 @@
 package com.github.rocketraman.bootable.boot
 
 import com.github.rocketraman.bootable.common.Ignore
+import kotlin.time.Duration
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * The application's services, for a [LifecycleController] to start and stop.
@@ -10,12 +13,14 @@ import com.github.rocketraman.bootable.common.Ignore
  * @property serviceStart starts a service, unless a controller votes against it (see
  *   [LifecycleController.serviceStartVote]).
  * @property serviceShutdown stops a service, unless it was never started.
+ * @property states each service's [ServiceState], in the order of the [startPlan].
  */
 data class ServiceContext(
   val appServices: Set<AppService>,
   val startPlan: List<AppService>,
-  val serviceStart: (appService: AppService) -> Unit,
-  val serviceShutdown: (appService: AppService) -> Unit
+  val serviceStart: suspend (appService: AppService) -> Unit,
+  val serviceShutdown: suspend (appService: AppService) -> Unit,
+  val states: StateFlow<Map<AppService, ServiceState>> = MutableStateFlow(emptyMap()),
 )
 
 enum class ServiceStartVote {
@@ -23,9 +28,25 @@ enum class ServiceStartVote {
   NO
 }
 
+/** Where a service is in its lifecycle, as [Bootable] tracks it, in [ServiceContext.states]. */
+enum class ServiceState {
+  /** Not started yet, or its start was cancelled by a stop. */
+  Pending,
+  Starting,
+  Running,
+  /** A controller voted against starting it (see [LifecycleController.serviceStartVote]). */
+  Skipped,
+  /** Its start threw, or a coroutine in its scope failed (see [AdvancedAppService]). */
+  Failed,
+  Stopping,
+  Stopped,
+}
+
 /**
  * An interface for controllers for application and [AppService] lifecycles. For example, such a controller may
  * offer the capability to stop or start services at application start and shutdown, on command, or on demand.
+ *
+ * The hooks that may do IO suspend, and run on the lifecycle's own thread, one at a time.
  */
 interface LifecycleController {
   /**
@@ -41,16 +62,17 @@ interface LifecycleController {
 
   /**
    * Executed when the application is started.
-   * @param normalStop A callback to execute a normal stop on the application. This would generally be saved by
-   *   an implementation for later use.
+   * @param normalStop A callback to execute a normal stop on the application, with an exit code. It never blocks,
+   *   can be called from any thread, at any time, and only its first call, or that of any other way to stop, counts.
+   *   This would generally be saved by an implementation for later use.
    */
-  fun appStart(serviceContext: ServiceContext, normalStop: (exitCode: Int) -> Unit) { Ignore }
+  suspend fun appStart(serviceContext: ServiceContext, normalStop: (exitCode: Int) -> Unit) { Ignore }
 
   /**
    * Runs [start], the application's start, with this controller's code around it, such as a span that the whole start
    * runs in. [start] calls every controller's [appStart], so it starts the services, and returns once the application
-   * is running, or throws if a service failed to start. An implementation must call [start] once, on the calling
-   * thread, and let what it throws propagate.
+   * is running, or throws if a service failed to start, or if a stop cancelled the start. An implementation must call
+   * [start] once, and let what it throws propagate.
    *
    * [timeline] is the application's boot so far: when it began, with [boot] before logging was initialized and the
    * [Bootable] built, and the stages since, such as building the application, which includes decoding its config.
@@ -58,7 +80,8 @@ interface LifecycleController {
    * Each controller wraps the start of the controllers of lower [priority], so the highest priority's code is
    * outermost. The default runs [start] alone.
    */
-  fun aroundAppStart(serviceContext: ServiceContext, timeline: StartupTimeline, start: () -> Unit) = start()
+  suspend fun aroundAppStart(serviceContext: ServiceContext, timeline: StartupTimeline, start: suspend () -> Unit) =
+    start()
 
   /**
    * When a service is started, lifecycle controllers may vote on whether it is allowed to start or not. This may
@@ -72,23 +95,26 @@ interface LifecycleController {
   /**
    * Runs [start], which starts [appService], with this controller's code around it, such as a span that the service's
    * start runs in. It is called for each service that is allowed to start (see [serviceStartVote]), however the start
-   * was requested. An implementation must call [start] once, on the calling thread, and let what it throws propagate.
+   * was requested. An implementation must call [start] once, and let what it throws propagate.
+   *
+   * [start] may resume on another thread than it began on, so a thread-local context, such as OpenTelemetry's, is
+   * carried as a coroutine context element, rather than set on the calling thread.
    *
    * Each controller wraps the start of the controllers of lower [priority], so the highest priority's code is
    * outermost. The default runs [start] alone.
    */
-  fun aroundServiceStart(appService: AppService, start: () -> Unit) = start()
+  suspend fun aroundServiceStart(appService: AppService, start: suspend () -> Unit) = start()
 
   /**
-   * Executed when the application is shutdown.
-   * @param exitProcess A callback to force exit the process with a given return code.
+   * Executed when the application is shutdown. A controller that stops services bounds their stop by
+   * [maxShutdownTime], as [AppStartStopLifecycleController] does.
    */
-  fun appShutdown(serviceContext: ServiceContext, maxShutdownTime: Long, exitProcess: (exitCode: Int) -> Unit) { Ignore }
+  suspend fun appShutdown(serviceContext: ServiceContext, maxShutdownTime: Duration) { Ignore }
 
   /**
    * Executed after application shutdown for final cleanup.
    */
-  fun appCleanup() = Ignore
+  suspend fun appCleanup() { Ignore }
 
   /**
    * The startup/shutdown priority of the controller. Controllers with higher priority are started first, and shut down

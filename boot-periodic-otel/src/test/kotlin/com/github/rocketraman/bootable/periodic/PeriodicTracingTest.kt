@@ -24,6 +24,8 @@ import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
 import io.opentelemetry.sdk.trace.data.SpanData
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.kodein.di.direct
@@ -58,8 +60,8 @@ private fun eventually(timeout: Duration = 5.seconds, condition: () -> Boolean) 
 private val loopConfig = PeriodicConfig(interval = 10.milliseconds)
 
 /** Runs [loop] until it has run twice, then stops it, and returns the spans of its runs. */
-private fun traceRuns(loop: AppService, spans: InMemorySpans): List<SpanData> {
-  (loop as AdvancedAppService).start { error("died") }
+private suspend fun traceRuns(loop: AppService, spans: InMemorySpans): List<SpanData> {
+  (loop as AdvancedAppService).start(CoroutineScope(SupervisorJob()))
   try {
     eventually { spans.spans.count { it.name == "periodic ${loop.name()}" } >= 2 }
   } finally {

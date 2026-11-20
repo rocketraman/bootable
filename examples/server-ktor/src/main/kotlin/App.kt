@@ -8,6 +8,7 @@ import io.ktor.server.application.*
 import io.ktor.server.html.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.coroutines.launch
 import kotlinx.html.*
 import org.apache.logging.log4j.kotlin.logger
 
@@ -56,7 +57,8 @@ class ExampleServer(config: ServerConfig, private val hello: HelloConfig) : Nett
       get("/die") {
         call.respond(HttpStatusCode.OK,"Dying! 😐")
         logger.info { "Dying! 😐" }
-        die()
+        // failing the service's scope stops the application, in order, with exit code 1
+        this@ExampleServer.scope.launch { error("Died on request") }
       }
     }
   }

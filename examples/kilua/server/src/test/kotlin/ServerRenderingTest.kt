@@ -3,6 +3,7 @@ import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.startPlan
 import de.infix.testBalloon.framework.core.TestConfig
 import de.infix.testBalloon.framework.core.disable
+import de.infix.testBalloon.framework.core.testScope
 import de.infix.testBalloon.framework.core.testSuite
 import java.net.ServerSocket
 import java.net.URI
@@ -10,6 +11,8 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpRequest.BodyPublishers
 import java.net.http.HttpResponse.BodyHandlers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 
 /** The Node.js to render with: the build's, which the Gradle test task sets, or else the one on the PATH. */
 private val node = System.getenv("SSR_NODE") ?: "node"
@@ -37,7 +40,7 @@ private class Browser(private val url: String) {
  * in Node.js, can call the server's API; then stops them in reverse. The renderer's Node.js runs on until the tests' JVM
  * exits, since Kilua's SsrEngine only stops it then.
  */
-private fun withApp(block: Browser.() -> Unit) {
+private suspend fun withApp(block: suspend Browser.() -> Unit) {
   val config = ServerConfig("127.0.0.1:${ServerSocket(0).use { it.localPort }}")
   val renderer = SsrRenderer(SsrConfig(node), config.localUrl())
   val server = TodoServer(config, TodoRepository(), renderer)
@@ -47,7 +50,7 @@ private fun withApp(block: Browser.() -> Unit) {
   val started = mutableListOf<AppService>()
   try {
     for (service in services) {
-      if (service is AdvancedAppService) service.start {} else service.start()
+      if (service is AdvancedAppService) service.start(CoroutineScope(SupervisorJob())) else service.start()
       started += service
     }
     Browser(config.localUrl()).block()
@@ -61,7 +64,9 @@ private fun withApp(block: Browser.() -> Unit) {
  * where it must run; under Gradle it always is, since the test task points SSR_NODE at the Node.js it downloads.
  */
 val ServerRenderingTest by testSuite(
-  testConfig = if (System.getenv("CI") != null || nodeRuns) TestConfig else TestConfig.disable()
+  // real time: the renderer's start waits for Node.js with a timeout
+  testConfig = (if (System.getenv("CI") != null || nodeRuns) TestConfig else TestConfig.disable())
+    .testScope(isEnabled = false)
 ) {
   test("the first response is the page, rendered with the todos") {
     withApp {

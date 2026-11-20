@@ -76,7 +76,7 @@ val SqliteDataSourceTest by testSuite {
 }
 
 @OptIn(ExperimentalPathApi::class)
-private fun withTempDir(block: (Path) -> Unit) {
+private suspend fun withTempDir(block: suspend (Path) -> Unit) {
   val dir = createTempDirectory("boot-db-jdbc-sqlite")
   try {
     block(dir)
@@ -85,7 +85,7 @@ private fun withTempDir(block: (Path) -> Unit) {
   }
 }
 
-private fun JdbcDataSourceService.use(block: (DataSource) -> Unit) {
+private suspend fun JdbcDataSourceService.use(block: suspend (DataSource) -> Unit) {
   start()
   try {
     block(dataSource)

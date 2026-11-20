@@ -8,6 +8,8 @@ import de.infix.testBalloon.framework.core.testSuite
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.java.Java
 import io.ktor.client.request.get
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
@@ -52,7 +54,7 @@ private fun sleep(duration: Duration) = Thread.sleep(duration.inWholeMillisecond
 
 /** A temporary directory laid out as a pod's mounted service account: its token and namespace. */
 @OptIn(ExperimentalPathApi::class)
-private fun withServiceAccounts(vararg tokens: String, block: (Map<String, Path>) -> Unit) {
+private suspend fun withServiceAccounts(vararg tokens: String, block: suspend (Map<String, Path>) -> Unit) {
   val dirs = tokens.associateWith { token ->
     createTempDirectory("service-account").also {
       it.resolve("token").writeText("$token\n")
@@ -87,7 +89,13 @@ private fun FakeApiServer.transitions(): Int? =
 private fun FakeApiServer.spec(field: String): String? =
   lease(NAMESPACE, LEASE)?.get("spec")?.jsonObject?.get(field)?.jsonPrimitive?.content
 
-private inline fun <T> List<KubernetesLeaderElection>.use(block: (List<KubernetesLeaderElection>) -> T): T = try {
+/** The scope the elections run in, as a service's scope would be: each one's shutdown cancels its own election. */
+private val electionScope = CoroutineScope(SupervisorJob())
+
+/** Starts the election, as Bootable does. */
+private suspend fun KubernetesLeaderElection.start() = start(electionScope)
+
+private suspend inline fun <T> List<KubernetesLeaderElection>.use(block: suspend (List<KubernetesLeaderElection>) -> T): T = try {
   block(this)
 } finally {
   forEach { it.shutdown() }

@@ -221,11 +221,18 @@ project("boot") {
     // nothing to add for a native image
     api(rootProject.libs.kotlinx.serialization.core)
     testImplementation(rootProject.libs.kotlinx.serialization.json)
+    // the lifecycle is suspending, and services launch their background work in a CoroutineScope
+    api(rootProject.libs.kotlinx.coroutines.core)
     implementation(project(":boot-common"))
     // todo for now, we depend on boot-logging-log4j2, later we could use service loaders to discover implementations at runtime
     implementation(project(":boot-logging-log4j2"))
     // note: no DI framework — Bootable's wiring is plain Kotlin (kotlin-reflect is still needed at runtime
     // for log4j-api-kotlin logging, and comes transitively via boot-logging-log4j2)
+  }
+
+  dependencies {
+    // virtual time, for the drain, the shutdown timeout, and the stop races
+    testImplementation(rootProject.libs.kotlinx.coroutines.test)
   }
 
   // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would

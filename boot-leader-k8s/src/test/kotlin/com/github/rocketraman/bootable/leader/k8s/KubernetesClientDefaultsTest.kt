@@ -28,7 +28,7 @@ private fun leaderConfig(
 private fun clients(appConfig: KtorClientsConfig, leader: KubernetesLeaderElectionConfig = leaderConfig()) =
   KtorClientService(appConfig, JavaClientEngine(), defaults = listOf(kubernetesClientDefaults(leader)))
 
-private fun <T> KtorClientService.use(block: (KtorClientService) -> T): T = try {
+private suspend fun <T> KtorClientService.use(block: suspend (KtorClientService) -> T): T = try {
   block(this)
 } finally {
   shutdown()

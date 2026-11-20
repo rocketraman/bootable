@@ -34,7 +34,7 @@ class ExposedDatabaseService(
   /** The Exposed `Database`. Bind this, not the service, into anything that runs transactions. */
   val database: Database = Database.connect(dataSource, databaseConfig = databaseConfig(config, customizer))
 
-  override fun shutdown() {
+  override suspend fun shutdown() {
     TransactionManager.closeAndUnregister(database)
   }
 

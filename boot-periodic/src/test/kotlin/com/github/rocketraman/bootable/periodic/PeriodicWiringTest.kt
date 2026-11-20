@@ -62,7 +62,7 @@ object TestBindings {
 }
 
 /** Starts the loop, checks it runs only once its instance leads, and stops it. */
-private fun checkLeaderGatedLoop(services: Set<AppService>, election: TestLeaderElection, counter: Counter) {
+private suspend fun checkLeaderGatedLoop(services: Set<AppService>, election: TestLeaderElection, counter: Counter) {
   val loop = services.filterIsInstance<PeriodicAppService>().single()
   loop.startService()
   try {

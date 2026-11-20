@@ -64,8 +64,8 @@ enum class FailureLimitAction {
   StopLoop,
 
   /**
-   * Shut the application down, as a service that dies does, so that its platform, such as Kubernetes, restarts it, or
-   * an operator notices.
+   * Shut the application down, with exit code 1, as a service whose background work fails does, so that its platform,
+   * such as Kubernetes, restarts it, or an operator notices.
    */
   Shutdown,
 }

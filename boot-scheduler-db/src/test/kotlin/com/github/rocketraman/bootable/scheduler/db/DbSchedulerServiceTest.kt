@@ -20,7 +20,7 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 
 val DbSchedulerServiceTest by testSuite {
-  fun withSqlite(block: (DataSource, String) -> Unit) = withTempDir { dir ->
+  suspend fun withSqlite(block: suspend (DataSource, String) -> Unit) = withTempDir { dir ->
     val config = SqliteConfig(path = dir.resolve("scheduler.db").toString())
     withMigratedDatabase(config, "sqlite") { block(it, config.jdbcUrl) }
   }

@@ -56,7 +56,7 @@ private val POOL_METRICS = setOf(
 )
 
 /** Starts the pool, uses a connection, and checks [metrics] has the pool's metrics, under the pool's name. */
-private fun JdbcDataSourceService.checkPoolMetrics(metrics: InMemoryMetrics, poolName: String) {
+private suspend fun JdbcDataSourceService.checkPoolMetrics(metrics: InMemoryMetrics, poolName: String) {
   start()
   try {
     dataSource.connection.use { connection ->

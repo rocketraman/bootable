@@ -4,6 +4,8 @@ import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.DefaultPhase
 import com.github.rocketraman.bootable.boot.Ordering
 import javax.sql.DataSource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Owns the application's connection pool and ties it to the application lifecycle. The pool itself comes from a
@@ -33,14 +35,14 @@ class JdbcDataSourceService(
    */
   val dataSource: DataSource = dataSourceWrapper.wrap(pool.dataSource)
 
-  override fun start() {
+  override suspend fun start() = withContext(Dispatchers.IO) {
     config.prepare()
     dataSource.connection.use { connection ->
       check(connection.isValid(VALIDATION_TIMEOUT_SECONDS)) { "Connection from the pool is not valid" }
     }
   }
 
-  override fun shutdown() {
+  override suspend fun shutdown() = withContext(Dispatchers.IO) {
     pool.close()
   }
 

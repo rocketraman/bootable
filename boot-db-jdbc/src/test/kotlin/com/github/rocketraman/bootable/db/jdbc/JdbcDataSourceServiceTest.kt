@@ -150,7 +150,7 @@ private class TestPool(val config: JdbcConfig) : ConnectionPool {
 }
 
 @OptIn(ExperimentalPathApi::class)
-private fun withTempDir(block: (Path) -> Unit) {
+private suspend fun withTempDir(block: suspend (Path) -> Unit) {
   val dir = createTempDirectory("boot-db-jdbc")
   try {
     block(dir)

@@ -42,7 +42,7 @@ private fun service(gcp: GcpTelemetry, endpoint: String? = null) = OpenTelemetry
 )
 
 /** The headers of every span export to a local OTLP receiver, after one span is recorded and the SDK shut down. */
-private fun exportedHeaders(gcp: GcpTelemetry): List<Map<String, String>> {
+private suspend fun exportedHeaders(gcp: GcpTelemetry): List<Map<String, String>> {
   val requests = CopyOnWriteArrayList<Map<String, String>>()
   val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
   server.createContext("/v1/traces") { exchange ->
