@@ -31,9 +31,9 @@ dependencies {
   implementation(project(":boot-client-http-ktor-cio"))
   implementation(project(":boot-client-http-ktor-otel"))
   // the entry count's loop, traced, a trace for each run
-  implementation(project(":boot-periodic-otel"))
+  implementation(project(":boot-periodic"))
   // the entry digest's db-scheduler executions, traced, a trace for each
-  implementation(project(":boot-scheduler-db-otel"))
+  implementation(project(":boot-scheduler-db"))
 
   // checks the start plan under shuffled tiebreakers
   testImplementation(project(":boot-test"))

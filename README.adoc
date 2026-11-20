@@ -276,7 +276,7 @@ Cancellation is cooperative: work that blocks, such as a JDBC call, stops at its
 * On shutdown it starts no further run, and waits up to `shutdownTimeout` for a run in progress to finish before cancelling it.
 * It is in the `Serving` phase, so it starts after what its work uses, and stops before it.
 * ``PeriodicRunInterceptor``s run around each run.
-``boot-periodic-otel``'s `periodicTracing` makes each run a trace of its own, with a root span named for the service, such as `periodic notifications`, so the run's queries and log events belong to it.
+`periodicTracing(openTelemetry)` makes each run a trace of its own, with a root span named for the service, such as `periodic notifications`, so the run's queries and log events belong to it.
 * It notes, by the application's `kotlin.time.Clock`, when each run started, and when one last succeeded and failed.
 
 Each loop has a config section of the application's choosing, decoded as a `PeriodicConfig`; every setting has a default:
@@ -292,8 +292,10 @@ notifications {
 ----
 
 `PeriodicServices` holds what the application's loops share, their default gate, clock, interceptors, and failure handler, so each loop needs only its name, config, and work: `periodic.create("notifications", config) { … }`.
-With Kodein, `periodicModule` binds it, gated on the `LeaderElection` binding if there is one, and opens a `Set<PeriodicRunInterceptor>`; import `periodicTracingModule()` from `boot-periodic-otel-kodein` to trace the runs.
-With Metro, `boot-periodic-metro` contributes it, gated on the graph's `LeaderElection` if it has one, and `boot-periodic-otel-metro` contributes the tracing.
+With Kodein, `periodicModule` binds it, gated on the `LeaderElection` binding if there is one, and opens a `Set<PeriodicRunInterceptor>`.
+With Metro, `boot-periodic-metro` contributes it, gated on the graph's `LeaderElection` if it has one.
+Either way, its runs are traced with `periodicTracing` whenever there is an `OpenTelemetry`, such as ``boot-telemetry-otel``'s, and not at all when there is none.
+A `PeriodicTracingOptions` binding changes that: `PeriodicTracingOptions(sample = Sample.Always)` samples every run's trace, and `PeriodicTracingOptions(enabled = false)` traces none.
 
 ==== Leader election
 
@@ -490,7 +492,7 @@ db {
 
 For anything else, such as a `SchedulerListener`, an `ExecutionInterceptor`, or another serializer, add a `DbSchedulerCustomizer`, which adjusts db-scheduler's `SchedulerBuilder` after the typed settings.
 
-``boot-scheduler-db-otel``'s `dbSchedulerTracing` is such a customizer: it makes each execution a trace of its own, with a root span named for the task, such as `db-scheduler send-reminder`, so the execution's queries and log events belong to it.
+`dbSchedulerTracing(openTelemetry)` is such a customizer: it makes each execution a trace of its own, with a root span named for the task, such as `db-scheduler send-reminder`, so the execution's queries and log events belong to it.
 The span covers the execution's completion too, such as the statement that deletes a one-time execution's row, and records a failed execution's exception.
 db-scheduler's own statements, such as its polls for due executions and its heartbeats, run outside any execution, so, with `boot-db-jdbc-otel`, each is still a trace of its own.
 
@@ -506,8 +508,9 @@ class Reminders(private val mailer: Mailer) : DbSchedulerTaskProvider {
 }
 ----
 
-With Kodein, import `dbSchedulerModule`, which binds the `Scheduler` and `SchedulerClient`, and opens a `Set<DbSchedulerTaskProvider>` and a `Set<DbSchedulerCustomizer>`; import `dbSchedulerHealthCheckModule` for the readiness check, and `dbSchedulerTracingModule()` from `boot-scheduler-db-otel-kodein` to trace the executions.
-With Metro, `boot-scheduler-db-metro` contributes them; contribute tasks with `@Provides @IntoSet fun reminderTasks(reminders: Reminders): DbSchedulerTaskProvider`, and name `DbSchedulerHealthCheckBindings` in your graph's `bindingContainers` for the readiness check; `boot-scheduler-db-otel-metro` contributes the tracing.
+With Kodein, import `dbSchedulerModule`, which binds the `Scheduler` and `SchedulerClient`, and opens a `Set<DbSchedulerTaskProvider>` and a `Set<DbSchedulerCustomizer>`; import `dbSchedulerHealthCheckModule` for the readiness check.
+With Metro, `boot-scheduler-db-metro` contributes them; contribute tasks with `@Provides @IntoSet fun reminderTasks(reminders: Reminders): DbSchedulerTaskProvider`, and name `DbSchedulerHealthCheckBindings` in your graph's `bindingContainers` for the readiness check.
+Either way, the executions are traced with `dbSchedulerTracing` whenever there is an `OpenTelemetry`, such as ``boot-telemetry-otel``'s, and not at all when there is none; a `DbSchedulerTracingOptions` binding changes that, as `PeriodicTracingOptions` does for periodic runs.
 Without DI, pass the tasks to `DbSchedulerService` directly.
 
 ==== Its table
@@ -552,6 +555,9 @@ Each signal can be turned off, or kept off OTLP, and `traces.sampleRatio` sample
 Logs aren't exported over OpenTelemetry for now: the SDK that `OpenTelemetryService` builds has no logger provider.
 Logs go through `boot-logging-log4j2` as usual, with the trace and span ids above, so a backend can link them to their traces.
 Ship them with the platform's log collection, such as Cloud Logging's, or an OpenTelemetry collector that reads the application's output.
+
+`boot-telemetry-otel-common` holds the tracing helpers below, over the OpenTelemetry API only, so a module or library can trace without depending on the SDK: without one, the API is a no-op.
+`boot-telemetry-otel` brings it, and `boot-periodic` and `boot-scheduler-db` trace through it.
 
 `Tracer.withSpan(name) { span -> … }` runs a suspending block in a child span of the current one, which stays current across dispatchers, and records an exception as the span's error.
 A span from `withSpan` is expected to have a parent: without one, it starts a trace of its own and logs a warning, once for each span name, since its caller's trace context usually didn't reach it, such as across a new `CoroutineScope` or a Java callback.

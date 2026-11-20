@@ -78,6 +78,7 @@ See the Health section of the README.
 * Health responses carry a JSON body: status and lifecycle state, plus each check for readiness.
 * `boot-server-http-ktor` gains `-kodein` and `-metro` flavors.
 * `excludeHealthFromTraces()` keeps health probes out of traces.
+* `boot-telemetry-otel-common`: `withSpan` and `withRootSpan` over the OpenTelemetry API, without the SDK.
 * `BuildInfo`, from the `build` config section, is served at `/health/info`.
 * Telemetry's `serviceVersion` defaults to `build.version`.
 * `HealthLiveReport`, `HealthReadyReport`, and `BuildInfo` are `@Serializable`, so clients can decode them; `boot` now depends on `kotlinx-serialization-core`.
@@ -89,7 +90,7 @@ See the Periodic work and leader election section of the README.
 * `boot-periodic`: `PeriodicAppService` runs a suspending function on a fixed delay.
 * Failed runs are logged or handled, and stop the loop after `maxConsecutiveFailures`.
 * `PeriodicGate` gates runs, e.g. on leadership (cancelling a run on loss) or readiness.
-* `boot-periodic-otel`: each run is its own trace; `PeriodicRunInterceptor` wraps every run.
+* `PeriodicRunInterceptor` wraps every run; with an `OpenTelemetry`, each run is its own trace.
 * `boot-leader-common`: `LeaderElection` as a `StateFlow<Boolean>`, with a fencing token; `AlwaysLeader`.
 * `boot-leader-k8s`: Kubernetes Lease leader election, over a `boot-client-http-ktor` client.
 
@@ -104,7 +105,7 @@ See the Scheduled tasks section of the README.
 * Opt-in `DbSchedulerHealthCheck`.
 * Flyway migrations for its table on PostgreSQL, MySQL, and SQLite.
 * Kodein and Metro collect tasks from a `Set<DbSchedulerTaskProvider>`.
-* `boot-scheduler-db-otel`: each task execution is its own trace.
+* With an `OpenTelemetry`, each task execution is its own trace.
 
 === Test helpers
 

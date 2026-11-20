@@ -21,10 +21,8 @@ import com.github.rocketraman.bootable.db.jdbc.sqliteConfigModule
 import com.github.rocketraman.bootable.leader.k8s.kubernetesLeaderElectionModule
 import com.github.rocketraman.bootable.periodic.PeriodicServices
 import com.github.rocketraman.bootable.periodic.periodicModule
-import com.github.rocketraman.bootable.periodic.periodicTracingModule
 import com.github.rocketraman.bootable.scheduler.db.DbSchedulerTaskProvider
 import com.github.rocketraman.bootable.scheduler.db.dbSchedulerModule
-import com.github.rocketraman.bootable.scheduler.db.dbSchedulerTracingModule
 import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.server.http.ktor.ktorHealthModule
@@ -84,11 +82,11 @@ val entriesModule by DI.Module {
  * service's start (`serviceStartTracingModule`), so the queries of the migrations and the sample entries are within
  * those.
  * `periodicModule` creates the loop that logs the entry count, which only the leader runs, of the instances elected
- * through a Kubernetes Lease (`kubernetesLeaderElectionModule`, from `leader.kubernetes`), and each run is a trace
- * (`periodicTracingModule`).
+ * through a Kubernetes Lease (`kubernetesLeaderElectionModule`, from `leader.kubernetes`), and, since there is an
+ * `OpenTelemetry`, each run is a trace.
  * `dbSchedulerModule` runs db-scheduler (`db.scheduler`), with the recurring task that logs the entry digest, over the
- * pool, and its table migrated by Flyway along with the application's, and each execution is a trace
- * (`dbSchedulerTracingModule`).
+ * pool, and its table migrated by Flyway along with the application's, and, since there is an `OpenTelemetry`, each
+ * execution is a trace.
  * `bootableModule` tracks the application's health from its lifecycle, which the server serves (`ktorHealthModule`),
  * with readiness down while the database doesn't answer (`jdbcHealthCheckModule`).
  * The HTTP clients (`ktorClientModule`, from `http.client`) run on CIO, and each of their requests is a client span
@@ -116,9 +114,7 @@ fun appDI() = DI {
   import(exposedDatabaseModule)
   import(kubernetesLeaderElectionModule)
   import(periodicModule)
-  import(periodicTracingModule())
   import(dbSchedulerModule)
-  import(dbSchedulerTracingModule())
   import(entriesModule)
 }
 

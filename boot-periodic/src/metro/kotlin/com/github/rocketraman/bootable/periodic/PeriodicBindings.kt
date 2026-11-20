@@ -7,6 +7,7 @@ import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Multibinds
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
+import io.opentelemetry.api.OpenTelemetry
 import kotlin.time.Clock
 
 /**
@@ -15,7 +16,9 @@ import kotlin.time.Clock
  * - their default gate is [PeriodicGate.leader] of the graph's [LeaderElection], if it has one, such as
  *   boot-leader-k8s-metro's, so only the leader runs them; otherwise every instance does.
  * - their clock is the graph's `kotlin.time.Clock`, if it has one, or else `Clock.System`.
- * - their interceptors are the contributed [PeriodicRunInterceptor]s, such as boot-periodic-otel-metro's.
+ * - each run is traced, with [periodicTracing], through the graph's `OpenTelemetry`, if it has one, such as
+ *   boot-telemetry-otel-metro's, as the graph's [PeriodicTracingOptions], if it has one, says.
+ * - their interceptors are the tracing, outermost, then the contributed [PeriodicRunInterceptor]s.
  *
  * Contribute each loop to the app-service set:
  *
@@ -35,6 +38,12 @@ interface PeriodicBindings {
       interceptors: Set<PeriodicRunInterceptor>,
       leaderElection: LeaderElection = AlwaysLeader,
       clock: Clock = Clock.System,
-    ): PeriodicServices = PeriodicServices(PeriodicGate.leader(leaderElection), clock, interceptors.toList())
+      openTelemetry: OpenTelemetry = OpenTelemetry.noop(),
+      tracingOptions: PeriodicTracingOptions = PeriodicTracingOptions(),
+    ): PeriodicServices = PeriodicServices(
+      PeriodicGate.leader(leaderElection),
+      clock,
+      listOfNotNull(tracingOptions.interceptor(openTelemetry)) + interceptors,
+    )
   }
 }

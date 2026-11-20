@@ -54,14 +54,13 @@ dependencies {
   dokka(project(":boot-logging"))
   dokka(project(":boot-logging-log4j2"))
   dokka(project(":boot-periodic"))
-  dokka(project(":boot-periodic-otel"))
   dokka(project(":boot-scheduler-db"))
-  dokka(project(":boot-scheduler-db-otel"))
   dokka(project(":boot-server-http-ktor"))
   dokka(project(":boot-server-http-ktor-cio"))
   dokka(project(":boot-server-http-ktor-netty"))
   dokka(project(":boot-server-http-ktor-otel"))
   dokka(project(":boot-telemetry-otel"))
+  dokka(project(":boot-telemetry-otel-common"))
   dokka(project(":boot-telemetry-otel-gcp"))
   dokka(project(":boot-telemetry-otel-micrometer-bridge"))
   dokka(project(":boot-telemetry-otel-prometheus"))
@@ -703,6 +702,8 @@ project("boot-periodic") {
     api(project(":boot"))
     api(project(":boot-leader-common"))
     api(rootProject.libs.kotlinx.coroutines.core)
+    // periodicTracing, over the OpenTelemetry API only: the SDK, if any, is the application's choice
+    api(project(":boot-telemetry-otel-common"))
     // the logging API only: the application chooses the logging implementation (e.g. boot-logging-log4j2)
     implementation(rootProject.libs.bundles.log4j.api)
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
@@ -712,40 +713,10 @@ project("boot-periodic") {
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
-    testImplementation(project(":boot-logging-log4j2"))
-  }
-
-  sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-  }
-}
-
-// traces each periodic run through the application's OpenTelemetry, as a PeriodicRunInterceptor for boot-periodic
-project("boot-periodic-otel") {
-  configureDiVariants()
-  dependencies {
-    api(project(":boot-periodic"))
-    // withRootSpan, and the OpenTelemetry of boot-telemetry-otel's SDK
-    api(project(":boot-telemetry-otel"))
-    // each flavor adds to boot-periodic's interceptors, over the OpenTelemetry of boot-telemetry-otel's SDK, so it
-    // brings both modules' matching flavors
-    "metroApi"(project(path = ":boot", configuration = "metroElements"))
-    "metroApi"(project(path = ":boot-periodic", configuration = "metroElements"))
-    "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
-    "kodeinApi"(project(path = ":boot-periodic", configuration = "kodeinElements"))
-    "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
-
-    testImplementation(rootProject.libs.opentelemetry.sdk.testing)
-    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
-    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
-    testImplementation(project(path = ":boot", configuration = "metroElements"))
-    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
-    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
-    testImplementation(project(path = ":boot-periodic", configuration = "kodeinElements"))
-    testImplementation(project(path = ":boot-periodic", configuration = "metroElements"))
+    // the tracing tests record spans with a real SDK. Its Kodein flavor only: the Metro flavor would contribute the
+    // SDK to every test graph, so the Metro tracing test binds the OpenTelemetry itself
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
-    testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+    testImplementation(rootProject.libs.opentelemetry.sdk.testing)
     testImplementation(project(":boot-logging-log4j2"))
   }
 
@@ -765,6 +736,8 @@ project("boot-scheduler-db") {
     api(rootProject.libs.db.scheduler)
     // task data as JSON, and SerializableSchedule
     api(rootProject.libs.kotlinx.serialization.json)
+    // dbSchedulerTracing, over the OpenTelemetry API only: the SDK, if any, is the application's choice
+    api(project(":boot-telemetry-otel-common"))
     // the scheduler needs boot-db-jdbc's DataSource, so each flavor brings boot-db-jdbc's matching flavor
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-db-jdbc", configuration = "metroElements"))
@@ -786,54 +759,16 @@ project("boot-scheduler-db") {
     testImplementation(project(path = ":boot-db-flyway", configuration = "metroElements"))
     testImplementation(project(":boot-db-jdbc-postgresql"))
     testImplementation(project(":boot-db-jdbc-mysql"))
+    // the tracing tests record spans with a real SDK, with the scheduler's statements traced too, to check that an
+    // execution's statements, and its completion's, belong to the execution's span. The SDK's Kodein flavor only:
+    // the Metro flavor would contribute the SDK to every test graph, so the Metro tracing test binds the
+    // OpenTelemetry itself
+    testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    testImplementation(rootProject.libs.opentelemetry.sdk.testing)
+    testImplementation(project(":boot-db-jdbc-otel"))
     testImplementation(project(":boot-logging-log4j2"))
     testImplementation(rootProject.libs.testcontainers.postgresql)
     testImplementation(rootProject.libs.testcontainers.mysql)
-  }
-
-  sourceSets.named("test") {
-    compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-    runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
-  }
-}
-
-// traces each db-scheduler execution through the application's OpenTelemetry, as an ExecutionInterceptor
-project("boot-scheduler-db-otel") {
-  configureDiVariants()
-  dependencies {
-    api(project(":boot-scheduler-db"))
-    // ALWAYS_SAMPLE and Sample, and the OpenTelemetry of boot-telemetry-otel's SDK
-    api(project(":boot-telemetry-otel"))
-    // each flavor adds to boot-scheduler-db's customizers, over the OpenTelemetry of boot-telemetry-otel's SDK, so it
-    // brings both modules' matching flavors
-    "metroApi"(project(path = ":boot", configuration = "metroElements"))
-    "metroApi"(project(path = ":boot-scheduler-db", configuration = "metroElements"))
-    "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
-    "kodeinApi"(project(path = ":boot-scheduler-db", configuration = "kodeinElements"))
-    "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
-
-    testImplementation(rootProject.libs.opentelemetry.sdk.testing)
-    // the tests run the scheduler over SQLite, migrated by Flyway, with its statements traced, to check that an
-    // execution's statements, and its completion's, belong to the execution's span
-    testImplementation(project(":boot-db-jdbc-otel"))
-    // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
-    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
-    testImplementation(project(path = ":boot", configuration = "metroElements"))
-    testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
-    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
-    testImplementation(project(path = ":boot-scheduler-db", configuration = "kodeinElements"))
-    testImplementation(project(path = ":boot-scheduler-db", configuration = "metroElements"))
-    testImplementation(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
-    testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
-    testImplementation(project(path = ":boot-db-jdbc", configuration = "kodeinElements"))
-    testImplementation(project(path = ":boot-db-jdbc", configuration = "metroElements"))
-    testImplementation(project(path = ":boot-db-jdbc-sqlite", configuration = "kodeinElements"))
-    testImplementation(project(path = ":boot-db-jdbc-sqlite", configuration = "metroElements"))
-    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "kodeinElements"))
-    testImplementation(project(path = ":boot-db-pool-hikari", configuration = "metroElements"))
-    testImplementation(project(path = ":boot-db-flyway", configuration = "kodeinElements"))
-    testImplementation(project(path = ":boot-db-flyway", configuration = "metroElements"))
-    testImplementation(project(":boot-logging-log4j2"))
   }
 
   sourceSets.named("test") {
@@ -906,7 +841,8 @@ project("boot-telemetry-otel") {
     // OpenTelemetryService is an AppService, and the OpenTelemetry instance is the module's whole point
     api(project(":boot"))
     api(project(":boot-config-common"))
-    api(rootProject.libs.opentelemetry.api)
+    // withSpan and the like, and ALWAYS_SAMPLE, which this SDK's sampler honors
+    api(project(":boot-telemetry-otel-common"))
     api(rootProject.libs.opentelemetry.sdk)
     // OTLP over HTTP with the JDK's own client, rather than OkHttp, which would bring its own Kotlin stdlib
     api(rootProject.libs.opentelemetry.exporter.otlp) {
@@ -936,6 +872,19 @@ project("boot-telemetry-otel") {
   sourceSets.named("test") {
     compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
     runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+  }
+}
+
+// what Bootable's telemetry shares, over the OpenTelemetry API only, for modules and applications that trace
+// without depending on an SDK: with none, the API is a no-op
+project("boot-telemetry-otel-common") {
+  dependencies {
+    api(rootProject.libs.opentelemetry.api)
+    // the span's context as a coroutine context element, so withSpan's span follows its block across dispatchers
+    api(rootProject.libs.opentelemetry.extension.kotlin)
+    implementation(rootProject.libs.kotlinx.coroutines.core)
+    // the logging API only: the application chooses the logging implementation (e.g. boot-logging-log4j2)
+    implementation(rootProject.libs.bundles.log4j.api)
   }
 }
 

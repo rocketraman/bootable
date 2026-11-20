@@ -125,5 +125,9 @@ val PeriodicWiringTest by testSuite {
       val graph = createGraph<TestGraph>()
       checkLeaderGatedLoop(graph.appServices, graph.leaderElection, graph.counter)
     }
+
+    test("metro, not traced without an OpenTelemetry in the graph") {
+      assert(createGraph<TestGraph>().periodicServices.interceptors.isEmpty())
+    }
   }
 }
