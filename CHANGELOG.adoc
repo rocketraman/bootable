@@ -90,7 +90,7 @@ See the Periodic work and leader election section of the README.
 * Failed runs are logged or handled, and stop the loop after `maxConsecutiveFailures`.
 * `PeriodicGate` gates runs, e.g. on leadership (cancelling a run on loss) or readiness.
 * `boot-periodic-otel`: each run is its own trace; `PeriodicRunInterceptor` wraps every run.
-* `boot-leader`: `LeaderElection` as a `StateFlow<Boolean>`, with a fencing token; `AlwaysLeader`.
+* `boot-leader-common`: `LeaderElection` as a `StateFlow<Boolean>`, with a fencing token; `AlwaysLeader`.
 * `boot-leader-k8s`: Kubernetes Lease leader election, over a `boot-client-http-ktor` client.
 
 === Scheduled tasks with db-scheduler
