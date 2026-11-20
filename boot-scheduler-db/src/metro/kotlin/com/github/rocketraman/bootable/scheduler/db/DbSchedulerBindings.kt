@@ -14,6 +14,7 @@ import dev.zacsweers.metro.IntoSet
 import dev.zacsweers.metro.Multibinds
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
+import io.opentelemetry.api.OpenTelemetry
 import javax.sql.DataSource
 import kotlin.time.Clock
 
@@ -22,6 +23,9 @@ import kotlin.time.Clock
  * boot-db-jdbc-metro) provides, with its [DbSchedulerConfig] decoded from the `db.scheduler` config section, and
  * provides its [Scheduler], and the [SchedulerClient] to schedule executions with. Its dialect matches the graph's
  * [JdbcConfig]'s URL; its clock is the graph's `kotlin.time.Clock`, if it has one.
+ *
+ * Each execution is traced, with [dbSchedulerTracing], through the graph's `OpenTelemetry`, if it has one, such as
+ * boot-telemetry-otel-metro's, as the graph's [DbSchedulerTracingOptions], if it has one, says.
  *
  * Contribute the application's tasks, recurring and one-time, through a [DbSchedulerTaskProvider], and adjust
  * db-scheduler beyond [DbSchedulerConfig] with a [DbSchedulerCustomizer]:
@@ -48,14 +52,20 @@ interface DbSchedulerBindings {
       taskProviders: Set<DbSchedulerTaskProvider>,
       customizers: Set<DbSchedulerCustomizer>,
       clock: Clock = Clock.System,
-    ): DbSchedulerService = DbSchedulerService(
-      dataSource = dataSource,
-      config = config,
-      tasks = taskProviders.flatMap { it.tasks() },
-      customizer = { builder -> customizers.forEach { it.customize(builder) } },
-      clock = clock,
-      jdbcUrl = jdbcConfig.jdbcUrl,
-    )
+      openTelemetry: OpenTelemetry = OpenTelemetry.noop(),
+      tracingOptions: DbSchedulerTracingOptions = DbSchedulerTracingOptions(),
+    ): DbSchedulerService {
+      // the tracing first, so its interceptor is outermost
+      val allCustomizers = listOfNotNull(tracingOptions.customizer(openTelemetry)) + customizers
+      return DbSchedulerService(
+        dataSource = dataSource,
+        config = config,
+        tasks = taskProviders.flatMap { it.tasks() },
+        customizer = { builder -> allCustomizers.forEach { it.customize(builder) } },
+        clock = clock,
+        jdbcUrl = jdbcConfig.jdbcUrl,
+      )
+    }
 
     @Provides fun scheduler(service: DbSchedulerService): Scheduler = service.scheduler
 

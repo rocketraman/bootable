@@ -7,6 +7,7 @@ import com.github.rocketraman.bootable.boot.HealthCheck
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.db.jdbc.JdbcConfig
+import io.opentelemetry.api.OpenTelemetry
 import org.kodein.di.DI
 import org.kodein.di.bindSet
 import org.kodein.di.bindSingleton
@@ -23,6 +24,10 @@ import kotlin.time.Clock
  * from boot-config-hoplite's `hopliteConfigModule`). Its dialect matches the [JdbcConfig] binding's URL; its clock is
  * the `kotlin.time.Clock` binding, if there is one.
  *
+ * Each execution is traced, with [dbSchedulerTracing], through the `OpenTelemetry` binding, if there is one, such as
+ * `openTelemetryModule`'s from boot-telemetry-otel-kodein, as the [DbSchedulerTracingOptions] binding, if there is one,
+ * says.
+ *
  * Add the application's tasks, recurring and one-time, through a [DbSchedulerTaskProvider] in the
  * `Set<DbSchedulerTaskProvider>` it opens, and adjust db-scheduler beyond [DbSchedulerConfig] with a
  * [DbSchedulerCustomizer]:
@@ -38,7 +43,10 @@ val dbSchedulerModule by DI.Module {
   bindSet<DbSchedulerCustomizer>()
   bindSingleton<DbSchedulerConfig> { instance<ConfigBinder>().config("db.scheduler") }
   bindSingleton {
-    val customizers = instance<Set<DbSchedulerCustomizer>>()
+    // the tracing first, so its interceptor is outermost
+    val tracing = (instanceOrNull<DbSchedulerTracingOptions>() ?: DbSchedulerTracingOptions())
+      .customizer(instanceOrNull<OpenTelemetry>() ?: OpenTelemetry.noop())
+    val customizers = listOfNotNull(tracing) + instance<Set<DbSchedulerCustomizer>>()
     DbSchedulerService(
       dataSource = instance(),
       config = instance(),

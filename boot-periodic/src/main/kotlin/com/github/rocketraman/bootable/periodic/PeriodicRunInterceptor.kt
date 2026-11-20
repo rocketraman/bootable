@@ -1,8 +1,8 @@
 package com.github.rocketraman.bootable.periodic
 
 /**
- * Runs code around each run of a [PeriodicAppService], such as a span that the run is in: `boot-periodic-otel`
- * traces each run this way. An interceptor must call [run] once, and let what it throws propagate.
+ * Runs code around each run of a [PeriodicAppService], such as a span that the run is in: [periodicTracing] traces
+ * each run this way. An interceptor must call [run] once, and let what it throws propagate.
  *
  * Interceptors wrap the run in order, so the first is outermost. A run the gate skips isn't intercepted.
  */

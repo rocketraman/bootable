@@ -44,7 +44,7 @@ internal val log = logger("com.github.rocketraman.bootable.periodic.PeriodicAppS
  * - A disabled loop ([PeriodicConfig.enabled]) starts nothing.
  * - On shutdown, it starts no further run, and waits up to [PeriodicConfig.shutdownTimeout] for a run in progress to
  *   finish, before cancelling it.
- * - Each [interceptor][PeriodicRunInterceptor] runs around each run: `boot-periodic-otel`'s traces each run as a span.
+ * - Each [interceptor][PeriodicRunInterceptor] runs around each run: [periodicTracing], for one, traces each run as a span.
  * - It notes when each run started, and when one last succeeded and failed, by [clock], e.g. for a health check that
  *   the loop isn't stuck.
  *
@@ -59,7 +59,7 @@ internal val log = logger("com.github.rocketraman.bootable.periodic.PeriodicAppS
  *
  * [PeriodicServices] holds the settings the application's loops share, such as their gate and interceptors, for DI.
  *
- * @param name the service's name, in its log messages, and the name of the span `boot-periodic-otel` traces each run in.
+ * @param name the service's name, in its log messages, and the name of the span [periodicTracing] traces each run in.
  * @param dispatcher where [work] runs. [work] that blocks, such as JDBC calls, should switch to `Dispatchers.IO` for
  *   the calls that block, or pass it here.
  */

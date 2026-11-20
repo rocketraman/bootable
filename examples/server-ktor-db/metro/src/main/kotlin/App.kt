@@ -89,11 +89,11 @@ interface EntriesBindings : ConfigBinderProvider {
  * installs, and the pool's metrics (`boot-db-pool-hikari-otel-metro`). `boot-db-jdbc-otel-metro` makes each query a
  * span within its request's trace, as is each connection taken from the pool (`JdbcTelemetryConfigurer`).
  * `boot-periodic-metro` creates the loop that logs the entry count, which only the leader runs, of the instances
- * elected through a Kubernetes Lease (`boot-leader-k8s-metro`, from `leader.kubernetes`), and each run is a trace
- * (`boot-periodic-otel-metro`).
+ * elected through a Kubernetes Lease (`boot-leader-k8s-metro`, from `leader.kubernetes`), and, since the graph has
+ * an `OpenTelemetry`, each run is a trace.
  * `boot-scheduler-db-metro` runs db-scheduler (`db.scheduler`), with the recurring task that logs the entry digest,
- * over the pool, and its table migrated by Flyway along with the application's, and each execution is a trace
- * (`boot-scheduler-db-otel-metro`).
+ * over the pool, and its table migrated by Flyway along with the application's, and, since the graph has an
+ * `OpenTelemetry`, each execution is a trace.
  * `boot-metro` tracks the application's health from its lifecycle, which the server serves
  * (`boot-server-http-ktor-metro`), with readiness down while the database doesn't answer (`JdbcHealthCheckBindings`).
  * The HTTP clients (`boot-client-http-ktor-metro`, from `http.client`) run on CIO, and

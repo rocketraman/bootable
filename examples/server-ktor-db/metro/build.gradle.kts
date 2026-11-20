@@ -34,13 +34,13 @@ dependencies {
   // the HTTP clients, each request traced within its caller's trace
   implementation(project(path = ":boot-client-http-ktor", configuration = "metroElements"))
   implementation(project(path = ":boot-client-http-ktor-otel", configuration = "metroElements"))
-  // the entry count's loop, gated on the leader election, and traced, a trace for each run
+  // the entry count's loop, gated on the leader election, and traced through the OpenTelemetry SDK, a trace for each
+  // run
   implementation(project(path = ":boot-periodic", configuration = "metroElements"))
-  implementation(project(path = ":boot-periodic-otel", configuration = "metroElements"))
   implementation(project(path = ":boot-leader-k8s", configuration = "metroElements"))
-  // the entry digest, a recurring db-scheduler task, and traced, a trace for each execution
+  // the entry digest, a recurring db-scheduler task, and traced through the OpenTelemetry SDK, a trace for each
+  // execution
   implementation(project(path = ":boot-scheduler-db", configuration = "metroElements"))
-  implementation(project(path = ":boot-scheduler-db-otel", configuration = "metroElements"))
 }
 
 application {
