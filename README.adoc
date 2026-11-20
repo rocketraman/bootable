@@ -792,7 +792,8 @@ http {
 * `retry`, through Ktor's `HttpRequestRetry`, retries only transient failures: a 5xx, 408, or 429 response, a timeout, or a failed connection.
 Any other 4xx is permanent, since the same request would fail the same way, and so is a failed TLS handshake.
 Only the idempotent methods are retried, unless `methods` says otherwise, so a request that may have changed something isn't sent twice.
-The delay grows exponentially, from `initialDelay` up to `maxDelay`, with some `jitter`, unless a `Retry-After` header says otherwise.
+The delay grows exponentially, from `initialDelay` up to `maxDelay`, with some `jitter`.
+With `respectRetryAfter`, on by default, a response's `Retry-After` header, in seconds, makes the client wait at least that long, even beyond `maxDelay`.
 `HttpStatusCode.isTransient()` and `Throwable.isTransient()` give the same classification to code that decides for itself, such as a workflow activity's.
 * `tls` holds the material for mutual TLS: the `keyStore` with the client certificate to present, the `keyAlias` of its key, if it holds several, and the `trustStore` of certificates to trust, if not the platform's.
 Each store is inline, as `base64`, so it can come from an environment variable or a secret, or a file, at `path`, with its `password` and `type`, `PKCS12` by default.
