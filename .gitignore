@@ -1,6 +1,5 @@
 # IntelliJ IDEA, ignore everything except vcs, run configs, code style, and inspection profiles
 /.idea/*
-!/.idea/gradle.xml
 !/.idea/vcs.xml
 !/.idea/runConfigurations.xml
 !/.idea/runConfigurations
