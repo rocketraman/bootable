@@ -44,12 +44,17 @@ private fun awaitCondition(timeout: Duration = 10.seconds, condition: () -> Bool
   }
 }
 
-/** Runs a [Bootable] of [services] and [health] on a thread of its own, until [block] has run, then stops it. */
-private fun runApp(health: Health, services: Set<AppService>, block: () -> Unit = {}): Int {
+/** Runs a [Bootable] of [services], [health] and [extraControllers] on a thread of its own, until [block] has run, then stops it. */
+private fun runApp(
+  health: Health,
+  services: Set<AppService>,
+  extraControllers: Set<LifecycleController> = emptySet(),
+  block: () -> Unit = {},
+): Int {
   val stopper = Stopper()
   var exitCode: Int? = null
   val app = thread {
-    exitCode = Bootable(services, setOf(AppStartStopLifecycleController(), stopper, health))
+    exitCode = Bootable(services, setOf(AppStartStopLifecycleController(), stopper, health) + extraControllers)
       .run(maxShutdownTime = 1_000_000)
   }
   awaitCondition { health.state == LifecycleState.Running }
@@ -143,5 +148,39 @@ val HealthTest by testSuite {
     runApp(throwing, emptySet()) {
       assert(throwing.readiness().checks == mapOf("boom" to HealthStatus.Unhealthy("kaboom")))
     }
+  }
+
+  test("is running only once the whole start has completed, including the other controllers' code around it") {
+    val events = Collections.synchronizedList(mutableListOf<String>())
+    val health = Health()
+    val around = object : LifecycleController {
+      override fun aroundAppStart(serviceContext: ServiceContext, timeline: StartupTimeline, start: () -> Unit) {
+        start()
+        events += "after the start: ${health.observe()}"
+      }
+    }
+
+    runApp(health, setOf(ObservingService(health, events)), extraControllers = setOf(around)) {
+      assert(health.observe() == "Running live=true ready=true")
+    }
+
+    assert(events.take(2) == listOf("start: Starting live=true ready=false", "after the start: Starting live=true ready=false"))
+  }
+
+  test("a start that fails in another controller's code after the services started doesn't drain") {
+    val events = mutableListOf<String>()
+    val health = Health(config = ReadinessConfig(drainDelay = 1.hours))
+    val failing = object : LifecycleController {
+      override fun aroundAppStart(serviceContext: ServiceContext, timeline: StartupTimeline, start: () -> Unit) {
+        start()
+        error("failed after the services started")
+      }
+    }
+    val bootable = Bootable(setOf(ObservingService(health, events)), setOf(AppStartStopLifecycleController(), failing, health))
+
+    // an hour's drain would time the test out
+    assert(bootable.run(maxShutdownTime = 1_000_000) == -1)
+    assert(events == listOf("start: Starting live=true ready=false", "stop: Stopping live=true ready=false"))
+    assert(health.state == LifecycleState.Stopped)
   }
 }

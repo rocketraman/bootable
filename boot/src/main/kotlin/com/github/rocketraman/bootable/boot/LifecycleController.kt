@@ -61,6 +61,14 @@ interface LifecycleController {
   fun aroundAppStart(serviceContext: ServiceContext, timeline: StartupTimeline, start: () -> Unit) = start()
 
   /**
+   * Executed once the application's whole start has completed, including every controller's [aroundAppStart], so
+   * the application is running. It is called in order of [priority], highest first, and not at all if the start
+   * failed, or the application began to stop during it. A controller that throws fails the start, as a service that
+   * fails to start does, and the controllers after it aren't called.
+   */
+  fun appRunning() = Ignore
+
+  /**
    * When a service is started, lifecycle controllers may vote on whether it is allowed to start or not. This may
    * be used, for example, for persistently disabling a given service via a controller. Note that, depending on
    * the priority of a controller, a controller may be asked to vote on the start of a service *before* [appStart]

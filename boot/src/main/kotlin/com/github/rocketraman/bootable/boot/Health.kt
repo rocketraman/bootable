@@ -11,10 +11,13 @@ import org.apache.logging.log4j.kotlin.logger
 /** Where the application is in its lifecycle, as [Health] tracks it. */
 @Serializable
 enum class LifecycleState {
-  /** Initializing and starting the services. The state until every service has started. */
+  /** Initializing and starting the services. The state until the application's start has completed. */
   Starting,
 
-  /** Every service started: the application is running. */
+  /**
+   * The application's whole start completed, including every lifecycle controller's code around it, such as
+   * `ServiceStartTracing`'s span: the application is running.
+   */
   Running,
 
   /** Shutting down: draining, then stopping the services. A start that fails goes here too. */
@@ -143,7 +146,7 @@ data class HealthReadyReport(
  *
  * - [liveness] is healthy until the application has stopped. It runs no checks, so a dependency that is down
  *   doesn't get the application restarted, which wouldn't help it.
- * - [readiness] is healthy only while the application is running: once every service has started, and until shutdown
+ * - [readiness] is healthy only while the application is running: once its start has completed, and until shutdown
  *   begins. Then, it runs the [checks] too, and is healthy only if they all are.
  *
  * When shutdown begins, readiness goes down, and then, if the application was running, Health waits for the
@@ -184,9 +187,8 @@ class Health(
     return HealthReadyReport(results.values.all { it.healthy } && this.state == LifecycleState.Running, state, results)
   }
 
-  override fun aroundAppStart(serviceContext: ServiceContext, timeline: StartupTimeline, start: () -> Unit) {
-    start()
-    // a start that throws leaves the state Starting, until the shutdown that follows
+  // a start that fails never calls it, leaving the state Starting, until the shutdown that follows
+  override fun appRunning() {
     if (state == LifecycleState.Starting) state = LifecycleState.Running
   }
 
@@ -205,8 +207,8 @@ class Health(
 
   /**
    * The lowest, so readiness goes down, and the drain runs, before any other controller shuts down, such as
-   * [AppStartStopLifecycleController] stopping the services; and the application is running only once the rest of
-   * the start, within every other controller's [aroundAppStart], has completed.
+   * [AppStartStopLifecycleController] stopping the services; and the application is running only once every other
+   * controller's [appRunning] has completed.
    */
   override fun priority() = Int.MIN_VALUE
 

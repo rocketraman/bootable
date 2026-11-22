@@ -10,7 +10,6 @@ import com.github.rocketraman.bootable.boot.HealthStatus
 import com.github.rocketraman.bootable.boot.LifecycleState
 import com.github.rocketraman.bootable.boot.ReadinessConfig
 import com.github.rocketraman.bootable.boot.ServiceContext
-import com.github.rocketraman.bootable.boot.StartupTimeline
 import com.github.rocketraman.bootable.config.common.HostPort
 import de.infix.testBalloon.framework.core.testSuite
 import io.ktor.server.application.*
@@ -40,9 +39,9 @@ private class AppServer(private val health: KtorHealth) :
 }
 
 /**
- * Starts and stops [services] through [health], as Bootable's controllers do: the start within its
- * [Health.aroundAppStart], with [whileStarting] run once they have started, but before the application is running;
- * and the stop after its [Health.appShutdown], which drains.
+ * Starts and stops [services] through [health], as Bootable's controllers do: the start, with [whileStarting] run
+ * once they have started, but before the application is running, then its [Health.appRunning]; and the stop after its
+ * [Health.appShutdown], which drains.
  */
 private class App(private val health: Health, vararg services: AppService) {
   private val context = ServiceContext(
@@ -53,10 +52,9 @@ private class App(private val health: Health, vararg services: AppService) {
   )
 
   fun start(whileStarting: () -> Unit = {}) {
-    health.aroundAppStart(context, StartupTimeline(TimeSource.Monotonic.markNow())) {
-      context.startPlan.forEach(context.serviceStart)
-      whileStarting()
-    }
+    context.startPlan.forEach(context.serviceStart)
+    whileStarting()
+    health.appRunning()
   }
 
   fun stop() {

@@ -42,6 +42,7 @@ An app can pass its own `StartOrder` to add phases; see link:./examples/start-or
 Another basic implementation, intended to be used in conjunction with `AppStartStopLifecycleController`, is the `StopSignalHandlerLifecycleController`, which registers signal handlers, which, when received, cleanly shuts the system down.
 Other implementations are possible: for example starting/stopping services at runtime based on a command system, like start/stop messages from RPCs or web requests.
 A controller can also run code around the application's start, and each service's, by overriding `aroundAppStart` and `aroundServiceStart`, as `ServiceStartTracing` does to trace them.
+`appRunning` runs once the whole start has completed, as `Health` uses to mark the application running.
 * Tracks the application's lifecycle state, and answers liveness and readiness from it, with an optional drain delay before shutdown; see <<Health>>.
 * Runs periodic background work, on the elected leader only if you like, with leader election through a Kubernetes Lease; see <<Periodic>>.
 * Runs persistent scheduled tasks with db-scheduler, once across the application's instances; see <<Scheduler>>.
@@ -151,7 +152,7 @@ NOTE: We currently do not publish multi-platform versions of these modules, but 
 
 * *Liveness* is up until the application has stopped.
 It runs no checks: an application whose database is down isn't helped by being restarted, and restarting every instance at once makes an outage worse.
-* *Readiness* is up only while the application is running: once every service has started, and until shutdown begins.
+* *Readiness* is up only while the application is running: once its start has completed, including every lifecycle controller's code around it, and until shutdown begins.
 Then, it runs the readiness checks too, and is up only if they all pass.
 
 When shutdown begins, readiness goes down, and, if the application was running, `Health` waits for `health.readiness.drainDelay` before any service stops.

@@ -4,9 +4,7 @@ import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.DefaultPhase
 import com.github.rocketraman.bootable.boot.Health
 import com.github.rocketraman.bootable.boot.Ordering
-import com.github.rocketraman.bootable.boot.ServiceContext
 import com.github.rocketraman.bootable.boot.StartOrder
-import com.github.rocketraman.bootable.boot.StartupTimeline
 import com.github.rocketraman.bootable.boot.startPlan
 import com.github.rocketraman.bootable.leader.LeaderElection
 import de.infix.testBalloon.framework.core.testSuite
@@ -168,8 +166,7 @@ val PeriodicAppServiceTest by testSuite {
     try {
       sleep(100.milliseconds)
       assert(runs.get() == 0)
-      val context = ServiceContext(emptySet(), emptyList(), {}, {})
-      health.aroundAppStart(context, StartupTimeline(TimeSource.Monotonic.markNow())) {}
+      health.appRunning()
       eventually { runs.get() >= 2 }
     } finally {
       service.shutdown()

@@ -20,6 +20,7 @@ See link:docs/service-ordering.adoc[Service ordering].
 * `startPlan(services, startOrder, tiebreaker)` exposes the computed order for tests.
 * `boot-db-jdbc` adds the milestones `DbMilestones.DataSourceReady` and `SchemaMigrated`.
 * `LifecycleController` gains `aroundAppStart` and `aroundServiceStart` hooks.
+* `LifecycleController` gains `appRunning`, called once the whole start has completed.
 * `StartupTimeline` records when the boot began and its stages before services start.
 
 ==== Breaking changes

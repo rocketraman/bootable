@@ -84,6 +84,7 @@ class Bootable(
     @Suppress("TooGenericExceptionCaught")
     try {
       appStart(timeline)
+      appRunning()
     } catch (e: Exception) {
       log.fatal(e) { "Failed to start application, stopping the services that started…" }
       running = false
@@ -133,6 +134,14 @@ class Bootable(
       { controller.aroundAppStart(serviceContext, timeline, inner) }
     }
     start()
+  }
+
+  private fun appRunning() {
+    lifecycleControllers.sortedByDescending { it.priority() }.forEach {
+      if(running) {
+        it.appRunning()
+      }
+    }
   }
 
   private fun startControllers() {

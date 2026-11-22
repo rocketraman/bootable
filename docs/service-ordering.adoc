@@ -321,6 +321,8 @@ Stopping in reverse is what makes the phases useful when the app shuts down, not
 * *A health or liveness endpoint* is `Serving`, like any server. If it must answer liveness probes during a
   long `Initialization` (a slow migration, say), put it in `Infrastructure`, and have it report _not ready_
   until the app has started.
+  As implemented, the health listener of `boot-server-http-ktor`, `HealthKtorService`, is in `Telemetry`
+  instead, so it starts first and stops last.
 * *A client and a warm-up for the same cache* are two different jobs: the client is `Infrastructure`, and
   filling the cache is `Initialization`.
 * *A service that both consumes messages and is used by other services* should normally be split in two: the

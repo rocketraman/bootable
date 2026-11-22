@@ -6,8 +6,6 @@ import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
 import com.github.rocketraman.bootable.db.jdbc.JdbcHealthCheck
 import com.github.rocketraman.bootable.db.jdbc.SqliteConfig
 import com.github.rocketraman.bootable.boot.Health
-import com.github.rocketraman.bootable.boot.ServiceContext
-import com.github.rocketraman.bootable.boot.StartupTimeline
 import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.telemetry.otel.MetricsConfig
@@ -24,7 +22,6 @@ import io.ktor.server.testing.*
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteRecursively
-import kotlin.time.TimeSource
 import org.apache.logging.log4j.Level
 
 /**
@@ -165,7 +162,7 @@ val EntryServerTest by testSuite {
       assert(get("/health/ready").status == HttpStatusCode.ServiceUnavailable)
 
       // the application is running once its start completes, as Bootable runs it
-      health.aroundAppStart(ServiceContext(emptySet(), emptyList(), {}, {}), StartupTimeline(TimeSource.Monotonic.markNow())) {}
+      health.appRunning()
       val ready = get("/health/ready")
       assert(ready.status == HttpStatusCode.OK)
       assert(ready.contentType()?.match(ContentType.Application.Json) == true)
