@@ -1,0 +1,90 @@
+site:
+  title: Bootable
+  start_page: bootable::index.adoc
+content:
+  sources:
+  # this checkout, as it is, uncommitted changes included: the version in progress, published as next
+  - url: ./../..
+    branches: HEAD
+    start_path: docs
+    version: next
+    edit_url: https://github.com/rocketraman/bootable/edit/master/{path}
+  # the releases, a version per minor release, such as 3.1 from tag v3.1.2: extensions/versions.js lists the tags,
+  # the newest patch of each minor release that has the docs
+  - url: ./../..
+    branches: ~
+    tags: []
+    start_path: docs
+    version:
+      'v(?<major>+({0..9})).(?<minor>+({0..9})).+({0..9})': $<major>.$<minor>
+    edit_url: false
+antora:
+  extensions:
+  # next, from this checkout, and a version per minor release, from its tags
+  - require: ./extensions/versions.js
+  - '@antora/collector-extension'
+  # search over the docs pages, in the browser, with an index built with the site
+  - require: '@antora/lunr-extension'
+    # the latest version's pages only, so a page's older versions don't crowd the results
+    index_latest_only: true
+  # the API reference, from ./gradlew :dokkaGeneratePublicationHtml, under /api/
+  - require: ./extensions/dokka.js
+  # the module tables and install snippets, from docs/modules.yml
+  - require: ./extensions/modules.js
+asciidoc:
+  extensions:
+  - '@asciidoctor/tabs'
+  # kdoc:<module>:<fully qualified name>[] links to a type's API reference
+  - ./extensions/kdoc-macro.js
+ui:
+  bundle:
+    url: https://gitlab.com/antora/antora-ui-default/-/jobs/artifacts/HEAD/raw/build/ui-bundle.zip?job=bundle-stable
+    snapshot: true
+  # the Bootable theme, over the default UI's markup and scripts: its stylesheet replaces the default one
+  supplemental_files:
+  # (version-path 'x.html'): a page's path in the current page's version, for the header's links
+  - path: helpers/version-path.js
+    contents: ./supplemental-ui/helpers/version-path.js
+  - path: partials/head-meta.hbs
+    contents: ./supplemental-ui/partials/head-meta.hbs
+  - path: partials/head-styles.hbs
+    contents: ./supplemental-ui/partials/head-styles.hbs
+  - path: partials/header-content.hbs
+    contents: ./supplemental-ui/partials/header-content.hbs
+  - path: partials/nav.hbs
+    contents: ./supplemental-ui/partials/nav.hbs
+  - path: partials/toc.hbs
+    contents: ./supplemental-ui/partials/toc.hbs
+  - path: partials/article.hbs
+    contents: ./supplemental-ui/partials/article.hbs
+  - path: partials/edit-this-page.hbs
+    contents: ./supplemental-ui/partials/edit-this-page.hbs
+  - path: partials/footer-content.hbs
+    contents: ./supplemental-ui/partials/footer-content.hbs
+  - path: css/tokens.css
+    contents: ./supplemental-ui/css/tokens.css
+  - path: css/header.css
+    contents: ./supplemental-ui/css/header.css
+  - path: css/bootable.css
+    contents: ./supplemental-ui/css/bootable.css
+  # the search results, in place of the Lunr extension's own stylesheet, which its script loads
+  - path: css/search.css
+    contents: ./supplemental-ui/css/search.css
+  # the API reference's restyling of Dokka's pages
+  - path: css/api.css
+    contents: ./supplemental-ui/css/api.css
+  - path: js/bootable.js
+    contents: ./supplemental-ui/js/bootable.js
+  # the tabs block's behaviour, from the extension's package, so it matches its version
+  - path: js/vendor/tabs.js
+    contents: ./node_modules/@asciidoctor/tabs/dist/js/tabs.js
+  # the fonts, served with the site rather than from a third party
+  - path: font/inter-latin-wght-normal.woff2
+    contents: ./node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2
+  - path: font/jetbrains-mono-latin-wght-normal.woff2
+    contents: ./node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2
+output:
+  dir: ./build/site
+runtime:
+  cache_dir: ./.cache
+  fetch: true

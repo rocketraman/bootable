@@ -23,3 +23,7 @@ classes/
 .DS_Store
 
 data/
+
+# the documentation site
+node_modules/
+/docs/site/.cache/

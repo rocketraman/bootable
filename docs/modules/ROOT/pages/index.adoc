@@ -1,0 +1,38 @@
+= Bootable
+:page-role: home
+
+A simple, *unopinionated* framework for booting Kotlin applications.
+It handles starting, stopping, lifecycle management, logging, configuration, and other basic reusable components, and then gets out of your way.
+
+Bootable's core is plain Kotlin and embeds *no* dependency-injection framework.
+Its runtime takes two sets, your application services and your lifecycle controllers, and runs them.
+How you assemble those sets is your choice: wire them by hand, use Bootable's optional Kodein, Metro, or Inara bindings, or bring your own DI.
+
+Coming from Spring Boot? See xref:comparison:spring-boot.adoc[] for how the two differ, and when each fits.
+
+== Get started
+
+Pick a wiring style.
+Every page on this site shows its code in the style you pick, and remembers it.
+
+[.cards]
+* xref:wiring.adoc[Vanilla] Plain Kotlin, no DI framework.
+* xref:wiring.adoc[Kodein] A runtime DI with a clean DSL.
+* xref:wiring.adoc[Metro] A compile-time DI that checks the graph as it builds.
+* xref:wiring.adoc[Inara] Kodein's compile-time successor, checked by KSP; experimental.
+
+== Functions
+
+[.cards]
+* xref:configuration:index.adoc[Configuration] Typed config from HOCON and the environment, with secrets masked.
+* xref:environment:index.adoc[Environment] The deployment environment, such as dev or prod, from config.
+* xref:logging:index.adoc[Logging] Log4j2, with plain, coloured, JSON, and Google Cloud output.
+* xref:database:index.adoc[Database] A lifecycle-managed connection pool, migrations, and Exposed.
+* xref:http:index.adoc[Web / HTTP] A Ktor server and clients, with liveness and readiness probes.
+* xref:background:index.adoc[Background work] Periodic loops, leader election, and persistent scheduled tasks.
+* xref:telemetry:index.adoc[Telemetry] OpenTelemetry traces and metrics, pushed or pulled.
+* xref:testing:index.adoc[Testing] Helpers for fast unit tests, with no application booted.
+
+== Examples
+
+Runnable applications that put these functions together; see xref:examples:index.adoc[].

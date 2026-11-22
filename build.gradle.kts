@@ -174,8 +174,9 @@ configure(subprojects.filter { it.path !in multiplatformProjects }) {
 }
 
 // Only the library modules are published to Maven Central; everything under :examples is a runnable sample
-// app, not an artifact, so it gets none of the publish / signing / dokka machinery.
-configure(subprojects.filter { !it.path.startsWith(":examples") }) {
+// app, and everything under :docs is the documentation site's snippets, not an artifact, so they get none of the
+// publish / signing / dokka machinery.
+configure(subprojects.filter { !it.path.startsWith(":examples") && !it.path.startsWith(":docs") }) {
   apply {
     plugin("org.jetbrains.dokka")
     plugin("org.jetbrains.dokka-javadoc")

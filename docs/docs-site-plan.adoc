@@ -1,0 +1,337 @@
+= Documentation site plan
+:toc: macro
+
+The README has grown past 1,000 lines and covers every module, three wiring styles, and the deployment tooling in one page.
+This plan moves that content to a documentation site built with Antora, styled after the https://amplitude.com/docs/get-started[Amplitude docs], and organised function by function.
+The README goes back to being a pitch, a quickstart, and a link to the site.
+
+toc::[]
+
+== Goals
+
+* One page per *function* (database, health, telemetry, …), not per module, listing the modules that make up that function and their options, such as the `-otel` variants.
+* Every wiring snippet in a tab per DI style, *Vanilla*, *Kodein*, and *Metro*, with *Inara* added as a fourth tab when it lands, and the reader's choice remembered across pages.
+* Snippets that compile: they come from source the build checks, not hand-written text that drifts.
+* A modern look: top-level sections, a left sidebar grouped by topic, an "On this page" table of contents, card choosers, labelled code blocks with copy buttons, search, and dark mode.
+* Content stays in AsciiDoc, one sentence per line, in this repository.
+
+== Non-goals (for now)
+
+* A marketing landing page beyond the docs home.
+* Versioned docs per release; the site starts with one version, built from `master` (see <<versioning>>).
+* Replacing Dokka; the API reference stays Dokka, linked from each function page.
+
+== Site structure
+
+Antora splits a component into *modules*, each with its own pages, partials, examples, and nav file.
+We use one Antora component, `bootable`, and one Antora module per function, so xrefs read naturally, e.g. `xref:database:exposed.adoc[]`.
+
+[cols="1,2,3",options="header"]
+|===
+| Section (top bar) | Antora module | Pages
+
+| Get started
+| `ROOT`
+| Overview, why not Spring Boot, quickstart (a card chooser: "How do you want to wire it?"), installation and coordinates, the lifecycle model (services, controllers, phases, milestones).
+
+| Wiring
+| `wiring`
+| Choosing a style, Vanilla, Kodein, Metro, Inara (later), bring your own DI, service ordering (`docs/wiring.adoc` and `docs/service-ordering.adoc` move here).
+
+| Functions
+| one per function, below
+| One page per function, plus sub-pages where a function is large.
+
+| Deploy
+| `deploy`
+| JVM AOT cache, Jib container images, Dagger CI, GraalVM native image.
+
+| Reference
+| `reference`
+| Module catalogue (generated), configuration reference, API (Dokka), changelog, design and non-goals.
+|===
+
+The *Functions* section, its pages named for their role, with the implementation in the title where there is one:
+
+[cols="1,2,3",options="header"]
+|===
+| Function | Pages | Modules
+
+| Configuration
+| Configuration
+| `boot-config-common`, `boot-config-hoplite`
+
+| Environment
+| Environment
+| `boot-env`
+
+| Logging
+| Logging (Log4j2)
+| `boot-logging`, `boot-logging-log4j2`
+
+| Database
+| Database; Drivers; Connection pool (HikariCP); Migrations (Flyway); ORM (Exposed)
+| `boot-db-jdbc` (`-otel`); drivers `-sqlite`, `-postgresql`, `-mysql`; `boot-db-pool-hikari` (`-otel`); `boot-db-flyway`; `boot-db-exposed`
+
+| Web / HTTP
+| Server (Ktor); Client (Ktor); Health
+| `boot-server-http-ktor` (`-otel`), engines `-cio`, `-netty`; `boot-client-http-ktor` (`-otel`), engines `-cio`, `-java`; health from `boot`, served by `KtorHealth`
+
+| Background work
+| Periodic work; Leader election; Scheduled tasks (db-scheduler)
+| `boot-periodic` (`-otel`); `boot-leader-common`, `boot-leader-k8s`; `boot-scheduler-db` (`-otel`)
+
+| Telemetry
+| Telemetry (OpenTelemetry); Exporters and integrations
+| `boot-telemetry-otel`; `-prometheus`, `-signoz`, `-gcp`, `-micrometer-bridge`
+|===
+
+Health is under Web / HTTP while its checks are served only over HTTP.
+A function's role page that gains a second implementation becomes a page to choose between them, with a sub-page for each.
+`boot` and `boot-common` are the core, which Get started covers rather than a function page.
+
+The left sidebar groups these with a small icon per group, as Amplitude's does, and collapses the groups the reader isn't in.
+
+== The function page template
+
+Every function page has the same sections, in the same order, so a reader who has seen one knows where to look on the next.
+
+. *Summary.*
+What it does, in two or three sentences, and where it sits in the lifecycle (its phase, and the milestones it waits on or reaches).
+. *Modules.*
+A table of the modules that make up the function, in groups by role (driver, pool, engine, …), each a decision: choose one, or optional, both dependencies the application adds, then, last, the modules that come with another, which it doesn't.
+A module whose `-otel` variant replaces it is one row, marked `(-otel)`; one added alongside a module that comes with another is a row of its own, in an optional group.
+The table comes from `docs/modules.yml` (see <<module-catalogue>>), so it doesn't go stale.
+. *Install.*
+The coordinates, in DI tabs: the Kodein tab shows `boot-db-jdbc-kodein`, the Metro tab `boot-db-jdbc-metro` plus the Metro Gradle plugin, the Vanilla tab the plain coordinate.
+A page writes `install::[<module>, ...]` and the build writes the tabs, each module in the flavour it ships.
+Where telemetry changes the install, each tab has both versions, and a *Telemetry* switch in the tab bar picks one, for every install on the site, remembered as the wiring style is: the `-otel` variants swapped in, the `-otel` add-ons of the modules in the install added, and the SDK.
+. *Configure.*
+The HOCON config, annotated with callouts, and the typed config classes.
+The config on a page is indicative, not exhaustive: it shows what most readers set, and anything non-obvious, each line with a callout that says why you'd set it.
+A sentence after it names the other settings and links to the full list: the config class's API reference for now, and the generated configuration reference once there is one (see <<module-catalogue>>).
+. *Wire.*
+The DI tabs: the same setup written each way.
+. *Options.*
+One sub-section per option, each with its own install and wire tabs: "Add tracing" (the `-otel` module), "Use PostgreSQL instead of SQLite", "Push metrics instead of pull", and so on.
+. *Example.*
+The runnable example that uses the function, with the command to run it.
+. *Reference.*
+Links to the Dokka pages for the function's main types, and to the configuration reference.
+
+Large functions (Database, Telemetry) get an overview page in this shape plus a sub-page per role (drivers, pool, migrations, ORM; exporters, push and pull).
+
+== DI tabs
+
+We use the https://github.com/asciidoctor/asciidoctor-tabs[Asciidoctor Tabs] extension, which Antora supports, with every DI tab set in one sync group:
+
+[source,asciidoc]
+....
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+[source,kotlin]
+----
+include::example$database/vanilla/App.kt[tag=wire]
+----
+
+Kodein::
++
+[source,kotlin]
+----
+include::example$database/kodein/App.kt[tag=wire]
+----
+
+Metro::
++
+[source,kotlin]
+----
+include::example$database/metro/App.kt[tag=wire]
+----
+======
+....
+
+* Choosing a tab switches every DI tab set on the page.
+* The tabs extension's own script stores the choice in `localStorage` (under `bootable-tabs-di`, from the `data-sync-storage-key` on its script tag) and applies it on every page, so a Metro user sees Metro everywhere; the quickstart's card chooser sets the same value.
+* A small "Wiring: Metro ▾" switch in the top bar shows and changes the current choice.
+* Adding Inara is one more tab per tab set, and one more snippet source set (below); nothing in the UI changes.
+
+To keep the tab blocks short, a small Asciidoctor extension, or an Antora partial with attributes, can expand a one-line `di-tabs::database/App.kt[tag=wire]` into the full block.
+That is worth doing once the pattern has settled on a few pages, not before.
+
+== Snippets that compile
+
+A snippet in the docs should be code that the build compiles, so it can't silently fall out of date.
+
+* The snippets live in Gradle projects under `docs/snippets`: `common` for what every style shares (tables, repositories, config, migrations), and one project per DI style (`vanilla`, `kodein`, `metro`, later `inara`), each depending on the matching flavour, with one package per function.
+They are projects rather than source sets of one project because Metro is a compiler plugin, applied to a whole project.
+* Each snippet file marks the regions the docs show with `// tag::wire[]` and `// end::wire[]`.
+* CI compiles them with the rest of the build, so a breaking API change breaks the snippet in the same PR.
+Metro checks its graph as it compiles; Kodein resolves its graph at runtime, so the Kodein project has a test that resolves each snippet's graph.
+* Where an existing example already shows the thing, such as `examples/server-ktor-db/{vanilla,kodein,metro}`, the docs include from the example instead, with tags added there.
+
+Antora only reads files inside a content source's start path, and the snippets live outside it.
+The https://gitlab.com/antora/antora-collector-extension[Antora Collector extension] solves this: `docs/antora.yml` has it scan the snippet projects' source directories into the component's `examples` family, with no Gradle run, since compiling them is CI's job.
+Pages include them as `include::ROOT:example$<style>/<function>/<file>[tag=...]`.
+
+[[module-catalogue]]
+== Generated module catalogue
+
+The modules table on each function page, the install tabs, and the catalogue of every module come from one hand-written file, `docs/modules.yml`, rather than being written into each page.
+
+* `docs/modules.yml` lists each function's modules in groups, each group a decision with its choice (choose one, optional, or comes with another group's module), the groups that come with another last, and each module with a one-line summary, its page, and its `-otel` variant, if it replaces it.
+An `-otel` variant added alongside a module that comes with another, such as `boot-db-jdbc-otel`, is a module in an optional group of its own.
+* An Antora extension, `docs/site/extensions/modules.js`, expands three lines in a page's source before it is converted: `modules::<function>[]`, the function's table; `modules::all[]`, the catalogue; and `install::[<module>, ...]`, the install tabs.
+* A module's DI flavours aren't listed: the build gives a module its `-kodein` and `-metro` flavours when it has `src/kodein` or `src/metro` sources, and the extension checks for those the same way.
+* The build warns when `settings.gradle.kts` includes a module that `docs/modules.yml` doesn't list, or the other way round, or a page installs a module it doesn't know, so a new module can't be left out of the docs.
+The summaries' `kdoc:` links are checked like any page's.
+
+A later step could generate the configuration reference the same way, from the config data classes and their KDoc, but that needs more design and isn't in the first phases.
+It is the exhaustive list of settings that the pages' indicative config links to.
+
+== Look and feel
+
+Antora's default UI is functional but dated.
+Its compiled stylesheet has no variables to override, so the theme replaces it outright rather than restyling on top of it: `docs/site/supplemental-ui/` holds our own `bootable.css`, built on design tokens with a dark set, and overrides the partials that need new markup (the header, the sidebar's panels, the table of contents' title, the page lead, the footer).
+The default UI's HTML and its `site.js`, which runs the nav tree, the table of contents, and the copy button, stay as they are.
+If the theme outgrows that, the next step is a fork of https://gitlab.com/antora/antora-ui-default[antora-ui-default], starting from these files.
+
+The parts of the Amplitude style to take:
+
+* *Top bar*: logo, section tabs (Get started, Wiring, Functions, Deploy, Reference) with the current one as a pill, the DI switch, search with a `⌘K` hint, a GitHub link, and a theme toggle.
+* *Left sidebar*: groups with an icon and a bold header, collapsible children, the current page highlighted with a soft background.
+* *Content*: a wide reading column, generous spacing, a breadcrumb above the title, large headings in a modern sans (e.g. Inter), and a right-hand "On this page" list that tracks the scroll position.
+* *Cards*: a grid of bordered cards with a title and one line of text, used for choosers ("How do you want to wire it?") and for the function index.
+  This needs a small block role, e.g. `[.cards]` on a list, styled by the UI.
+* *Code blocks*: a header with the language or file name and a copy button; tabs above them as compact pills.
+* *Admonitions*: soft coloured callouts instead of the default icons and borders.
+* *Dark mode*, following the system setting, with a toggle.
+* *Full-width toggle* for wide tables, such as the module catalogue.
+
+Search: the docs pages use the https://gitlab.com/antora/antora-lunr-extension[Antora Lunr extension], which builds an index with the site and searches it in the browser.
+The field is in the header, focused by `/` or `Ctrl+K`, and its results drop down below it, styled by the site's own `css/search.css` in place of the extension's.
+The same search covers the API: below the docs' results, an *API reference* group lists the matching types and functions, from Dokka's own search index, `api/scripts/pages.json`, which the page loads the first time the field is used.
+The API's results match on names, qualified names and signatures, not on KDoc text, as Dokka's own search does; types rank ahead of members.
+The API pages use this search too, in place of Dokka's, whose script they no longer load.
+If the KDoc text needs to be searchable, https://pagefind.app[Pagefind], which indexes the whole built site, is the option to look at.
+
+== Repository layout
+
+[source]
+----
+docs/
+  antora.yml                 # the Antora component, and the Collector's scans
+  modules/                   # its Antora modules: ROOT, database, …
+  site/
+    antora-playbook.yml      # the site build
+    package.json             # Antora and its extensions, pinned
+    supplemental-ui/         # for now; the forked UI bundle, ui/, replaces it
+  snippets/
+    common/                  # what every style shares
+    vanilla/ kodein/ metro/  # one Gradle project per DI style
+----
+
+The contributor docs already in `docs/`, such as `releasing.adoc`, stay where they are: Antora reads only `antora.yml` and `modules/` under the start path.
+
+Node comes from `mise.toml`, as the rest of the toolchain does, so `npx antora docs/site/antora-playbook.yml` works from a fresh checkout.
+A Gradle task, `docsSite`, wraps it, so contributors don't need to know Antora is underneath.
+
+== Build and hosting
+
+* A GitHub Actions workflow runs `./gradlew :dokkaGeneratePublicationHtml`, builds the site, and publishes it to GitHub Pages, at its default address, `rocketraman.github.io/bootable`, on every push to `master`.
+* PRs build the site as a check, and upload it as an artifact to look at.
+* A custom domain may come later.
+
+== API reference
+
+The API reference is Dokka's aggregated HTML, from `./gradlew :dokkaGeneratePublicationHtml`, published with the site under `/api/` by an Antora extension, `docs/site/extensions/dokka.js`.
+Pages link to it with an inline macro, `docs/site/extensions/kdoc-macro.js`:
+
+[source,asciidoc]
+----
+kdoc:boot-db-jdbc:com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService[]
+----
+
+It renders the type's simple name as code, linked relative to the page, so the link works at any address.
+The build warns when the Dokka page doesn't exist, so a renamed or moved type shows up as a build warning rather than a dead link.
+
+The API pages are part of the site rather than a separate one.
+The extension swaps Dokka's header for the site's, taken from the rendered home page, with API reference as the current section, and moves Dokka's mobile contents toggle into it.
+The site's search, docs and API, replaces Dokka's: the extension adds the home page's search scripts to each API page, and leaves out Dokka's `main.js`, which is only its search.
+It loads the site's tokens and header styles over Dokka's, and `css/api.css` maps Dokka's variables onto the site's tokens and restyles the rest: the package tree, the signatures, the member tables, the tabs.
+The theme is the site's one choice: the API pages read `bootable-theme` and set both the site's `data-theme` and Dokka's `theme-dark` class.
+Dokka's own layout stays: its package tree in place of the site's sidebar, and its page structure.
+The overrides rely on Dokka's markup and class names, which aren't a stable API, so a Dokka upgrade needs a look at the API pages.
+
+[[versioning]]
+== Versioning
+
+Antora builds every version from git, in one build:
+
+* `next` is the checkout being built: `master` on CI, or the working tree locally, uncommitted changes included.
+It is a prerelease, so it is never the default while there is a release.
+* Each minor release is a version, such as `3.1`, built from the newest patch tag of that minor release, such as `v3.1.2`.
+Only tags whose tree has `docs/antora.yml` count, so versioning starts with the first release that has the site.
+
+`docs/site/extensions/versions.js` chooses the tags, marks `next` a prerelease, and sets each version's `bootable-version` attribute, which the install snippets show: the tag's release, and for `next` the newest release, the one a reader can install.
+The playbook's content sources set the versions, not `docs/antora.yml`, which is the same file at every tag.
+
+A release needs nothing beyond its tag: the next site build has the version.
+A fix to an older version's docs goes on a branch from its tag, tagged as its next patch release.
+
+Each version is published under its own path, such as `/bootable/3.1/`, and the site's root goes to the newest release.
+The header has a version switcher, which goes to the same page in the chosen version, or that version's start page where the page isn't in it; the header's links stay in the version.
+Search indexes the newest release only, so a page's older versions don't crowd the results.
+
+Each version has its own API reference, under its path, such as `/bootable/3.1/api/`, and its `kdoc:` links point into it.
+`next`'s is built from the checkout; a release's is built at its tag by `docs/site/api-versions.sh`, into `docs/site/build/api-versions/<version>`, which CI caches, since a tag doesn't change.
+A version without one keeps its pages, and the build warns.
+
+== The README afterwards
+
+The README keeps the badges, the one-paragraph pitch, why not Spring Boot, a short quickstart in one wiring style, and links to the site's sections.
+Everything else moves to the site, and `docs/wiring.adoc` and `docs/service-ordering.adoc` become site pages.
+`docs/releasing.adoc` and the evaluations stay where they are, as contributor docs, outside the site.
+
+== Phases
+
+. *Spike.*
+Antora with the default UI, the Tabs and Collector extensions, the `docs:snippets` project, and one function, Database, written to the template end to end.
+This proves the snippet pipeline and the template before anything is migrated.
+. *UI.*
+The forked UI bundle, restyled: top bar, sidebar, cards, code blocks, tabs, dark mode, and the remembered DI choice.
+. *Content.*
+The rest of the functions, the wiring and deploy sections, and the slimmed README.
+Each function is its own PR, so they can be reviewed one at a time.
+. *Generation and publishing.*
+The generated module catalogue, search, Dokka under each version's `api/`, versions, and the GitHub Pages workflow, which runs `docs/site/api-versions.sh` before the site build.
+. *Later.*
+The Inara tab, and a generated configuration reference.
+
+== Decisions
+
+* Hosting: GitHub Pages' default address for now; a custom domain may come later.
+* Install tabs: Gradle (Kotlin DSL) only.
+* Snippets: a dedicated set of snippet projects, `docs/snippets`, rather than tagged regions in the examples.
+* Module metadata: `docs/modules.yml`, read by an Antora extension (see <<module-catalogue>>).
+
+== Spike results
+
+The spike built Antora 3.2.2 with the default UI, the Tabs and Collector extensions, the snippet projects, and the Database function written to the template: `database/index.adoc`, with an Exposed sub-page.
+
+* Every snippet on the Database pages is included from a compiled snippet project; the build reports no unresolved includes.
+* Choosing a DI tab switches every DI tab set on the page, and the choice survives a reload.
+* Antora reads this checkout, a git worktree, uncommitted changes included, with `url: ./../..` and `branches: HEAD`.
+* The install snippets are written in the page, with the coordinates from `antora.yml` attributes, since the snippet projects depend on the modules as projects rather than by coordinate.
+* The theme, in `docs/site/supplemental-ui/`, replaces the default UI's look: a header with section tabs, the wiring switch, a dark mode toggle, and GitHub; a sidebar of groups with icons; an "On this page" table of contents; segmented tabs; code blocks with a language and copy header; cards; and phone layouts.
+The wiring switch, the DI tabs, and the home page's wiring cards share one choice.
+* Each Reference section links to the Dokka pages through `kdoc:`.
+
+Build it with:
+
+[source,shell]
+----
+./gradlew :dokkaGeneratePublicationHtml
+cd docs/site && npm ci && npx antora antora-playbook.yml
+----

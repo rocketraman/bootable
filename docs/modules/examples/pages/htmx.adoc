@@ -1,0 +1,52 @@
+= Web app with htmx
+:description: A todo list rendered on the server with kotlinx.html, and made interactive with htmx, by a Ktor server run by Bootable.
+
+`htmx` is the same todo list as xref:compose-html.adoc[Compose HTML] and xref:kilua.adoc[Kilua], rendered on the server with https://github.com/kotlin/kotlinx.html[kotlinx.html], and made interactive with https://htmx.org/[htmx].
+
+`GET /` returns the whole page, already rendered, so the browser shows the todos before any script runs.
+The page's elements carry htmx attributes, such as `hx-post`, `hx-patch`, and `hx-delete`, which htmx turns into requests; the server answers each with a fragment of HTML, which htmx swaps into the page.
+The page and the fragments are rendered by the same functions, in `Views.kt`, so the first render and later updates can't disagree.
+
+The server serves htmx's script itself, at `/assets/htmx.min.js`, taken from htmx's webjar by the build, so the application needs no CDN.
+Todos are kept in memory; xref:server-ktor-db.adoc[] stores data in a database.
+
+== What it uses
+
+* `boot-server-http-ktor-netty`, for `TodoServer`, a `NettyKtorService`; see xref:http:server.adoc[].
+* `boot-config-hoplite`, for the `server` config section; see xref:configuration:index.adoc[].
+* `boot-logging-log4j2`, for the log; see xref:logging:index.adoc[].
+* Ktor's `ktor-server-htmx` and `ktor-htmx-html`, for the `hx { }` route scope and typed `hx-*` attributes.
+
+The server is the only service, wired with plain Kotlin, as in xref:compose-html.adoc[Compose HTML].
+
+== Run it
+
+From the repository root:
+
+[source,shell]
+----
+./gradlew :examples:htmx:run
+----
+
+Then open http://localhost:8003.
+
+The routes the page calls, each answering with a fragment:
+
+`POST /todos`:: Adds a todo, returning its item, or, for a title that isn't valid, a 422 with the form and the reason.
+`+PATCH /todos/{id}+`:: Marks a todo done or not, returning its item, or 404.
+`+DELETE /todos/{id}+`:: Removes a todo, or 404.
+
+Parts of the page that a change affects elsewhere, such as the count of todos done, come in the same response, marked `hx-swap-oob`, and htmx swaps them in by id.
+
+== Tests
+
+[source,shell]
+----
+./gradlew :examples:htmx:test
+----
+
+The tests make requests as htmx does, in Ktor's test host, and check the full page, the fragments, the refusals, and that htmx's script is served.
+
+== Source
+
+https://github.com/rocketraman/bootable/tree/master/examples/htmx[`examples/htmx`]; its README compares it with compose-html.

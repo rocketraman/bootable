@@ -1,0 +1,251 @@
+= Server (Ktor)
+:description: A Ktor server that starts and stops with the application, on the engine of your choice, traced and measured.
+
+`boot-server-http-ktor` runs a Ktor server as one of the application's services: `KtorService` starts the server when the application starts, and stops it when it stops.
+It configures Ktor only as far as the server's address and its shutdown; the plugins and routes are the application's own.
+
+A `KtorService` is in the `Serving` phase, so it starts once the services it uses have started, and stops first, so requests in flight can finish.
+It runs in the scope its `start(scope)` gets, and keeps it as `scope`, so a route that finds the server can't go on fails it, with `scope.launch { throw e }`, which xref:concepts:lifecycle.adoc#failure[stops the application], with exit code 1.
+
+== Install
+
+Add an engine's module, which brings `boot-server-http-ktor` and the engine with it, here CIO.
+With a DI, add `boot-server-http-ktor` too, for its flavour, which provides `KtorHealth`, and the engine module's flavour, which provides the engine of the <<listener-engine,listeners of their own>>.
+
+install::[boot-server-http-ktor, boot-server-http-ktor-cio]
+
+== The server
+
+A server is a class that extends the engine module's service class, and writes its Ktor module:
+
+[source,kotlin]
+----
+include::ROOT:example$vanilla/http/Server.kt[tag=server,indent=0]
+----
+
+`installHealth` serves the application's xref:health.adoc[liveness and readiness probes], and its xref:health.adoc#build-info[build info]; a server without them leaves it out.
+
+The server takes its address as a `HostPort`, which is any config class with a `hostPort`, such as `":8080"` or `"127.0.0.1:8080"`:
+
+[source,kotlin]
+----
+include::ROOT:example$vanilla/http/Server.kt[tag=config,indent=0]
+----
+
+[source,hocon]
+----
+server {
+  hostPort = ":8080"  # <1>
+}
+----
+<1> A host, if any, and a port, which defaults to 8080; with no host, the server listens on every interface, `0.0.0.0`.
+
+The section's name is the application's choice: it decodes the config class itself.
+
+[#engines]
+== Engines
+
+`boot-server-http-ktor` depends on no engine.
+Choose one, by its module and the service class you extend:
+
+[cols="2,2,3",options="header"]
+|===
+| Module | Extend | Engine
+
+| `boot-server-http-ktor-cio` | `CioKtorService` | Ktor's CIO: pure Kotlin, on coroutines, with no native transport, and the engine to use for a GraalVM native image.
+| `boot-server-http-ktor-netty` | `NettyKtorService` | Netty.
+|===
+
+Any other engine, such as Jetty, works too: depend on `boot-server-http-ktor` and the engine, and extend `KtorService` with the engine's factory, as `KtorService<MyEngine, MyEngine.Configuration>("my-server", config, MyEngine)`.
+
+[#listener-engine]
+=== The engine of the listeners
+
+The listeners that modules start on their own, those of the xref:health.adoc#listener[health probes] and the <<scrape,metrics scrape>> when their `hostPort` is set, run on the application's `KtorServerEngine`.
+Each engine module's flavour provides one, for its engine:
+
+* With Kodein, import `ktorServerCioEngineModule`, from `boot-server-http-ktor-cio-kodein`, or `ktorServerNettyEngineModule`, from `boot-server-http-ktor-netty-kodein`.
+* With Metro, `boot-server-http-ktor-cio-metro` or `boot-server-http-ktor-netty-metro` contributes it.
+* With Inara, compose `ktorServerCioEngineModule()`, from `boot-server-http-ktor-cio-inara`, or `ktorServerNettyEngineModule()`, from `boot-server-http-ktor-netty-inara`, as the `KtorServerEngineModule`, which the Inara health and telemetry modules require, or `NoKtorServerEngineModule` for none.
+
+Use one engine module's flavour: two would be two bindings of `KtorServerEngine`.
+For any other engine, bind your own, such as `KtorServerEngine(Jetty)`.
+An application that serves its probes and scrape on its own server needs no `KtorServerEngine`; one with a `hostPort` set, and no engine, fails to start, and says so.
+With vanilla wiring, there is no `KtorServerEngine`: give the engine to each `listener` itself.
+
+=== Engine options
+
+Every engine is configured the same way: one connector, at the service's `HostPort`, a shutdown grace period of 50 ms, and a shutdown timeout of 1 s.
+To change those, add connectors, or set the engine's own options, override `configureEngine`, whose receiver is the engine's own configuration type.
+It runs after the defaults are set, so what it sets wins:
+
+[source,kotlin]
+----
+include::ROOT:example$vanilla/http/Server.kt[tag=netty,indent=0]
+----
+
+== Wire
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+Construct the server, with the `KtorHealth` it serves, and pass it to `Bootable`, with its `HealthLifecycleController` in place of the default one:
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/http/Server.kt[tag=wire,indent=0]
+----
+
+Kodein::
++
+Import `ktorHealthModule`, and `ktorServerCioEngineModule` for the engine, bind the server's config, and add the server to the app services:
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/http/Wiring.kt[tag=wire,indent=0]
+----
+
+Metro::
++
+`boot-server-http-ktor-metro` contributes `KtorHealth`, and `boot-server-http-ktor-cio-metro` the engine; contribute the server's config, and the server into the app services:
++
+[source,kotlin]
+----
+include::ROOT:example$metro/http/Server.kt[tag=wire,indent=0]
+----
++
+The graph is Bootable's, with the application's scope:
++
+[source,kotlin]
+----
+include::ROOT:example$metro/http/Wiring.kt[tag=graph,indent=0]
+----
+
+Inara::
++
+Compose `ktorHealthModule()`, and `ktorServerCioEngineModule()` as the `KtorServerEngineModule` it requires, and give your server's module the config and the server, marked `@AppServices`:
++
+[source,kotlin]
+----
+include::ROOT:example$inara/http/Wiring.kt[tag=wire,indent=0]
+----
+======
+
+The probes can have xref:health.adoc#listener[a listener of their own], on a port of their own, which does nothing unless `health.ktor.hostPort` is set.
+With vanilla wiring, it is the `listener` among the services; with a DI, the health module adds it.
+
+[#telemetry]
+== Telemetry
+
+`boot-server-http-ktor-otel` adds `KtorTelemetry`, which installs OpenTelemetry's Ktor server instrumentation in the server.
+It traces every request, continuing the caller's trace when the request carries one, and records the standard HTTP server metrics, such as `http.server.request.duration`.
+For a pulled metrics backend, such as Prometheus, it also serves the scrape.
+It reports through the application's OpenTelemetry SDK, from xref:telemetry:index.adoc[`boot-telemetry-otel`], which it brings in.
+
+install::[boot-server-http-ktor, boot-server-http-ktor-cio, boot-server-http-ktor-otel, boot-telemetry-otel-prometheus]
+
+Install it in the server's module with `installTelemetry`, before the routes:
+
+[source,kotlin]
+----
+include::ROOT:example$vanilla/http/Server.kt[tag=traced-server,indent=0]
+----
+
+The request's span is current while its route runs, so a span started there, such as with `Tracer.withSpan`, is its child, and log events carry its trace id.
+So is a call made there through a xref:client.adoc#telemetry[traced client], which carries the trace on to the server it calls.
+
+=== Settings
+
+`KtorTelemetryConfig` reads `telemetry.ktor`; every setting is optional:
+
+[source,hocon]
+----
+telemetry.ktor {
+  hostPort = ":9090"                       # <1>
+  capturedRequestHeaders = [X-Request-Id]  # <2>
+}
+----
+<1> Keeps the metrics scrape off a public server, on a listener of its own that only the scraper reaches; see <<scrape>>.
+Unset, the scrape is served on the application's server.
+<2> Records these request headers on each request's span, as `http.request.header.<name>`, so a trace can be found by a value the caller sent.
+
+The others are `path`, the scrape's path, `/metrics` by default, and `capturedResponseHeaders`, recorded as `http.response.header.<name>`: see kdoc:boot-server-http-ktor-otel:com.github.rocketraman.bootable.server.http.ktor.KtorTelemetryConfig[all the settings].
+
+For an instrumentation setting the config doesn't cover, such as a span's name or extra attributes, add a `KtorServerTelemetryCustomizer` to its set binding (Kodein `inBindSet`, Metro `@IntoSet`), or, with vanilla wiring, pass one to `KtorTelemetry`.
+
+[#scrape]
+=== The metrics scrape
+
+With a pulled backend, such as `boot-telemetry-otel-prometheus`, `installTelemetry` serves its scrape at `/metrics` on the application's server, in the format the request's `Accept` header prefers.
+With no pulled backend, there is no scrape route.
+
+A public server would serve the metrics to anyone, so to keep them off it, set `telemetry.ktor.hostPort`.
+The scrape is then served on a listener of its own, a `MetricsKtorService`, on a port that only the scraper reaches.
+With Kodein, `ktorTelemetryModule` adds it to the application's services, with Metro, `boot-server-http-ktor-otel-metro` does, and with Inara, `ktorTelemetryModule()` does, on the <<listener-engine,application's engine>>.
+With vanilla wiring, add `KtorTelemetry.listener(engine)` to the application's services yourself, such as `telemetry.listener(CIO)`.
+Without `hostPort`, the listener is a service that does nothing, and needs no engine, so it can be added either way.
+Like any `KtorService`, the listener is in the `Serving` phase, so a scrape in flight at shutdown is still answered; it isn't traced.
+
+=== Traces without the probes and scrapes
+
+The platform's probes, and Prometheus's scrapes, would fill the traces with requests nobody wants to see.
+The DI flavours keep both out of the traces: the scrape at `telemetry.ktor.path`, and the probes at the paths of `health.ktor`, when they are served on the application's server.
+With vanilla wiring, add `excludeScrapeFromTraces()` and `excludeHealthFromTraces()` to ``OpenTelemetryService``'s customizers, as below.
+
+=== Wire it
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+Build `OpenTelemetryService` with the customizers that keep the scrapes and the probes out of the traces, hand its `openTelemetry` to `KtorTelemetry`, and add the scrape's listener:
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/http/Telemetry.kt[tag=server,indent=0]
+----
+
+Kodein::
++
+Import `ktorTelemetryModule` after `openTelemetryModule`, and an engine module's flavour for the scrape's listener:
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/http/Telemetry.kt[tag=server,indent=0]
+----
+
+Metro::
++
+`boot-server-http-ktor-otel-metro` contributes `KtorTelemetry`, and keeps the scrapes and the probes out of the traces; give it to the server; it adds the scrape's listener too:
++
+[source,kotlin]
+----
+include::ROOT:example$metro/http/Telemetry.kt[tag=server,indent=0]
+----
+
+Inara::
++
+Compose `ktorTelemetryModule()`, which requires `openTelemetryModule()`, and an engine module, which it and `ktorHealthModule()` require, for the listeners:
++
+[source,kotlin]
+----
+include::ROOT:example$inara/http/Telemetry.kt[tag=server,indent=0]
+----
+======
+
+== Example
+
+`examples/server-ktor-db` is a server on CIO, traced and measured, which serves its probes and the scrape, in each of the four wiring styles; see xref:index.adoc[].
+`examples/server-ktor` is a server on Netty, wired by hand.
+
+== Reference
+
+* kdoc:boot-server-http-ktor:com.github.rocketraman.bootable.server.http.ktor.KtorService[]: the server's base class
+* kdoc:boot-server-http-ktor-cio:com.github.rocketraman.bootable.server.http.ktor.CioKtorService[]: on CIO
+* kdoc:boot-server-http-ktor-netty:com.github.rocketraman.bootable.server.http.ktor.NettyKtorService[]: on Netty
+* kdoc:boot-server-http-ktor:com.github.rocketraman.bootable.server.http.ktor.KtorServerEngine[]: the engine of the listeners of their own
+* kdoc:boot-server-http-ktor-otel:com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry[]: the telemetry
+* kdoc:boot-server-http-ktor-otel:com.github.rocketraman.bootable.server.http.ktor.KtorTelemetryConfig[]: its settings
+* kdoc:boot-server-http-ktor-otel:com.github.rocketraman.bootable.server.http.ktor.MetricsKtorService[]: the scrape's own listener
+* kdoc:boot-server-http-ktor-otel:com.github.rocketraman.bootable.server.http.ktor.KtorServerTelemetryCustomizer[]: for the other settings

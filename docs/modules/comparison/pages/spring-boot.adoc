@@ -1,0 +1,176 @@
+= Bootable and Spring Boot
+:description: Why you might use Bootable rather than Spring Boot, when Spring Boot is the better choice, and how Spring Boot's concepts map onto Bootable's.
+
+Spring Boot is the best-known way to boot and run a server-side application on the JVM, so the first question about Bootable is usually: why not Spring Boot?
+At root, both start an application, configure it, run it, and stop it cleanly.
+They differ in how much magic and runtime discovery they use, how complex they are, and in how much of the system is explicit vs hidden behind abstractions.
+
+[#history]
+== Then and now
+
+Spring began, in 2003, as the lightweight alternative to the application servers of the day: Enterprise JavaBeans, vendor-specific deployment, and the ceremony that came with them.
+Dan Tanner's article, https://dantanner.com/post/spring-rites/[Spring Rites], lists some of the real problems it solved then, such as configuring an application, avoiding lock-in to an application server vendor, and unit testing.
+As he argues, those problems are either irrelevant today, or made worse by Spring Boot.
+In many ways, Spring has become the heavyweight it once displaced.
+
+Spring is an annotation-based framework that hides vast swathes of functionality behind those easy annotations.
+As Tanner argues, these make code harder to reason about and harder to test, maintain, and extend than their plain Kotlin counterparts.
+
+[#approach]
+== Explicit, not discovered
+
+Spring Boot discovers the application at runtime.
+It scans the classpath for annotated components, and its auto-configuration adds beans for whatever libraries it finds there, unless a condition says otherwise.
+Annotations then change what the code does: `@Transactional` makes a method transactional through a proxy, and `@Scheduled` runs it on a timer.
+This is easy to start with, but not simple: what runs, and why, is decided by rules outside your code, and a mistake can do nothing at all, silently, such as `@Transactional` on a `private` method, which the proxy never sees.
+
+Even deciding what a "bean" is and "configuration" is difficult to understand.
+`@Component`, `@Service`, and `@RestController` make a class a bean, but only if a `@ComponentScan` finds it.
+`@Configuration` classes declare beans with `@Bean` methods, but the same method on a plain `@Component` is something different.
+`@AutoConfiguration` classes add beans for you, but complicates this with all sorts of conditions: `@ConditionalOnClass`, `@ConditionalOnMissingBean`, and so on.
+Just importing a dependency changes your application in ways that it is impossible to understand.
+Easy, but definitely not simple.
+`@Profile`, `@Primary`, `@Qualifier`, and `@Lazy` change which of multiple beans is chosen, and when it is created.
+`@ConfigurationProperties` binds config, but only once something enables it, and `@ConstructorBinding` decides whether it binds through the constructor or through setters, a rule that changed between Spring Boot 2 and 3.
+`@Configurable` even injects into objects created with `new`, through AspectJ weaving.
+Which beans exist, and which one is injected where, is the sum of all of these, at runtime, and often visible only in the conditions report, or the debugger.
+
+Bootable runs what your `main` gives it.
+There is no scanning, no auto-configuration, and no annotation that changes behaviour; a module does nothing until you wire it.
+The application is two sets, its services and its lifecycle controllers, which you build by hand, or with a DI container such as Kodein, Metro, or Inara.
+With Metro, the graph is checked at compile time, so a missing binding is a build error rather than a failed start.
+See xref:concepts:philosophy.adoc[].
+
+[#libraries]
+== The libraries, used directly
+
+Spring Boot tends to put its own abstractions in front of the libraries it uses: Spring Data in front of the database, Spring MVC or WebFlux in front of the server, Spring Messaging in front of Kafka, and its own configuration model in front of each library's.
+You then need to understand both the library *and* Spring's abstraction of it, and many of the underlying library's capabilities are hard or impossible to reach through that abstraction.
+
+Bootable integrates libraries chosen for server-side Kotlin, and exposes them rather than wrapping them: Ktor for HTTP, Exposed, HikariCP, and Flyway for databases, Hoplite for configuration, db-scheduler for persistent tasks, and the OpenTelemetry SDK for telemetry.
+An optional module sets up the common case and exposes the library's own types.
+Where a module doesn't fit, leave it out, and integrate the library, or another one, yourself.
+
+[#lifecycle]
+== A lifecycle you can read
+
+Startup ordering not expressed inherently via dependencies are managed via `SmartLifecycle` beans and phase numbers,
+ `@DependsOn`, or an `@Order` value relative to everyone else's.
+Spring introduced order coupling in annotations, in order to avoid it in code.
+But annotations are code, and the coupling introduced is real.
+
+Bootable xref:concepts:start-order.adoc[starts services] in named phases and milestones so there is no coupling via global ordering.
+A test can check the plan, under many orders of the services left unordered, without starting anything.
+See xref:concepts:lifecycle.adoc[] and xref:concepts:start-order.adoc[].
+
+[#testing]
+== Testing without booting
+
+Spring Boot's `@SpringBootTest` starts the application context in a test, and slices such as `@WebMvcTest` start part of it.
+These offer easy shortcuts, but a suite written that way tends to become full of mocks, slow to run, and brittle as the application evolves.
+Programmers used to these shortcuts cease to think about class abstractions, and start to assume the dependencies available in production are the same dependencies available in test -- bringing back the very problems that early DI frameworks like Spring were trying to solve!
+
+Bootable deliberately has no built-in way to boot the application in a test.
+It is easy enough to do yourself if you really need it, but treat it as a code smell, except for very specialized use cases.
+Instead, follow classic coding rules: think about class dependencies and abstractions, architect code to make it unit testable, and construct a class with fakes for what it uses, and check the wiring and the start plan without starting anything.
+See xref:testing:index.adoc[].
+
+[#footprint]
+== Startup and footprint
+
+With no scanning, no reflection-driven configuration, and no proxies, a Bootable application adds almost no overhead to startup or the runtime.
+
+Each of Spring's layers is in the call stack too: its proxies, interceptors, filter chains, and dispatchers, for transactions, security, and the rest of what its annotations auto-magically add.
+A stack trace from a Spring Boot application is often mostly Spring's frames, before it reaches the application's own classes, which adds overhead, makes it harder to understand runtime behavior, and makes debugging more complex.
+
+Bootable adds no proxies and no interceptors, and isn't in the path of a request at all.
+
+[#spring-boot]
+== When Spring Boot is the better choice
+
+The usual reasons to choose Spring Boot mostly come down to familiarity, and familiarity has costs of its own.
+
+"Its ecosystem integrates everything: Spring Security, Spring Data, Spring Integration, Spring Cloud."::
+The libraries underneath already offer abstractions, designed by the people who know them best.
+The Spring layer on top costs you in cognitive load and in the capabilities available to you, and adds runtime overhead.
+The old case for that layer was swapping one technology for another.
+An application that keeps each library behind a port of its own, isolated and tested, can swap it without a framework's help, and, with an AI's help, in a fraction of the time it once took.
+
+"Our team already knows Spring."::
+That is a real cost of switching, and worth weighing.
+But much of knowing Spring well is knowing its rules and workarounds, while knowing the language and the libraries directly is more useful fundamental knowledge.
+
+"Spring has a large community, extensive documentation, and commercial support."::
+Spring's community is well earned: it pioneered ideas, such as dependency injection, that every framework now takes for granted.
+But its documentation is extensive because Spring is large and complex.
+Bootable is small enough to read in an afternoon, or for an AI to hold in a single conversation and answer from, and a framework you can understand is one you need little support for.
+
+"Our application is in Java, and will stay that way."::
+Then Spring Boot, or another Java framework, is the better choice: Bootable, and Ktor and Exposed beneath it, are written for Kotlin.
+
+[#mapping]
+== From Spring Boot to Bootable
+
+For a reader who knows Spring Boot, the nearest equivalent of each of its concepts:
+
+[cols="2,3",options="header"]
+|===
+| Spring Boot | Bootable
+
+| `SpringApplication.run`, from `main`
+| `boot { }`, whose block returns the `Bootable` to run; see xref:concepts:lifecycle.adoc#boot[the application].
+
+| Component scanning, `@Component`, and `@Bean`
+| No scanning: construct the services, or bind them in Kodein, Metro, or Inara; see xref:ROOT:wiring.adoc[].
+
+| Auto-configuration and starters
+| A module per integration, each wired explicitly; see xref:ROOT:modules.adoc[].
+
+| `SmartLifecycle` and `ApplicationRunner`
+| `AppService`, whose `start` and `shutdown` Bootable calls; see xref:concepts:lifecycle.adoc#services[services].
+
+| `SmartLifecycle` phases and `@DependsOn`
+| xref:concepts:start-order.adoc#phases[Phases] and xref:concepts:start-order.adoc#milestones[milestones].
+
+| `application.yml` and `@ConfigurationProperties`
+| HOCON, decoded by Hoplite into typed config classes; see xref:configuration:index.adoc[].
+
+| Profiles, such as `application-prod.yml`
+| The deployment environment, from config, and no implicit per-environment files; see xref:environment:index.adoc[].
+
+| Logback
+| Log4j2; see xref:logging:index.adoc[].
+
+| `DataSource` auto-configuration, with HikariCP
+| A driver module and `boot-db-pool-hikari`; see xref:database:index.adoc[].
+
+| Flyway auto-configuration
+| `boot-db-flyway`; see xref:database:flyway.adoc[].
+
+| Spring Data JPA or JDBC
+| Exposed; see xref:database:exposed.adoc[].
+
+| Spring MVC or WebFlux
+| A Ktor server; see xref:http:server.adoc[].
+
+| `RestClient` or `WebClient`
+| Ktor ``HttpClient``s; see xref:http:client.adoc[].
+
+| Actuator's health, liveness, and readiness
+| `HealthLifecycleController`, served over HTTP by `KtorHealth`; see xref:http:health.adoc[].
+
+| `@Scheduled`
+| A periodic loop; see xref:background:periodic.adoc[].
+
+| Quartz
+| db-scheduler's persistent tasks; see xref:background:scheduler.adoc[].
+
+| Spring Cloud Kubernetes leader election
+| `boot-leader-k8s`; see xref:background:leader.adoc[].
+
+| Micrometer and Micrometer Tracing
+| The OpenTelemetry SDK, used directly; see xref:telemetry:index.adoc[].
+
+| `@SpringBootTest`
+| None, by design: test classes with fakes, and check the wiring and start plan; see xref:testing:index.adoc[].
+|===

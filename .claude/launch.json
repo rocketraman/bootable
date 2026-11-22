@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "docs-site",
+      "runtimeExecutable": "mise",
+      "runtimeArgs": ["run", "docs-serve"],
+      "port": 8765
+    }
+  ]
+}

@@ -1,0 +1,313 @@
+= Telemetry (OpenTelemetry)
+:description: The application's OpenTelemetry SDK, for traces and metrics, tied to its lifecycle.
+
+`boot-telemetry-otel` gives the application its https://opentelemetry.io/[OpenTelemetry] SDK, for traces and metrics.
+`OpenTelemetryService` builds the SDK when it is constructed, so its `openTelemetry` can be handed to instrumentation right away.
+On shutdown, it exports the spans and metrics still buffered, then shuts the SDK down, so the last interval of telemetry isn't lost.
+
+The service is in the `Telemetry` phase, the first, so every other service, the database pool included, starts after it and stops before it, and what they record while stopping is in the final export.
+
+By default the SDK pushes traces and metrics over OTLP, to an endpoint you configure.
+Without a configured endpoint it does nothing.
+Metrics can still be exposed to Prometheus-compatible scrapers via the xref:exporters.adoc#prometheus[`boot-telemetry-otel-prometheus`] module.
+The xref:exporters.adoc[exporters and integrations] add Prometheus's scrape, SigNoz, Google Cloud, and a bridge from Micrometer.
+
+== Modules
+
+`boot-telemetry-otel` is the SDK; each exporter or integration depends on it, so an application that uses one needn't list the SDK.
+Every module comes in a `-kodein` and a `-metro` flavour too, for those wiring styles.
+
+modules::telemetry[]
+
+== Install
+
+For export over OTLP alone, add the SDK, in the flavour of your wiring style:
+
+install::[boot-telemetry-otel]
+
+For metrics that Prometheus scrapes, add xref:exporters.adoc#prometheus[`boot-telemetry-otel-prometheus`] instead, which brings in the SDK.
+
+== Configure
+
+The SDK reads `telemetry.sdk`, including its `otlp`, `traces`, and `metrics` subsections.
+The other telemetry modules each read a section of their own beside it: xref:exporters.adoc#prometheus[`telemetry.prometheus`], xref:exporters.adoc#signoz[`telemetry.signoz`], xref:exporters.adoc#gcp[`telemetry.gcp`], xref:http:server.adoc#telemetry[`telemetry.ktor`] for the server, and xref:http:client.adoc#telemetry[`telemetry.httpClient`] for the client.
+Every setting is optional.
+
+[source,hocon]
+----
+telemetry.sdk {
+  serviceName = notes                                   # <1>
+  serviceInstanceId = ${?POD_NAME}                      # <2>
+  otlp {
+    endpoint = "http://otel-collector:4318"             # <3>
+    headers { authorization = ${?OTLP_AUTHORIZATION} }  # <4>
+  }
+  traces.sampleRatio = 0.1                              # <5>
+}
+----
+<1> Names the application to every backend, as the resource's `service.name`.
+<2> Tells this instance apart from the service's others, as `service.instance.id`, across restarts: unset, each start gets a random one.
+Set it where the platform has a stable name for the instance, such as a pod's, from the Kubernetes downward API.
+<3> Turns OTLP export on: without an endpoint, nothing is exported over OTLP.
+It is the receiver's base URL, such as a collector's; each signal goes to its own path under it, `/v1/traces` and `/v1/metrics`, over HTTP with protobuf.
+<4> Authenticates to a hosted backend; take the key from the environment.
+The headers are `Masked`, so the config report hides them.
+<5> Records a fraction of the traces, from 0 to 1, to cut their volume; by default every trace is recorded.
+A trace started elsewhere keeps the caller's decision.
+
+`serviceVersion` and `environment` needn't be set: unset, they are `build.version`, the key of the build info that xref:http:health.adoc#build-info[the health endpoints] serve, and `env.environment`, the key xref:environment:index.adoc[`boot-env`] reads, so each is set in one place.
+The others include `resourceAttributes`, `otlp.compression` and `otlp.timeout`, `metrics.interval` (60 seconds) and `metrics.runtime` (the JVM's runtime metrics, on), `enabled` and `otlp` switches for each signal, `registerGlobal`, and `shutdownTimeout`: see kdoc:boot-telemetry-otel:com.github.rocketraman.bootable.telemetry.otel.TelemetryConfig[all the settings].
+
+[#resource]
+=== The resource
+
+The resource describes the application to the backend, and is on every span and metric.
+It starts from the SDK's default, then `resourceAttributes`, then the typed settings: `serviceName`, `serviceVersion`, `serviceInstanceId`, and `environment`, each winning over what comes before it.
+A customizer can add to it, as xref:exporters.adoc#gcp[`boot-telemetry-otel-gcp`] does with the platform's attributes.
+
+[#environment-variables]
+=== The standard environment variables
+
+OpenTelemetry defines environment variables that platforms and tools set, such as the OpenTelemetry operator for Kubernetes.
+`telemetryConfig`, which decodes `telemetry.sdk`, falls back to four of them when the corresponding config values are unset: explicit config settings override the standard environment variables.
+
+[cols="2,2,3"]
+|===
+| Variable | Setting | When both are set
+
+| `OTEL_SERVICE_NAME` | `serviceName` | The setting wins.
+The variable wins over a `service.name` in `resourceAttributes`, as it does in other SDKs.
+| `OTEL_RESOURCE_ATTRIBUTES` | `resourceAttributes` | Merged by key; the setting wins for a key in both.
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `otlp.endpoint` | The setting wins.
+| `OTEL_EXPORTER_OTLP_HEADERS` | `otlp.headers` | Merged by name; the setting wins for a header in both.
+|===
+
+The variables take their standard `key1=value1,key2=value2` format, and a variable that is empty, or only whitespace, is treated as unset.
+A setting from any of the config's sources is explicit, so a `TELEMETRY_SDK_SERVICENAME` environment variable wins over `OTEL_SERVICE_NAME`.
+No other `OTEL_*` variable is read, such as `OTEL_TRACES_SAMPLER`: set the matching config instead, which a substitution can take from any variable, such as `sampleRatio = ${?TRACES_SAMPLE_RATIO}`.
+
+A `TelemetryConfig` built in code, such as in a test, ignores the variables, so it doesn't depend on the environment it runs in; `withOtelEnvironment()` applies them to it.
+
+== Wire
+
+The wiring adds `OpenTelemetryService` to the application's services and hands its `openTelemetry` to whatever records telemetry.
+It also adds `ServiceStartTracing`, a lifecycle controller that traces the start; see <<start-tracing>>.
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/telemetry/Wiring.kt[tag=wire]
+----
+
+Kodein::
++
+`openTelemetryModule` binds the `OpenTelemetry`, and opens the sets of customizers and metrics snapshot providers that the other telemetry modules add to, so import it before them:
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/telemetry/Wiring.kt[tag=wire]
+----
+
+Metro::
++
+`boot-telemetry-otel-metro` contributes the `OpenTelemetry` and the service on its own.
+The start's tracing isn't contributed, so that the dependency alone doesn't change how the application starts; name `ServiceStartTracingBindings` in the graph:
++
+[source,kotlin]
+----
+include::ROOT:example$metro/telemetry/Wiring.kt[tag=wire]
+----
+
+Inara::
++
+`openTelemetryModule()` provides the `OpenTelemetry`, and lists the sets of customizers and metrics snapshot providers that the other telemetry modules mark their members as:
++
+[source,kotlin]
+----
+include::ROOT:example$inara/telemetry/Wiring.kt[tag=wire]
+----
+======
+
+A `kotlin.time.Clock`, if one is given to `OpenTelemetryService` and `ServiceStartTracing`, or bound with Kodein or Metro, or given to the Inara modules' builders, is the time of the spans and measurements, such as a fixed clock in a test; otherwise it is `Clock.System`.
+
+When the OpenTelemetry Java agent is attached, it has already built and registered the process's SDK: `openTelemetry` is then the agent's, the config and customizers are ignored, and the agent owns the SDK's lifecycle.
+
+[#push-and-pull]
+== Push and pull
+
+With push, the application sends its telemetry: the SDK exports spans as they finish, and metrics every `metrics.interval`, over OTLP to `otlp.endpoint`.
+With pull, the backend fetches it: a scraper, such as Prometheus, fetches the application's metrics on its own schedule.
+Traces are always pushed; metrics can be pushed, pulled with xref:exporters.adoc#prometheus[`boot-telemetry-otel-prometheus`], or both.
+
+Pull needs no credentials in the application, and tells the backend when a target is down, because the scrape fails.
+Push works where nothing can reach the application to scrape it, such as short-lived jobs, or Cloud Run, whose instances have no stable address.
+The application usually pushes to an OpenTelemetry collector beside it, which batches, retries, and holds the backend's credentials; some backends take OTLP directly, such as xref:exporters.adoc#signoz[SigNoz] and xref:exporters.adoc#gcp[Google Cloud].
+
+* With a pulling backend, such as Prometheus, already in place, let it pull the metrics, and push the traces.
+* With a collector, or a hosted backend, push both, and leave Prometheus out.
+* Locally, nothing needs to be running: without an endpoint nothing is pushed, and the metrics can still be pulled.
+
+[#spans]
+== Spans
+
+`withSpan`, `withRootSpan`, and `Sample` are in `boot-telemetry-otel-common`, which depends only on the OpenTelemetry API, not the SDK, so a library can use them, and leave the SDK to the application.
+`boot-telemetry-otel` brings it in.
+
+`Tracer.withSpan` runs a suspending block in a new span, a child of the current one, such as a traced server's request span:
+
+[source,kotlin]
+----
+include::ROOT:example$vanilla/telemetry/Spans.kt[tag=span]
+----
+
+The span stays current across every thread the block suspends and resumes on, so spans and log events within it belong to its trace.
+It ends when the block does, with an error status and the exception recorded if the block throws, or a status of `cancelled` if the coroutine is cancelled.
+
+A span from `withSpan` is expected to have a parent.
+Without one, it starts a trace of its own and logs a warning, once for each span name: usually the caller's trace context didn't reach it, such as across a new `CoroutineScope` or a callback from a Java library.
+To start a trace on purpose, such as for a scheduled job or a consumed message, use `withRootSpan`, which can also link the trace to the operation that kicked it off:
+
+[source,kotlin]
+----
+include::ROOT:example$vanilla/telemetry/Spans.kt[tag=root-span]
+----
+
+`Sample.Always` samples the trace whatever `sampleRatio` is, for a trace too rare or too valuable to lose; the default, `Sample.BySampler`, leaves it to the sampler.
+
+Log events within a span carry its `trace_id` and `span_id`, which xref:logging:index.adoc[`boot-logging-log4j2`]'s layouts print, so a backend can link them to their traces.
+Logs themselves aren't exported over OpenTelemetry: the SDK has no logger provider, so ship them with the platform's log collection.
+
+[#start-tracing]
+== Trace the start
+
+`ServiceStartTracing` traces the application's start as one trace, so its total time, and each service's share of it, can be seen.
+The root span, `start application`, begins when `boot` was called, so it covers building the application, such as decoding its config, and ends when the application is running.
+Under it is a span for each stage before the first service starts, `initialize JVM classes for logging and configuration`, `plan start`, and `initialize`, then one for each service's start, such as `start FlywayMigrationService`.
+What a service does as it starts is within its span, such as the queries of a migration.
+
+The start's trace is always sampled, whatever `sampleRatio` is, so a slow or failed start is never missing.
+A start that fails records the exception, with an error status, on the service's span and on the root span.
+
+The span is carried in the coroutine context of the service's `start`, so it is current on whatever thread the start runs on, including in `withContext(Dispatchers.IO)`, and the coroutines the start runs and waits for inherit it.
+
+[#customizers]
+== Customize the SDK
+
+For an SDK setting the config doesn't cover, such as a metric view, a span processor, or another sampler, implement `OpenTelemetryCustomizer`.
+Each of its methods has a default that changes nothing, so implement only what you need:
+
+[source,kotlin]
+----
+include::ROOT:example$vanilla/telemetry/RequestDurationBuckets.kt[tag=customizer]
+----
+
+They are called as the SDK is built, after the typed settings: `customizeResource`, `customizeSampler`, then, for each OTLP exporter, `exportHeaders` and `customizeSpanExporter` or `customizeMetricExporter`, then `customizeTracerProvider` and `customizeMeterProvider`.
+For a header computed for each export request, such as an access token, use `exportHeaders` rather than the exporter's `setHeaders`, which would replace every other customizer's.
+This is how the exporters and integrations plug in, too.
+
+`excludeUrlPathsFromTraces(paths)` is a customizer that records no trace for a server request to any of the paths, such as a health check, which would otherwise fill the traces with requests nobody looks at.
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+Pass the customizers to `OpenTelemetryService`:
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/telemetry/Customizers.kt[tag=customizers]
+----
+
+Kodein::
++
+Add them to the `Set<OpenTelemetryCustomizer>`, in a module imported after `openTelemetryModule`:
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/telemetry/Customizers.kt[tag=customizers]
+----
+
+Metro::
++
+Contribute them into the `Set<OpenTelemetryCustomizer>`:
++
+[source,kotlin]
+----
+include::ROOT:example$metro/telemetry/Customizers.kt[tag=customizers]
+----
+
+Inara::
++
+Mark them `@OpenTelemetryCustomizers`, in a module that requires `OpenTelemetryModule`:
++
+[source,kotlin]
+----
+include::ROOT:example$inara/telemetry/Customizers.kt[tag=customizers]
+----
+======
+
+[#instrumented-functions]
+== Telemetry in other functions
+
+Other functions record through the application's OpenTelemetry, with `-otel` modules of their own, or with tracing built in, each documented with its function:
+
+* Database: a span for each JDBC statement, in xref:database:index.adoc#telemetry[Database], and the connection pool's metrics, in xref:database:hikari.adoc#metrics[HikariCP].
+* HTTP server: a span and the standard metrics for each request, and the metrics scrape, in xref:http:server.adoc#telemetry[the server].
+* HTTP client: a client span and the standard metrics for each request, in xref:http:client.adoc#telemetry[the client].
+* Background work: a trace for each run of a periodic loop, in xref:background:periodic.adoc#telemetry[periodic work], and for each db-scheduler execution, in xref:background:scheduler.adoc#telemetry[scheduled tasks], built into `boot-periodic` and `boot-scheduler-db`: with Kodein or Metro, on whenever the application has an `OpenTelemetry`, and with Inara, through the `OpenTelemetryApiModule` the modules require.
+
+For a library without such a module, hand the application's `openTelemetry` to the library's own OpenTelemetry instrumentation, where you build it.
+For one that reports only to Micrometer, use the xref:exporters.adoc#micrometer-bridge[Micrometer bridge].
+
+== Example
+
+`examples/server-ktor-db` is a small Ktor server that traces its requests, with a span for each query within them, traces its start, and records its request, pool, and runtime metrics, which it serves for Prometheus at http://localhost:8001/metrics.
+It is wired each of the four ways; from the repository root, run yours:
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:vanilla:run
+----
+
+Kodein::
++
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:kodein:run
+----
+
+Metro::
++
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:metro:run
+----
+
+Inara::
++
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:inara:run
+----
+======
+
+Its metrics are pulled, so they need nothing else running; its traces are pushed, so to see them, point `OTEL_EXPORTER_OTLP_ENDPOINT` at an OpenTelemetry collector or Jaeger.
+Its README shows how to see both locally, with Grafana or Jaeger in a container.
+
+== Reference
+
+* kdoc:boot-telemetry-otel:com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService[]: the SDK's service
+* kdoc:boot-telemetry-otel:com.github.rocketraman.bootable.telemetry.otel.TelemetryConfig[]: the settings, decoded by kdoc:boot-telemetry-otel:com.github.rocketraman.bootable.telemetry.otel.telemetryConfig[]
+* kdoc:boot-telemetry-otel:com.github.rocketraman.bootable.telemetry.otel.withOtelEnvironment[]: the standard environment variables
+* kdoc:boot-telemetry-otel:com.github.rocketraman.bootable.telemetry.otel.ServiceStartTracing[]: the start's trace
+* kdoc:boot-telemetry-otel-common:com.github.rocketraman.bootable.telemetry.otel.withSpan[] and kdoc:boot-telemetry-otel-common:com.github.rocketraman.bootable.telemetry.otel.withRootSpan[]: spans around suspending code
+* kdoc:boot-telemetry-otel-common:com.github.rocketraman.bootable.telemetry.otel.Sample[]: how a root span's trace is sampled
+* kdoc:boot-telemetry-otel:com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizer[]: for what the config doesn't cover
+* kdoc:boot-telemetry-otel:com.github.rocketraman.bootable.telemetry.otel.excludeUrlPathsFromTraces[]: requests without traces

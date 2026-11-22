@@ -74,7 +74,7 @@ See link:docs/service-ordering.adoc[Service ordering].
 
 === Telemetry with OpenTelemetry
 
-See the Telemetry section of the README.
+See Telemetry in the https://rocketraman.github.io/bootable/[documentation].
 
 * `boot-telemetry-otel`: SDK lifecycle and OTLP export, from `telemetry.sdk` and `OTEL_*` vars.
 * Log events within a span carry its trace and span ids, printed by `boot-logging-log4j2`.
@@ -97,7 +97,7 @@ See the Telemetry section of the README.
 
 === HTTP clients (Ktor)
 
-See the Client HTTP section of the README.
+See the HTTP client in the https://rocketraman.github.io/bootable/[documentation].
 
 * `boot-client-http-ktor`: `KtorClientService` builds default and named clients from `http.client`.
 * Per-client config: base URL, timeouts, headers, retries, and mutual TLS.
@@ -109,7 +109,7 @@ See the Client HTTP section of the README.
 
 === Liveness and readiness
 
-See the Health section of the README.
+See Health in the https://rocketraman.github.io/bootable/[documentation].
 
 * `HealthLifecycleController` answers liveness and readiness from the lifecycle state and ``HealthCheck``s.
 * `defaultLifecycleControllers()` includes one; `withHealthLifecycleController(health)` replaces it, to give it checks and serve it.
@@ -129,7 +129,7 @@ See the Health section of the README.
 
 === Periodic work and leader election
 
-See the Periodic work and leader election section of the README.
+See Background work in the https://rocketraman.github.io/bootable/[documentation].
 
 * `boot-periodic`: `PeriodicAppService` runs a suspending function on a fixed delay.
 * Failed runs are logged or handled, and stop the loop after `maxConsecutiveFailures`.
@@ -140,7 +140,7 @@ See the Periodic work and leader election section of the README.
 
 === Scheduled tasks with db-scheduler
 
-See the Scheduled tasks section of the README.
+See Scheduled tasks in the https://rocketraman.github.io/bootable/[documentation].
 
 * `boot-scheduler-db`: db-scheduler on `boot-db-jdbc`, running each task once across instances.
 * Configured from `db.scheduler`; the SQL dialect is detected from the database.
@@ -153,7 +153,7 @@ See the Scheduled tasks section of the README.
 
 === Test helpers
 
-See the Testing section of the README; the helpers test components without booting the app.
+See Testing in the https://rocketraman.github.io/bootable/[documentation]; the helpers test classes without booting the app.
 
 * `boot-test`: `checkShuffledStartPlans` checks start plans under shuffled tiebreakers.
 * `captureLogs { … }` captures Log4j2 events, with their structured fields, for assertions.

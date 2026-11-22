@@ -1,0 +1,281 @@
+= Exporters and integrations
+:description: Prometheus's scrape, SigNoz, Google Cloud, and a bridge from Micrometer.
+
+Each of these modules plugs into the application's xref:index.adoc[OpenTelemetry SDK] as an `OpenTelemetryCustomizer`, and reads its own subsection of `telemetry`.
+Each depends on `boot-telemetry-otel`, so an application lists only the ones it uses.
+They can be combined, such as Prometheus's scrape for the metrics alongside OTLP export of the traces to SigNoz.
+
+[#prometheus]
+== Prometheus
+
+`boot-telemetry-otel-prometheus` keeps the application's metrics for Prometheus, or another scraper, to pull; see xref:index.adoc#push-and-pull[push and pull].
+`PrometheusTelemetry` registers a metric reader with the SDK, and renders each scrape from it, as a `MetricsSnapshotProvider`, for an HTTP integration to serve.
+
+install::[boot-telemetry-otel-prometheus, boot-server-http-ktor-otel]
+
+A scrape is answered in the OpenMetrics text format when the scraper accepts it, as Prometheus does, and otherwise in the Prometheus text format.
+Exemplars, in the OpenMetrics format, carry the trace and span ids of the measurement they sample, so a metric links to a trace.
+
+=== Settings
+
+`PrometheusTelemetryConfig` reads `telemetry.prometheus`; every setting is optional, and keeps the OpenTelemetry Prometheus exporter's default when unset:
+
+[source,hocon]
+----
+telemetry.prometheus {
+  resourceAttributesAsLabels = [service.name, deployment.environment.name]  # <1>
+}
+----
+<1> Lets queries select series by the application's own name and environment, copied onto every series as labels; none are by default.
+Prometheus otherwise identifies the target by its own `job` and `instance` labels.
+
+The others are `targetInfo`, whether the resource is exported as the `target_info` metric, for joining against in queries, and `otelScopeLabels`, whether each series is labelled with the instrumentation scope that recorded it: see kdoc:boot-telemetry-otel-prometheus:com.github.rocketraman.bootable.telemetry.otel.PrometheusTelemetryConfig[all the settings].
+
+With the metrics pulled, `telemetry.sdk.metrics.otlp = false` keeps them off OTLP while the traces are still pushed.
+
+=== Serve the scrape
+
+`KtorTelemetry`, from `boot-server-http-ktor-otel`, serves the scrape at `/metrics` on the application's server, once the server installs it:
+
+[source,kotlin]
+----
+include::ROOT:example$vanilla/telemetry/StatusServer.kt[tag=server]
+----
+
+With `telemetry.ktor.hostPort` set, such as `":9090"`, the scrape is served on a xref:http:server.adoc#scrape[listener of its own] instead, which keeps it off a public server: with vanilla wiring, add ``KtorTelemetry``'s `listener` to the services either way, since without `hostPort` it does nothing; with a DI, the module adds it, on the engine an engine module's flavour provides.
+Scrapes of the application's server aren't traced.
+The server's other settings are on xref:http:server.adoc#telemetry[the server's page].
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+Give `PrometheusTelemetry` to `OpenTelemetryService`, as a customizer, and to `KtorTelemetry`, as the scrape to serve:
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/telemetry/Exporters.kt[tag=prometheus]
+----
+
+Kodein::
++
+Import `prometheusTelemetryModule` and `ktorTelemetryModule` after `openTelemetryModule`, and an engine module's flavour for the scrape's listener:
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/telemetry/Exporters.kt[tag=prometheus]
+----
+
+Metro::
++
+The `-metro` modules contribute the reader, the scrape, `KtorTelemetry`, and the scrape's listener; provide the server:
++
+[source,kotlin]
+----
+include::ROOT:example$metro/telemetry/Exporters.kt[tag=prometheus]
+----
+
+Inara::
++
+Compose `prometheusTelemetryModule()` and `ktorTelemetryModule()`, which require `openTelemetryModule()`, and an engine module for the scrape's listener:
++
+[source,kotlin]
+----
+include::ROOT:example$inara/telemetry/Exporters.kt[tag=prometheus]
+----
+======
+
+`KtorTelemetry` serves one scrape, so an application has at most one `MetricsSnapshotProvider`.
+
+[#signoz]
+== SigNoz
+
+https://signoz.io/[SigNoz] ingests OTLP itself: SigNoz Cloud at `https://ingest.<region>.signoz.cloud:443`, in its `us`, `eu`, or `in` region, or a self-hosted SigNoz's collector, on port 4318.
+Point `telemetry.sdk.otlp.endpoint` there, and ``boot-telemetry-otel-signoz``'s `SigNozTelemetry` does the rest:
+
+* It sends the ingestion key, as the `signoz-ingestion-key` header, on export to SigNoz Cloud.
+* It sets the resource's `deployment.environment` too, from `deployment.environment.name`, since SigNoz's services and environment filters read the older attribute.
+* It exports counters and histograms with delta temporality, if you choose it.
+
+install::[boot-telemetry-otel-signoz]
+
+=== Settings
+
+`SigNozTelemetryConfig` reads `telemetry.signoz`; every setting is optional:
+
+[source,hocon]
+----
+telemetry {
+  sdk.otlp.endpoint = "https://ingest.us.signoz.cloud:443"  # <1>
+  signoz {
+    ingestionKey = ${?SIGNOZ_INGESTION_KEY}                 # <2>
+    temporality = Delta                                     # <3>
+  }
+}
+----
+<1> Sends the telemetry to SigNoz Cloud, or to a self-hosted SigNoz's collector, such as `http://signoz-otel-collector:4318`.
+<2> Authenticates to SigNoz Cloud, with the ingestion key from Settings > Ingestion; take it from a secret.
+A self-hosted SigNoz needs none.
+Export to SigNoz Cloud without a key fails when the SDK is built, so the application stops at boot rather than failing every export.
+The key is sent only to a `signoz.cloud` endpoint, so a key set for every environment stays off a local collector.
+<3> Cuts the samples SigNoz stores, as SigNoz suggests, by exporting only what changed since the last export; `Cumulative` is the default.
+A delta export that fails is lost for good, where a cumulative one is made up by the next.
+Up-down counters and gauges are always cumulative.
+
+The others are `authenticate`, to send the key whatever the endpoint, or never, and `legacyEnvironmentAttribute`, to stop setting `deployment.environment`: see kdoc:boot-telemetry-otel-signoz:com.github.rocketraman.bootable.telemetry.otel.SigNozTelemetryConfig[all the settings].
+
+=== Wire
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/telemetry/Exporters.kt[tag=signoz]
+----
+
+Kodein::
++
+Import `sigNozTelemetryModule` after `openTelemetryModule`:
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/telemetry/Exporters.kt[tag=signoz]
+----
+
+Metro::
++
+`boot-telemetry-otel-signoz-metro` contributes `SigNozTelemetry` to the customizers on its own; there is nothing to wire.
+
+Inara::
++
+Compose `sigNozTelemetryModule()`, which requires `openTelemetryModule()`:
++
+[source,kotlin]
+----
+include::ROOT:example$inara/telemetry/Exporters.kt[tag=signoz]
+----
+======
+
+[#gcp]
+== Google Cloud
+
+``boot-telemetry-otel-gcp``'s `GcpTelemetry` connects the application's telemetry to Google Cloud, with no collector:
+
+* It adds the GCP platform's attributes to the resource, with OpenTelemetry's GCP resource detector, such as the Cloud Run service and revision, or the GKE cluster, namespace, and pod.
+Off GCP, nothing is added, and the application's own attributes win over what is detected.
+* It authenticates OTLP export to Google's OTLP endpoint, `https://telemetry.googleapis.com`, which writes traces to Cloud Trace and metrics to Cloud Monitoring, with the application default credentials: a fresh access token on each request, and the quota project as `x-goog-user-project`.
+
+install::[boot-telemetry-otel-gcp]
+
+The service account needs the roles to write both, `roles/cloudtrace.agent` and `roles/monitoring.metricWriter`, and the project needs the Telemetry API enabled.
+
+=== Settings
+
+`GcpTelemetryConfig` reads `telemetry.gcp`; every setting is optional:
+
+[source,hocon]
+----
+telemetry {
+  sdk.otlp.endpoint = "https://telemetry.googleapis.com"  # <1>
+  gcp.projectId = my-project                              # <2>
+}
+----
+<1> Sends traces to Cloud Trace and metrics to Cloud Monitoring, through Google's OTLP endpoint.
+<2> Bills export to, and checks its quota against, another project than the default: the credentials' quota project, then the project the application runs in.
+
+Export to a `googleapis.com` endpoint is authenticated, and export to a collector isn't.
+The credentials are loaded when the SDK is built, only if export is authenticated, so missing credentials stop the application at boot.
+The others are `authenticate`, to authenticate export whatever the endpoint, or never, and `detectResource`, to leave out the platform's resource attributes: see kdoc:boot-telemetry-otel-gcp:com.github.rocketraman.bootable.telemetry.otel.GcpTelemetryConfig[all the settings].
+
+=== Wire
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/telemetry/Exporters.kt[tag=gcp]
+----
+
+Kodein::
++
+Import `gcpTelemetryModule` after `openTelemetryModule`:
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/telemetry/Exporters.kt[tag=gcp]
+----
+
+Metro::
++
+`boot-telemetry-otel-gcp-metro` contributes `GcpTelemetry` to the customizers on its own; there is nothing to wire.
+
+Inara::
++
+Compose `gcpTelemetryModule()`, which requires `openTelemetryModule()`:
++
+[source,kotlin]
+----
+include::ROOT:example$inara/telemetry/Exporters.kt[tag=gcp]
+----
+======
+
+[#micrometer-bridge]
+== Micrometer bridge
+
+`boot-telemetry-otel-micrometer-bridge` is for libraries that report only to Micrometer, such as the Temporal SDK.
+`openTelemetryMeterRegistry(openTelemetry)` is a Micrometer `MeterRegistry` that records into the application's OpenTelemetry, so the libraries' meters are exported with the rest of its metrics, with its resource, by whichever exporters the SDK has.
+
+install::[boot-telemetry-otel-micrometer-bridge]
+
+It has no settings.
+The meters keep their Micrometer names and tags; there are no common tags to set, since the resource describes the application.
+The registry needs no closing: the SDK exports the meters' last values when `OpenTelemetryService` shuts it down.
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/telemetry/Exporters.kt[tag=micrometer-bridge]
+----
+
+Kodein::
++
+`micrometerBridgeModule` binds the `MeterRegistry`:
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/telemetry/Exporters.kt[tag=micrometer-bridge]
+----
+
+Metro::
++
+`boot-telemetry-otel-micrometer-bridge-metro` contributes the `MeterRegistry`:
++
+[source,kotlin]
+----
+include::ROOT:example$metro/telemetry/Exporters.kt[tag=micrometer-bridge]
+----
+
+Inara::
++
+`micrometerBridgeModule()` provides the `MeterRegistry`:
++
+[source,kotlin]
+----
+include::ROOT:example$inara/telemetry/Exporters.kt[tag=micrometer-bridge]
+----
+======
+
+== Reference
+
+* kdoc:boot-telemetry-otel-prometheus:com.github.rocketraman.bootable.telemetry.otel.PrometheusTelemetry[] and kdoc:boot-telemetry-otel-prometheus:com.github.rocketraman.bootable.telemetry.otel.PrometheusTelemetryConfig[]: Prometheus's scrape
+* kdoc:boot-telemetry-otel:com.github.rocketraman.bootable.telemetry.otel.MetricsSnapshotProvider[]: a scrape, for an HTTP integration to serve
+* kdoc:boot-telemetry-otel-signoz:com.github.rocketraman.bootable.telemetry.otel.SigNozTelemetry[] and kdoc:boot-telemetry-otel-signoz:com.github.rocketraman.bootable.telemetry.otel.SigNozTelemetryConfig[]: SigNoz
+* kdoc:boot-telemetry-otel-gcp:com.github.rocketraman.bootable.telemetry.otel.GcpTelemetry[] and kdoc:boot-telemetry-otel-gcp:com.github.rocketraman.bootable.telemetry.otel.GcpTelemetryConfig[]: Google Cloud
+* kdoc:boot-telemetry-otel-micrometer-bridge:com.github.rocketraman.bootable.telemetry.otel.openTelemetryMeterRegistry[]: the Micrometer bridge
