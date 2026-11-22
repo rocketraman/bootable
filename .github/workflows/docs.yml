@@ -15,9 +15,11 @@ on:
     paths: ['docs/**']
   workflow_dispatch:
 
-# a newer commit to the same pull request replaces its preview; a deploy of master always finishes
+# a newer commit to the same pull request replaces its preview; a deploy of master always finishes. A pull request's
+# group is its number, not github.ref: a merged pull request's closed event has the base branch's ref, and would
+# cancel the deploy of master that the merge started.
 concurrency:
-  group: docs-${{ github.ref }}
+  group: docs-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -33,12 +35,12 @@ jobs:
       # comment on the pull request with the preview's link
       pull-requests: write
     steps:
+      # removing a closed pull request's preview needs no build, but its deploy needs a repository
       - name: Checkout
-        if: github.event.action != 'closed'
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # the release tags, which the site's versions come from (docs/site/extensions/versions.js)
-          fetch-depth: 0
+          fetch-depth: ${{ github.event.action == 'closed' && 1 || 0 }}
 
       - name: Set up JDK 25
         if: github.event.action != 'closed'
