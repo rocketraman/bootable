@@ -4,10 +4,10 @@ import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.bootableModule
-import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.Masked
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
 import com.github.rocketraman.bootable.config.hopliteConfigModule
+import com.github.rocketraman.bootable.test.StaticConfigBinder
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
 import dev.zacsweers.metro.DependencyGraph
@@ -21,7 +21,6 @@ import org.kodein.di.direct
 import org.kodein.di.inBindSet
 import org.kodein.di.instance
 import org.kodein.di.singleton
-import kotlin.reflect.KClass
 import kotlin.time.Duration.Companion.seconds
 
 sealed interface TestScope
@@ -81,7 +80,7 @@ val TelemetryWiringTest by testSuite {
     }
 
     test("preferring telemetry.sdk.environment to env.environment") {
-      val binder = FakeConfigBinder(
+      val binder = StaticConfigBinder(
         "telemetry.sdk" to TelemetryConfig(environment = "configured"),
         "env" to EnvironmentSection("from-env"),
         "build" to BuildSection(),
@@ -90,7 +89,7 @@ val TelemetryWiringTest by testSuite {
     }
 
     test("with serviceVersion from build.version, the key of boot's BuildInfo") {
-      val binder = FakeConfigBinder(
+      val binder = StaticConfigBinder(
         "telemetry.sdk" to TelemetryConfig(),
         "env" to EnvironmentSection(),
         "build" to BuildSection("2.0.0"),
@@ -99,7 +98,7 @@ val TelemetryWiringTest by testSuite {
     }
 
     test("preferring telemetry.sdk.serviceVersion to build.version") {
-      val binder = FakeConfigBinder(
+      val binder = StaticConfigBinder(
         "telemetry.sdk" to TelemetryConfig(serviceVersion = "configured"),
         "env" to EnvironmentSection(),
         "build" to BuildSection("2.0.0"),
@@ -108,7 +107,7 @@ val TelemetryWiringTest by testSuite {
     }
 
     test("as all defaults when the sections are absent") {
-      val binder = FakeConfigBinder(
+      val binder = StaticConfigBinder(
         "telemetry.sdk" to TelemetryConfig(),
         "env" to EnvironmentSection(),
         "build" to BuildSection(),
@@ -144,9 +143,3 @@ val TelemetryWiringTest by testSuite {
   }
 }
 
-private class FakeConfigBinder(vararg sections: Pair<String, Any>) : ConfigBinder {
-  private val sections = sections.toMap()
-
-  @Suppress("UNCHECKED_CAST")
-  override fun <T : Any> configOf(prefix: String, type: KClass<T>): T = sections.getValue(prefix) as T
-}

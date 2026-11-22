@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.server.http.ktor
 
+import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.config
@@ -18,12 +19,11 @@ import io.opentelemetry.api.OpenTelemetry
  * also keeps scrapes of the application's server out of the traces, and the health probes of `KtorHealth`, at the
  * paths of the `health.ktor` config section.
  *
- * Install it in a server with `installTelemetry(telemetry)`. For the scrape's listener of its own, add the listener
- * on your engine to the app services:
+ * Install it in a server with `installTelemetry(telemetry)`.
  *
- * ```
- * @Provides @IntoSet fun metricsListener(telemetry: KtorTelemetry): AppService = telemetry.listener(CIO)
- * ```
+ * It also contributes the scrape's listener of its own to the app services, which does nothing unless
+ * `telemetry.ktor.hostPort` is set, and then runs on the graph's [KtorServerEngine], such as
+ * `KtorServerCioEngineBindings`'s, from boot-server-http-ktor-cio-metro.
  *
  * To adjust the Ktor instrumentation beyond [KtorTelemetryConfig], contribute a [KtorServerTelemetryCustomizer].
  */
@@ -50,5 +50,17 @@ interface KtorTelemetryBindings {
       customizers: Set<KtorServerTelemetryCustomizer>,
     ): KtorTelemetry =
       KtorTelemetry(openTelemetry, snapshotProviders, config) { builder -> customizers.forEach { it.customize(builder) } }
+
+    @Provides @IntoSet @SingleIn(BootScope::class)
+    fun metricsListener(telemetry: KtorTelemetry, engine: KtorServerEngine = NoKtorServerEngine): AppService =
+      telemetry.listener(engine.takeUnless { it === NoKtorServerEngine })
   }
+}
+
+/**
+ * In place of the graph's [KtorServerEngine], when it has none: Metro takes a default value for a binding it doesn't
+ * have, but a nullable parameter would be a binding of its own, which the engine's isn't.
+ */
+private object NoKtorServerEngine : KtorServerEngine {
+  override val factory get() = error("no KtorServerEngine")
 }

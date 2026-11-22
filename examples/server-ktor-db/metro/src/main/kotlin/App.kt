@@ -20,7 +20,6 @@ import dev.zacsweers.metro.IntoSet
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
 import dev.zacsweers.metro.createGraph
-import io.ktor.server.cio.*
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.jdbc.Database
 
@@ -71,12 +70,6 @@ interface EntriesBindings : ConfigBinderProvider {
   @Provides
   fun jdbcTelemetryConfigurer(): JdbcTelemetryConfigurer =
     JdbcTelemetryConfigurer { setDataSourceInstrumenterEnabled(true) }
-
-  /** The scrape's own listener when `telemetry.ktor.hostPort` is set; otherwise it does nothing. */
-  @Provides @IntoSet fun metricsListener(telemetry: KtorTelemetry): AppService = telemetry.listener(CIO)
-
-  /** The health probes' own listener when `health.ktor.hostPort` is set; otherwise it does nothing. */
-  @Provides @IntoSet fun healthListener(health: KtorHealth): AppService = health.listener(CIO)
 }
 
 /**
@@ -96,6 +89,9 @@ interface EntriesBindings : ConfigBinderProvider {
  * `OpenTelemetry`, each execution is a trace.
  * `boot-metro` tracks the application's health from its lifecycle, which the server serves
  * (`boot-server-http-ktor-metro`), with readiness down while the database doesn't answer (`JdbcHealthCheckBindings`).
+ * The health probes and the scrape can each have a listener of their own instead, at `health.ktor.hostPort` and
+ * `telemetry.ktor.hostPort`, which `boot-server-http-ktor-metro` and `boot-server-http-ktor-otel-metro` contribute, on
+ * the server's engine (`boot-server-http-ktor-cio-metro`).
  * The HTTP clients (`boot-client-http-ktor-metro`, from `http.client`) run on CIO, and
  * `boot-client-http-ktor-otel-metro` makes each of their requests a client span within its caller's trace.
  */

@@ -79,6 +79,9 @@ See the Health section of the README.
 * `KtorHealth` serves `/health/live` and `/health/ready`, on the app server or its own listener.
 * Health responses carry a JSON body: status and lifecycle state, plus each check for readiness.
 * `boot-server-http-ktor` gains `-kodein` and `-metro` flavors.
+* With Kodein or Metro, the health probes' and the scrape's own listeners are added to the app services.
+* They run on the app's `KtorServerEngine`, from the new `-kodein` and `-metro` flavors of `boot-server-http-ktor-cio` or `-netty`.
+* Without a `hostPort`, those listeners do nothing and need no engine.
 * `excludeHealthFromTraces()` keeps health probes out of traces.
 * `boot-telemetry-otel-common`: `withSpan` and `withRootSpan` over the OpenTelemetry API, without the SDK.
 * `BuildInfo`, from the `build` config section, is served at `/health/info`.
@@ -116,6 +119,7 @@ See the Testing section of the README; the helpers test components without booti
 * `boot-test`: `checkShuffledStartPlans` checks start plans under shuffled tiebreakers.
 * `captureLogs { … }` captures Log4j2 events, with their structured fields, for assertions.
 * `TestClock` is a `kotlin.time.Clock` that tests set and advance.
+* `StaticConfigBinder` gives tests their config sections by prefix, without a config library.
 * `boot-test-otel`: `InMemoryTelemetry` collects recorded spans and metrics in memory.
 
 === Config

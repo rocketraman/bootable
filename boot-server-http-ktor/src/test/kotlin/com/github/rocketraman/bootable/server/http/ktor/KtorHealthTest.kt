@@ -177,6 +177,15 @@ val KtorHealthTest by testSuite {
     assert(ktorHealth.config.applicationServerPaths == setOf("/health/live", "/health/ready", "/health/info"))
   }
 
+  test("has its listener of its own on the application's KtorServerEngine, which it needs only when hostPort is set") {
+    val health = HealthLifecycleController()
+    val onItsOwn = KtorHealth(health, KtorHealthConfig(hostPort = ":0"))
+    assert(onItsOwn.listener(KtorServerEngine(CIO)) is HealthKtorService<*, *>)
+    val failure = runCatching { onItsOwn.listener(engine = null) }.exceptionOrNull()
+    assert(failure?.message?.contains("no KtorServerEngine") == true)
+    assert(KtorHealth(health).listener(engine = null) !is HealthKtorService<*, *>)
+  }
+
   test("serves the build info, whatever the lifecycle state, which no cache keeps") {
     val health = HealthLifecycleController()
     val buildInfo = BuildInfo(version = "1.4.2", revision = "3f2c9e1", attributes = mapOf("branch" to "main"))
