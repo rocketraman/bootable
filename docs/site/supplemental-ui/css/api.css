@@ -66,7 +66,7 @@ body,
 }
 
 /* ---------------------------------------------------------------------------------------------------------------
- * The header: Dokka's search and mobile contents toggle, moved into the site's header
+ * The header: the site's, in place of Dokka's (extensions/dokka.js)
  * ------------------------------------------------------------------------------------------------------------- */
 
 .header {
@@ -75,56 +75,9 @@ body,
   position: relative;
 }
 
-.header .navbar-tools .navigation-controls--btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background-color: transparent;
-  color: var(--text-muted);
-}
-
-.header .navbar-tools .navigation-controls--btn:hover {
-  background-color: var(--bg-hover);
-  color: var(--text);
-}
-
-#searchBar #pages-search {
-  width: 36px;
-  height: 36px;
-  background: transparent;
-  color: inherit;
-}
-
-#searchBar #pages-search svg {
-  width: 18px;
-  height: 18px;
-}
-
-#searchBar #pages-search svg path {
-  fill: currentColor;
-}
-
-.header .navigation-controls--btn_toc {
-  background: none;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 7h16M4 12h16M4 17h16'/%3E%3C/svg%3E") center / 20px no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 7h16M4 12h16M4 17h16'/%3E%3C/svg%3E") center / 20px no-repeat;
-  background-color: var(--text-muted) !important;
-  font-size: 0;
-  margin-left: 0;
-}
-
 /* ---------------------------------------------------------------------------------------------------------------
- * The package tree
+ * The package tree, in the sidebar's API reference group (extensions/dokka.js)
  * ------------------------------------------------------------------------------------------------------------- */
-
-#leftColumn {
-  background: var(--bg);
-  border-right: 1px solid var(--border);
-}
-
-.sidebar--inner {
-  padding: 16px 8px 32px;
-}
 
 .toc--row {
   border-radius: 6px;
@@ -167,10 +120,6 @@ body,
 
 .toc--button:after {
   opacity: 0.55;
-}
-
-.resizer {
-  background: transparent;
 }
 
 /* ---------------------------------------------------------------------------------------------------------------

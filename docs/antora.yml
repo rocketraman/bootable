@@ -18,11 +18,11 @@ nav:
 - modules/ROOT/nav.adoc
 # what Bootable is built on: its approach, the lifecycle, the start order
 - modules/concepts/nav.adoc
-# why Bootable, against the alternatives a reader knows
-- modules/comparison/nav.adoc
 # every function, in one list, so the sidebar shows one Functions heading
 - modules/ROOT/nav-functions.adoc
 - modules/examples/nav.adoc
+# then the API reference, which the dokka extension adds, and, last, why Bootable, against the alternatives a reader knows
+- modules/comparison/nav.adoc
 ext:
   # the snippets live in the docs:snippets Gradle projects, where the build compiles them; bring them into the
   # component's examples, so pages can include them with include::ROOT:example$<wiring>/<function>/<file>[tag=...];
