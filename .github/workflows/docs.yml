@@ -1,0 +1,105 @@
+name: Docs
+
+# Builds the documentation site (docs/, see docs/site) and publishes it to GitHub Pages, served from the gh-pages
+# branch:
+#
+# - master deploys to the branch's root, on every push, since the site's API reference is built from the code too.
+# - A pull request that changes docs/ deploys a preview to pr-preview/pr-<number>/, and gets a comment with its link;
+#   the preview is removed when the pull request closes. A pull request from a fork is built, but gets no preview: its
+#   token can't push to gh-pages.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+    paths: ['docs/**']
+  workflow_dispatch:
+
+# a newer commit to the same pull request replaces its preview; a deploy of master always finishes
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      # push to gh-pages
+      contents: write
+      # comment on the pull request with the preview's link
+      pull-requests: write
+    steps:
+      - name: Checkout
+        if: github.event.action != 'closed'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # the release tags, which the site's versions come from (docs/site/extensions/versions.js)
+          fetch-depth: 0
+
+      - name: Set up JDK 25
+        if: github.event.action != 'closed'
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        if: github.event.action != 'closed'
+        uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
+
+      - name: Set up Node
+        if: github.event.action != 'closed'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          # as mise.toml
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: docs/site/package-lock.json
+
+      # each release's API reference, built at its tag; a tag doesn't change, so a version built once is kept
+      - name: Cache the releases' API references
+        if: github.event.action != 'closed'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: docs/site/build/api-versions
+          key: docs-api-versions-${{ github.run_id }}
+          restore-keys: docs-api-versions-
+
+      - name: Build the releases' API references
+        if: github.event.action != 'closed'
+        run: docs/site/api-versions.sh
+
+      # as mise run docs-build
+      - name: Build the site
+        if: github.event.action != 'closed'
+        run: |
+          ./gradlew -q :dokkaGeneratePublicationHtml
+          npm --prefix docs/site ci --no-audit --no-fund
+          npm --prefix docs/site run build
+          # Pages' Jekyll would drop the UI's assets, under _/
+          touch docs/site/build/site/.nojekyll
+
+      - name: Deploy the site
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        uses: JamesIves/github-pages-deploy-action@fa24774553152dd7873cd16ebd8d959b010c5445 # v4.9.0
+        with:
+          folder: docs/site/build/site
+          branch: gh-pages
+          # the pull requests' previews
+          clean-exclude: pr-preview/
+          # rebase onto a preview pushed meanwhile, rather than overwrite it
+          force: false
+
+      - name: Deploy or remove the preview
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: rossjrw/pr-preview-action@873417d2df72380da1f3978378fb58560bcde976 # v1.8.2
+        with:
+          source-dir: docs/site/build/site
+          preview-branch: gh-pages
+          umbrella-dir: pr-preview
+          # no third-party QR code image in the comment
+          qr-code: 'false'
