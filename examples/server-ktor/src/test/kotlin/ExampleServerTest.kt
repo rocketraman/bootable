@@ -2,31 +2,22 @@ import com.github.rocketraman.bootable.boot.AppStartStopLifecycleController
 import com.github.rocketraman.bootable.boot.HealthLifecycleController
 import com.github.rocketraman.bootable.boot.StopSignalHandlerLifecycleController
 import com.github.rocketraman.bootable.boot.defaultLifecycleControllers
-import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.env.Env
 import com.github.rocketraman.bootable.env.EnvironmentConfig
 import com.github.rocketraman.bootable.env.environment
 import com.github.rocketraman.bootable.env.environmentInitializer
+import com.github.rocketraman.bootable.test.StaticConfigBinder
 import de.infix.testBalloon.framework.core.testSuite
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.server.testing.*
-import kotlin.reflect.KClass
 
 /**
- * A fake [ConfigBinder] — the whole point of the vanilla approach is that tests need no DI framework, no graph,
- * and no override machinery. Construct what you want to test with whatever config you want.
+ * The config the test gives, already decoded — the whole point of the vanilla approach is that tests need no DI
+ * framework, no graph, and no override machinery. Construct what you want to test with whatever config you want.
  */
 private class TestEnvironmentConfig(override val environment: String) : EnvironmentConfig
-
-private class FakeConfigBinder(private val env: String = "prod") : ConfigBinder {
-  @Suppress("UNCHECKED_CAST")
-  override fun <T : Any> configOf(prefix: String, type: KClass<T>): T = when (type) {
-    EnvironmentConfig::class -> TestEnvironmentConfig(env) as T
-    else -> error("no test config for $type at prefix '$prefix'")
-  }
-}
 
 private val testServerConfig = ServerConfig(hostPort = "127.0.0.1:0", fakeSecret = "test-secret")
 
@@ -65,7 +56,7 @@ val ExampleServerTest by testSuite {
  */
 val EnvironmentTest by testSuite {
   test("environmentInitializer sets the global environment from config") {
-    environmentInitializer(FakeConfigBinder(env = "prod")).appInit()
+    environmentInitializer(StaticConfigBinder("env" to TestEnvironmentConfig("prod"))).appInit()
     assert(environment == Env.Prod)
   }
 }

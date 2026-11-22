@@ -103,8 +103,9 @@ fun ktorHealthConfig(binder: ConfigBinder): KtorHealthConfig = binder.config("he
  * }
  * ```
  *
- * The routes are served on that server, unless [KtorHealthConfig.hostPort] puts them on a listener of their own:
- * then add [listener] to the application's services too.
+ * The routes are served on that server, unless [KtorHealthConfig.hostPort] puts them on a listener of their own. The
+ * Kodein and Metro flavors of this module add that listener to the application's services, on the application's
+ * [KtorServerEngine]; otherwise, add [listener] to them yourself.
  */
 class KtorHealth(
   val health: HealthLifecycleController,
@@ -137,6 +138,20 @@ class KtorHealth(
     return HealthKtorService(
       HostPort(hostPort), engineFactory, health, config.livePath, config.readyPath, buildInfo, config.infoPath,
     )
+  }
+
+  /**
+   * The routes' listener of their own, on [engine], when [KtorHealthConfig.hostPort] is set; otherwise a service that
+   * does nothing, so the listener can be added to the application's services either way, and [engine] is only needed
+   * when it is set: this fails if it is, and there is no engine.
+   */
+  fun listener(engine: KtorServerEngine?): AppService {
+    val hostPort = config.hostPort ?: return NoHealthListener
+    checkNotNull(engine) {
+      "health.ktor.hostPort is $hostPort, but there is no KtorServerEngine to serve the health probes on: add an " +
+        "engine module, such as boot-server-http-ktor-cio, in your DI flavor, or provide a KtorServerEngine"
+    }
+    return listener(engine.factory)
   }
 
   private object NoHealthListener : AppService {

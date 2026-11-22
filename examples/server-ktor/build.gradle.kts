@@ -36,6 +36,7 @@ dependencies {
 
   testImplementation(libs.testBalloon.framework.core)
   testImplementation(project(":boot-env"))
+  testImplementation(project(":boot-test"))
   testImplementation(libs.ktor.server.test.host)
 }
 

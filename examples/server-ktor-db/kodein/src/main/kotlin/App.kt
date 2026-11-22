@@ -23,14 +23,12 @@ import com.github.rocketraman.bootable.periodic.PeriodicServices
 import com.github.rocketraman.bootable.periodic.periodicModule
 import com.github.rocketraman.bootable.scheduler.db.DbSchedulerTaskProvider
 import com.github.rocketraman.bootable.scheduler.db.dbSchedulerModule
-import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
-import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
+import com.github.rocketraman.bootable.server.http.ktor.ktorServerCioEngineModule
 import com.github.rocketraman.bootable.server.http.ktor.ktorHealthModule
 import com.github.rocketraman.bootable.server.http.ktor.ktorTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.openTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.prometheusTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.serviceStartTracingModule
-import io.ktor.server.cio.*
 import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.jetbrains.exposed.v1.core.Table
@@ -64,10 +62,6 @@ val entriesModule by DI.Module {
   bindAppService { singleton { EntryServer(instance(), instance(), instance(), instance(), instance<KtorClientService>()["entries"], "kodein") } }
   // the HTTP clients' engine; a test binds one that returns Ktor's MockEngine instead
   bindSingleton<KtorClientEngine> { CioClientEngine() }
-  // the scrape's own listener when telemetry.ktor.hostPort is set; otherwise it does nothing
-  bindAppService { singleton { instance<KtorTelemetry>().listener(CIO) } }
-  // the health probes' own listener when health.ktor.hostPort is set; otherwise it does nothing
-  bindAppService { singleton { instance<KtorHealth>().listener(CIO) } }
 }
 
 /**
@@ -89,6 +83,9 @@ val entriesModule by DI.Module {
  * execution is a trace.
  * `bootableModule` tracks the application's health from its lifecycle, which the server serves (`ktorHealthModule`),
  * with readiness down while the database doesn't answer (`jdbcHealthCheckModule`).
+ * The health probes and the scrape can each have a listener of their own instead, at `health.ktor.hostPort` and
+ * `telemetry.ktor.hostPort`, which `ktorHealthModule` and `ktorTelemetryModule` add, on the server's engine
+ * (`ktorServerCioEngineModule`).
  * The HTTP clients (`ktorClientModule`, from `http.client`) run on CIO, and each of their requests is a client span
  * within its caller's trace (`httpClientTelemetryModule`).
  */
@@ -100,6 +97,7 @@ fun appDI() = DI {
   import(prometheusTelemetryModule)
   import(ktorTelemetryModule)
   import(ktorHealthModule)
+  import(ktorServerCioEngineModule)
   import(ktorClientModule)
   import(httpClientTelemetryModule)
   import(jdbcDataSourceModule)

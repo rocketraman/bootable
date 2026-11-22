@@ -1,6 +1,7 @@
 package com.github.rocketraman.bootable.boot
 
 import com.github.rocketraman.bootable.config.ConfigBinder
+import com.github.rocketraman.bootable.test.StaticConfigBinder
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
 import dev.zacsweers.metro.DependencyGraph
@@ -12,7 +13,6 @@ import org.kodein.di.direct
 import org.kodein.di.inBindSet
 import org.kodein.di.singleton
 import org.kodein.di.instance
-import kotlin.reflect.KClass
 import kotlin.time.Duration.Companion.seconds
 
 sealed interface TestScope
@@ -31,16 +31,11 @@ object OrderBindings {
 }
 
 /** Config with a `boot.service.order` section that shuffles ties with seed 7, a 3s drain delay, and a version. */
-private object ShufflingConfig : ConfigBinder {
-  override fun <T : Any> configOf(prefix: String, type: KClass<T>): T = type.javaObjectType.cast(
-    when {
-      prefix == "boot.service.order" && type == ServiceOrderConfig::class -> ServiceOrderConfig(StartOrder.Tiebreaker.Shuffled(7))
-      prefix == "health.readiness" && type == ReadinessConfig::class -> ReadinessConfig(drainDelay = 3.seconds)
-      prefix == "build" && type == BuildInfo::class -> BuildInfo(version = "1.4.2")
-      else -> error("unexpected config $prefix")
-    }
-  )
-}
+private val ShufflingConfig = StaticConfigBinder(
+  "boot.service.order" to ServiceOrderConfig(StartOrder.Tiebreaker.Shuffled(7)),
+  "health.readiness" to ReadinessConfig(drainDelay = 3.seconds),
+  "build" to BuildInfo(version = "1.4.2"),
+)
 
 @BindingContainer
 object ConfigBindings {

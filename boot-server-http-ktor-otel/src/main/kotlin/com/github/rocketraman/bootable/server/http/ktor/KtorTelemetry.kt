@@ -91,8 +91,9 @@ fun interface KtorServerTelemetryCustomizer {
  * The request's span is current while its route runs, so spans started there, e.g. with `Tracer.withSpan`, are its
  * children, and log events carry its trace id.
  *
- * The scrape is served on that server, unless [KtorTelemetryConfig.hostPort] puts it on a listener of its own: then
- * add [listener] to the application's services too.
+ * The scrape is served on that server, unless [KtorTelemetryConfig.hostPort] puts it on a listener of its own. The
+ * Kodein and Metro flavors of this module add that listener to the application's services, on the application's
+ * [KtorServerEngine]; otherwise, add [listener] to them yourself.
  */
 class KtorTelemetry(
   val openTelemetry: OpenTelemetry,
@@ -138,6 +139,20 @@ class KtorTelemetry(
       "telemetry.ktor.hostPort is $hostPort, but there is no metrics scrape backend, such as Prometheus, to serve there"
     }
     return MetricsKtorService(HostPort(hostPort), engineFactory, snapshotProvider, config.path)
+  }
+
+  /**
+   * The scrape's listener of its own, on [engine], when [KtorTelemetryConfig.hostPort] is set; otherwise a service
+   * that does nothing, so the listener can be added to the application's services either way, and [engine] is only
+   * needed when it is set: this fails if it is, and there is no engine.
+   */
+  fun listener(engine: KtorServerEngine?): AppService {
+    val hostPort = config.hostPort ?: return NoMetricsListener
+    checkNotNull(engine) {
+      "telemetry.ktor.hostPort is $hostPort, but there is no KtorServerEngine to serve the metrics scrape on: add an " +
+        "engine module, such as boot-server-http-ktor-cio, in your DI flavor, or provide a KtorServerEngine"
+    }
+    return listener(engine.factory)
   }
 
   private object NoMetricsListener : AppService {

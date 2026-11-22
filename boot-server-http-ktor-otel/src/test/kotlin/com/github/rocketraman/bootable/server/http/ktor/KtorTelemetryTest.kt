@@ -326,6 +326,21 @@ val KtorTelemetryTest by testSuite {
       listener.shutdown()
     }
 
+    test("is on the application's KtorServerEngine, when it has one") {
+      val telemetry = Telemetry(KtorTelemetryConfig(hostPort = "127.0.0.1:0"))
+      assert(telemetry.ktor.listener(KtorServerEngine(CIO)) is MetricsKtorService<*, *>)
+    }
+
+    test("needs no KtorServerEngine when no hostPort is configured") {
+      assert(Telemetry().ktor.listener(engine = null) !is KtorService<*, *>)
+    }
+
+    test("fails with a hostPort but no KtorServerEngine") {
+      val telemetry = Telemetry(KtorTelemetryConfig(hostPort = ":0"))
+      val failure = runCatching { telemetry.ktor.listener(engine = null) }.exceptionOrNull()
+      assert(failure?.message?.contains("no KtorServerEngine") == true)
+    }
+
     test("fails with a hostPort but no pulled backend to serve") {
       val telemetry = Telemetry()
       val ktor = KtorTelemetry(telemetry.service.openTelemetry, config = KtorTelemetryConfig(hostPort = ":0"))
@@ -400,13 +415,16 @@ val KtorTelemetryWiringTest by testSuite {
 
       val ktorTelemetry = di.instance<KtorTelemetry>()
       assert(ktorTelemetry.config == expectedConfig)
-      checkServes(di.instance(), ktorTelemetry, inMemory)
+      val services = di.instance<Set<AppService>>()
+      assert(services.single { it.name().startsWith("MetricsKtorService") }.name() == "MetricsKtorService (none)")
+      checkServes(services, ktorTelemetry, inMemory)
     }
 
     test("metro") {
       val graph = createGraph<TestGraph>()
 
       assert(graph.ktorTelemetry.config == expectedConfig)
+      assert(graph.appServices.single { it.name().startsWith("MetricsKtorService") }.name() == "MetricsKtorService (none)")
       checkServes(graph.appServices, graph.ktorTelemetry, graph.inMemoryTelemetry)
     }
   }

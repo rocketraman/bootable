@@ -219,6 +219,8 @@ project("boot") {
     // HealthReport and BuildInfo are @Serializable, in any format: generated serializers, with no reflection, so
     // nothing to add for a native image
     api(rootProject.libs.kotlinx.serialization.core)
+    // StaticConfigBinder, for the wiring tests' config
+    testImplementation(project(":boot-test"))
     testImplementation(rootProject.libs.kotlinx.serialization.json)
     implementation(project(":boot-common"))
     // todo for now, we depend on boot-logging-log4j2, later we could use service loaders to discover implementations at runtime
@@ -803,13 +805,16 @@ project("boot-server-http-ktor") {
     api(rootProject.libs.ktor.server.core)
     // the health routes' JSON bodies
     implementation(rootProject.libs.kotlinx.serialization.json)
-    // the metro flavor contributes KtorHealth to boot's BootScope
+    // the flavors contribute KtorHealth, and its listener of its own, to boot's BootScope and app services
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot", configuration = "kodeinElements"))
 
     // the lifecycle tests run a real server on each engine
     testImplementation(rootProject.libs.ktor.server.cio)
     testImplementation(rootProject.libs.ktor.server.netty)
     testImplementation(project(":boot-logging-log4j2"))
+    // StaticConfigBinder, for the wiring tests' config
+    testImplementation(project(":boot-test"))
     // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
@@ -821,17 +826,32 @@ project("boot-server-http-ktor") {
   }
 }
 
-// Each engine module is a thin, non-generic KtorService for its engine, and brings that engine transitively
+// Each engine module is a thin, non-generic KtorService for its engine, and brings that engine transitively. Each
+// flavor provides the engine as the application's KtorServerEngine, for the listeners the other modules start
 listOf(
   "cio" to rootProject.libs.ktor.server.cio,
   "netty" to rootProject.libs.ktor.server.netty,
 ).forEach { (engine, engineLibrary) ->
   project("boot-server-http-ktor-$engine") {
+    configureDiVariants()
     dependencies {
       api(project(":boot-server-http-ktor"))
       api(engineLibrary)
+      // only boot's BootScope: not boot-server-http-ktor's flavor, whose Metro bindings would then be contributed
+      // to every graph with an engine
+      "metroApi"(project(path = ":boot", configuration = "metroElements"))
 
       testImplementation(project(":boot-logging-log4j2"))
+      // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+      testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+      testImplementation(project(path = ":boot", configuration = "metroElements"))
+      testImplementation(project(path = ":boot-server-http-ktor", configuration = "kodeinElements"))
+      testImplementation(project(path = ":boot-server-http-ktor", configuration = "metroElements"))
+    }
+
+    sourceSets.named("test") {
+      compileClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
+      runtimeClasspath += sourceSets["kodein"].output + sourceSets["metro"].output
     }
   }
 }
@@ -863,6 +883,7 @@ project("boot-telemetry-otel") {
     // to check that log events in a span get its trace and span ids, as Bootable's layouts expect
     testImplementation(rootProject.libs.log4j.core)
     // the tests exercise this module's kodein and metro flavors too, wired up as a consumer would
+    testImplementation(project(":boot-test"))
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
     testImplementation(project(path = ":boot", configuration = "metroElements"))
     testImplementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
@@ -939,6 +960,7 @@ project("boot-server-http-ktor-otel") {
     api(rootProject.libs.opentelemetry.instrumentation.ktor)
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
     "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot", configuration = "kodeinElements"))
     "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
 
     // requests are traced and scraped through a real server, with a real Prometheus reader behind it
@@ -969,6 +991,8 @@ project("boot-test") {
   dependencies {
     // startPlan, for the shuffled start plans
     api(project(":boot"))
+    // StaticConfigBinder is a ConfigBinder
+    api(project(":boot-config-common"))
     // Bootable's logging, initialized for tests, and captured: the events are Log4j2's own
     api(project(":boot-logging-log4j2"))
     api(rootProject.libs.log4j.core)

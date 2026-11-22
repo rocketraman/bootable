@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.server.http.ktor
 
+import com.github.rocketraman.bootable.boot.bindAppService
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizer
@@ -8,6 +9,7 @@ import org.kodein.di.bindSet
 import org.kodein.di.bindSingleton
 import org.kodein.di.inBindSet
 import org.kodein.di.instance
+import org.kodein.di.instanceOrNull
 import org.kodein.di.singleton
 
 /**
@@ -18,12 +20,11 @@ import org.kodein.di.singleton
  * after `openTelemetryModule`. Requires a `ConfigBinder` binding (e.g. from boot-config-hoplite's
  * `hopliteConfigModule`).
  *
- * Install it in a server with `installTelemetry(instance<KtorTelemetry>())`. For the scrape's listener of its own,
- * add the listener on your engine to the app services:
+ * Install it in a server with `installTelemetry(instance<KtorTelemetry>())`.
  *
- * ```
- * bindAppService { singleton { instance<KtorTelemetry>().listener(CIO) } }
- * ```
+ * It also adds the scrape's listener of its own to the app services, which does nothing unless
+ * `telemetry.ktor.hostPort` is set, and then runs on the application's [KtorServerEngine], such as
+ * `ktorServerCioEngineModule`'s, from boot-server-http-ktor-cio-kodein.
  *
  * To adjust the Ktor instrumentation beyond [KtorTelemetryConfig], add a [KtorServerTelemetryCustomizer] to the set
  * this module opens.
@@ -39,4 +40,5 @@ val ktorTelemetryModule by DI.Module {
     val customizers = instance<Set<KtorServerTelemetryCustomizer>>()
     KtorTelemetry(instance(), instance(), instance()) { builder -> customizers.forEach { it.customize(builder) } }
   }
+  bindAppService { singleton { instance<KtorTelemetry>().listener(instanceOrNull<KtorServerEngine>()) } }
 }

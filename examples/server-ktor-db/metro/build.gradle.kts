@@ -29,6 +29,9 @@ dependencies {
   implementation(project(path = ":boot-server-http-ktor-otel", configuration = "metroElements"))
   // the health probes, served by the server
   implementation(project(path = ":boot-server-http-ktor", configuration = "metroElements"))
+  // the server's engine, CIO, for the listeners of their own of the health probes and the scrape, when their hostPort
+  // is set
+  implementation(project(path = ":boot-server-http-ktor-cio", configuration = "metroElements"))
   // HikariCP's pool metrics, through the application's OpenTelemetry
   implementation(project(path = ":boot-db-pool-hikari-otel", configuration = "metroElements"))
   // the HTTP clients, each request traced within its caller's trace

@@ -220,8 +220,10 @@ health {
 }
 ----
 
-On a listener of their own, add `KtorHealth.listener(engine)` to the application's services: it starts first and stops last, so liveness is answered while the other services start, such as during long migrations, and readiness is down until the application is running.
+A listener of their own starts first and stops last, so liveness is answered while the other services start, such as during long migrations, and readiness is down until the application is running.
 With Kodein, `ktorHealthModule` (from `boot-server-http-ktor-kodein`) provides `KtorHealth`; with Metro, `boot-server-http-ktor-metro` contributes it.
+Either also adds the listener of their own to the application's services, on the application's `KtorServerEngine`, which an engine module's flavor provides (see <<KtorEngine>>); without `hostPort`, that listener is a service that does nothing, and needs no engine.
+Without DI, add `KtorHealth.listener(engine)` to the application's services yourself, such as `ktorHealth.listener(CIO)`.
 
 `KtorHealth` also serves the application's `BuildInfo` at `/health/info`: always `200`, with a JSON body of its `version`, `revision`, and `attributes`, each only if it is set.
 A client can then check which build answered it, such as an end-to-end test run against a new version during a rollout, which would prove nothing if it reached the old one.
@@ -593,8 +595,10 @@ For SDK settings the config doesn't cover, such as a span processor, a metric vi
 `KtorTelemetry`, from `boot-server-http-ktor-otel`, installs OpenTelemetry's Ktor instrumentation, which traces every request, continuing the caller's trace when the request carries one, and records the standard HTTP server metrics, such as `http.server.request.duration`.
 It also serves a pulled backend's scrape at `/metrics`, and keeps those scrapes out of the traces.
 Call `installTelemetry(telemetry)` in your server's `module()`; the request's span is current while its route runs, so `withSpan` in a route starts a child of it.
-To keep the scrape off a public server, set `telemetry.ktor.hostPort`: the scrape is then served on a listener of its own, `telemetry.listener(CIO)` (or another engine), which you add to the application's services.
-Without `hostPort`, that listener is a service that does nothing, so it can be added either way.
+To keep the scrape off a public server, set `telemetry.ktor.hostPort`: the scrape is then served on a listener of its own.
+The Kodein `ktorTelemetryModule` and the Metro bindings add that listener to the application's services, on the application's `KtorServerEngine`, which an engine module's flavor provides (see <<KtorEngine>>).
+Without DI, add `telemetry.listener(CIO)` (or another engine) to the application's services yourself.
+Without `hostPort`, that listener is a service that does nothing, and needs no engine, so it can be added either way.
 
 `jdbcTracing`, from `boot-db-jdbc-otel`, wraps the pool's `DataSource` so that each statement is a client span, named for its operation, database, and table, such as `SELECT mydb.entry`.
 The span's parent is the span current on the thread that runs the statement: within a request, or a `withSpan`, that is the coroutine's span, across Exposed's `withTransaction` dispatcher too, since a coroutine's children inherit its trace context.
@@ -703,6 +707,7 @@ To trace and measure requests, and serve a metrics scrape, see `boot-server-http
 To serve liveness and readiness probes, see `KtorHealth` under <<Health>>.
 See https://github.com/rocketraman/bootable/blob/HEAD/boot-server-http-ktor/src/main/kotlin/com/github/rocketraman/bootable/server/http/ktor/KtorService.kt[KtorService].
 
+[[KtorEngine]]
 The Ktor engine is your choice.
 `boot-server-http-ktor` itself depends on no engine; depend on the module for the engine you want, which brings that engine with it, and extend its service class:
 
@@ -724,6 +729,12 @@ class MyServer(config: ServerConfig) : CioKtorService("my-server", config) {
 ----
 
 Any other engine, such as Jetty, works too: depend on `boot-server-http-ktor` and that engine, and extend `KtorService` with the engine's factory, e.g. `KtorService<JettyApplicationEngine, JettyApplicationEngineBase.Configuration>("my-server", config, Jetty)`.
+
+The listeners that other modules start on their own, those of the health probes and the metrics scrape when their `hostPort` is set, run on the application's `KtorServerEngine`.
+Each engine module's flavor provides it, for that engine: with Kodein, import `ktorServerCioEngineModule` (from `boot-server-http-ktor-cio-kodein`) or `ktorServerNettyEngineModule` (from `boot-server-http-ktor-netty-kodein`); with Metro, `boot-server-http-ktor-cio-metro` or `boot-server-http-ktor-netty-metro` contributes it.
+Use one engine module's flavor: two would be two bindings of `KtorServerEngine`.
+For any other engine, bind your own, such as `KtorServerEngine(Jetty)`.
+An application whose health probes and scrape are served on its own server needs no `KtorServerEngine`; one with a `hostPort` set and no engine fails to start, saying so.
 
 Every engine is configured the same way: one connector at the service's `HostPort` (port 8080 if it has none), a 50 ms shutdown grace period, and a 1 s shutdown timeout.
 To change those, add connectors, or set the engine's own options, override `configureEngine`, whose receiver is the engine's configuration type:
@@ -887,6 +898,20 @@ assert(logs.messages(Level.INFO) == listOf("Stored entry greeting"))
 
 A `level` lowers the logger's level while it captures, such as to `Level.DEBUG`.
 Both initialize Bootable's logging for the test first, with `testLoggingInit()`, as `boot` does for an application, but leave standard out and error alone.
+
+==== Config
+
+`StaticConfigBinder` is a `ConfigBinder` that a test gives its config sections to, already decoded, by prefix, so a test that wires the application with Kodein or Metro needs no config files and no config library:
+
+[source,kotlin]
+----
+val binder = StaticConfigBinder(
+  "health.ktor" to KtorHealthConfig(hostPort = "127.0.0.1:0"),
+  "build" to BuildInfo(version = "1.4.2"),
+)
+----
+
+Asked for a section it doesn't have, or for one of another type, it fails, naming the prefix.
 
 ==== Clock and telemetry
 
