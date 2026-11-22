@@ -7,6 +7,7 @@ import com.github.rocketraman.bootable.boot.DefaultPhase.Serving
 import de.infix.testBalloon.framework.core.testSuite
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlin.time.Duration.Companion.days
 
 private class RecordingService(
   private val name: String,
@@ -103,7 +104,7 @@ val BootableTest by testSuite {
     )
 
     // a long shutdown time, so the controller's forced-exit timer can't fire while the tests run
-    assert(bootable.run(maxShutdownTime = 1_000_000) == -1)
+    assert(bootable.run(maxShutdownTime = 1.days) == -1)
     assert(events == listOf("start pool", "start migrate", "stop pool"))
   }
 
@@ -118,7 +119,7 @@ val BootableTest by testSuite {
       setOf(AppStartStopLifecycleController(), Veto("skipped"), Around("inner", 1, events), Around("outer", 2, events)),
     )
 
-    assert(bootable.run(maxShutdownTime = 1_000_000) == -1)
+    assert(bootable.run(maxShutdownTime = 1.days) == -1)
     assert(
       events == listOf(
         "outer{", "inner{",
@@ -137,7 +138,7 @@ val BootableTest by testSuite {
       setOf(AppStartStopLifecycleController(), Around("inner", 1, events), Around("outer", 2, events), StopsWhenRunning(events)),
     )
 
-    assert(bootable.run(maxShutdownTime = 1_000_000) == 0)
+    assert(bootable.run(maxShutdownTime = 1.days) == 0)
     assert(
       events == listOf(
         "outer{", "inner{", "outer(", "inner(", "start pool", ")inner", ")outer", "}inner", "}outer",
@@ -158,7 +159,7 @@ val BootableTest by testSuite {
       setOf(AppStartStopLifecycleController(), failing, Around("lower", 1, events)),
     )
 
-    assert(bootable.run(maxShutdownTime = 1_000_000) == -1)
+    assert(bootable.run(maxShutdownTime = 1.days) == -1)
     assert(events == listOf("lower{", "lower(", "start pool", ")lower", "}lower", "stop pool"))
   }
 
@@ -177,7 +178,7 @@ val BootableTest by testSuite {
       setOf(AppStartStopLifecycleController(), capture),
     )
 
-    assert(bootable.run(booted, maxShutdownTime = 1_000_000) == -1)
+    assert(bootable.run(booted, maxShutdownTime = 1.days) == -1)
     val timeline = captured!!
     val stages = timeline.stages
     assert(timeline.start == started)
@@ -200,7 +201,7 @@ val BootableTest by testSuite {
 
     // the stop is asked for on the thread that runs the application, which a hand-off to that thread would block forever
     var exitCode: Int? = null
-    val runner = kotlin.concurrent.thread { exitCode = bootable.run(maxShutdownTime = 1_000_000) }
+    val runner = kotlin.concurrent.thread { exitCode = bootable.run(maxShutdownTime = 1.days) }
     runner.join(10_000)
     assert(!runner.isAlive)
     assert(exitCode == 5)

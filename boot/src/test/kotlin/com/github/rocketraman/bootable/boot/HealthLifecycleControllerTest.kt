@@ -8,6 +8,7 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlin.time.Duration.Companion.days
 
 /** Records [health]'s state, and whether it is live and ready, as it starts and stops. */
 private class ObservingService(
@@ -55,7 +56,7 @@ private fun runApp(
   var exitCode: Int? = null
   val app = thread {
     exitCode = Bootable(services, setOf(AppStartStopLifecycleController(), stopper, health) + extraControllers)
-      .run(maxShutdownTime = 1_000_000)
+      .run(maxShutdownTime = 1.days)
   }
   awaitCondition { health.state == LifecycleState.Running }
   block()
@@ -87,7 +88,7 @@ val HealthLifecycleControllerTest by testSuite {
       tiebreaker = StartOrder.Tiebreaker.ByName,
     )
 
-    assert(bootable.run(maxShutdownTime = 1_000_000) == -1)
+    assert(bootable.run(maxShutdownTime = 1.days) == -1)
     assert(events.first() == "start: Starting live=true ready=false")
     assert(events.last() == "stop: Stopping live=true ready=false")
     assert(health.state == LifecycleState.Stopped)
@@ -107,7 +108,7 @@ val HealthLifecycleControllerTest by testSuite {
     val stopper = Stopper()
     val app = thread {
       Bootable(setOf(service, ObservingService(health, events)), setOf(AppStartStopLifecycleController(), stopper, health))
-        .run(maxShutdownTime = 1_000_000)
+        .run(maxShutdownTime = 1.days)
     }
     awaitCondition { health.state == LifecycleState.Running }
     stopper.stop(0)
@@ -179,7 +180,7 @@ val HealthLifecycleControllerTest by testSuite {
     val bootable = Bootable(setOf(ObservingService(health, events)), setOf(AppStartStopLifecycleController(), failing, health))
 
     // an hour's drain would time the test out
-    assert(bootable.run(maxShutdownTime = 1_000_000) == -1)
+    assert(bootable.run(maxShutdownTime = 1.days) == -1)
     assert(events == listOf("start: Starting live=true ready=false", "stop: Stopping live=true ready=false"))
     assert(health.state == LifecycleState.Stopped)
   }

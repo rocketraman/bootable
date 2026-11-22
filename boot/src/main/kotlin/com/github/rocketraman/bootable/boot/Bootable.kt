@@ -14,6 +14,8 @@ import kotlin.system.exitProcess
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 import org.apache.logging.log4j.kotlin.logger
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The runnable core of Bootable — an ordinary Kotlin class with no dependency-injection annotations. Construct it
@@ -59,7 +61,7 @@ class Bootable(
    */
   internal fun boot(
     timeline: StartupTimeline = StartupTimeline(TimeSource.Monotonic.markNow()),
-    maxShutdownTime: Long = 30,
+    maxShutdownTime: Duration = 30.seconds,
   ) {
     exit(run(timeline, maxShutdownTime))
   }
@@ -70,7 +72,7 @@ class Bootable(
    */
   internal fun run(
     boot: StartupTimeline = StartupTimeline(TimeSource.Monotonic.markNow()),
-    maxShutdownTime: Long = 30,
+    maxShutdownTime: Duration = 30.seconds,
   ): Int {
     val startupMark = boot.start
     appPlan()
@@ -104,7 +106,7 @@ class Bootable(
     return exitCode
   }
 
-  private fun appStop(startupMark: TimeMark, maxShutdownTime: Long) {
+  private fun appStop(startupMark: TimeMark, maxShutdownTime: Duration) {
     log.info("=> Shutting down (${startupMark.elapsedNow()})")
 
     val shutdownMark = TimeSource.Monotonic.markNow()
@@ -158,7 +160,7 @@ class Bootable(
     }
   }
 
-  private fun appShutdown(maxShutdownTime: Long) {
+  private fun appShutdown(maxShutdownTime: Duration) {
     lifecycleControllers.sortedBy { it.priority() }.forEach {
       it.appShutdown(serviceContext, maxShutdownTime, ::halt)
     }
@@ -265,9 +267,11 @@ fun defaultLifecycleControllers(): Set<LifecycleController> = setOf(
  *   )
  * }
  * ```
+ *
+ * @param maxShutdownTime how long the services have to stop, once shutdown begins, before the process is halted.
  */
 fun boot(
-  maxShutdownTime: Long = 30,
+  maxShutdownTime: Duration = 30.seconds,
   loggingType: LoggingType? = null,
   bootable: () -> Bootable,
 ) {

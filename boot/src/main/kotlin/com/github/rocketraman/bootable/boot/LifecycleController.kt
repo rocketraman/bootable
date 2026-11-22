@@ -1,6 +1,7 @@
 package com.github.rocketraman.bootable.boot
 
 import com.github.rocketraman.bootable.common.Ignore
+import kotlin.time.Duration
 
 /**
  * The application's services, for a [LifecycleController] to start and stop.
@@ -91,7 +92,7 @@ interface LifecycleController {
    * Executed when the application is shutdown.
    * @param exitProcess A callback to force exit the process with a given return code.
    */
-  fun appShutdown(serviceContext: ServiceContext, maxShutdownTime: Long, exitProcess: (exitCode: Int) -> Unit) { Ignore }
+  fun appShutdown(serviceContext: ServiceContext, maxShutdownTime: Duration, exitProcess: (exitCode: Int) -> Unit) { Ignore }
 
   /**
    * Executed after application shutdown for final cleanup.

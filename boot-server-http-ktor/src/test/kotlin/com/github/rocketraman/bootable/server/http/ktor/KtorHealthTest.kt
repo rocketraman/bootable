@@ -28,6 +28,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlin.time.Duration.Companion.days
 
 /** An application server, which installs [health]'s routes. */
 private class AppServer(private val health: KtorHealth) :
@@ -58,7 +59,7 @@ private class App(private val health: HealthLifecycleController, vararg services
   }
 
   fun stop() {
-    health.appShutdown(context, 1_000_000) {}
+    health.appShutdown(context, 1.days) {}
     context.startPlan.asReversed().forEach(context.serviceShutdown)
     health.appCleanup()
   }

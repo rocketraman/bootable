@@ -159,6 +159,12 @@ See the Testing section of the README; the helpers test components without booti
 |`${{ random:int }}`, `${{ random:uuid }}`, ...
 |===
 
+=== Shutdown timeout
+
+==== Breaking changes
+
+* `maxShutdownTime` is a `Duration`, not `Long` seconds, in `boot` and `LifecycleController.appShutdown`.
+
 === Fixes
 
 * A stop requested during the start no longer deadlocks; it takes effect once running.

@@ -3,6 +3,7 @@ package com.github.rocketraman.bootable.boot
 import org.apache.logging.log4j.kotlin.logger
 import com.github.rocketraman.bootable.common.threadStacks
 import kotlin.concurrent.timer
+import kotlin.time.Duration
 
 /**
  * This lifecycle controller starts all AppServices at application start time, in the order of the
@@ -18,8 +19,8 @@ class AppStartStopLifecycleController: LifecycleController {
     serviceContext.startPlan.forEach(serviceContext.serviceStart)
   }
 
-  override fun appShutdown(serviceContext: ServiceContext, maxShutdownTime: Long, haltProcess: (status: Int) -> Unit) {
-    timer(name = "shutdownTimer", daemon = true, initialDelay = maxShutdownTime * 1000, period = Long.MAX_VALUE) {
+  override fun appShutdown(serviceContext: ServiceContext, maxShutdownTime: Duration, haltProcess: (status: Int) -> Unit) {
+    timer(name = "shutdownTimer", daemon = true, initialDelay = maxShutdownTime.inWholeMilliseconds, period = Long.MAX_VALUE) {
       log.warn { "Application stopped but did not shutdown normally, forcing exit. Current stack trace: ${threadStacks()}" }
       haltProcess(1)
     }
