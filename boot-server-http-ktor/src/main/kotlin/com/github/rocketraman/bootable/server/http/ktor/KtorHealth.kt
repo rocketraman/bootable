@@ -3,7 +3,7 @@ package com.github.rocketraman.bootable.server.http.ktor
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BuildInfo
 import com.github.rocketraman.bootable.boot.DefaultPhase
-import com.github.rocketraman.bootable.boot.Health
+import com.github.rocketraman.bootable.boot.HealthLifecycleController
 import com.github.rocketraman.bootable.boot.HealthLiveReport
 import com.github.rocketraman.bootable.boot.HealthReadyReport
 import com.github.rocketraman.bootable.boot.Ordering
@@ -20,7 +20,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
 /**
- * Where a Ktor server serves the application's [Health]. Every field is optional.
+ * Where a Ktor server serves the application's [HealthLifecycleController]. Every field is optional.
  *
  * Decoded from the `health.ktor` config section:
  *
@@ -63,10 +63,10 @@ data class KtorHealthConfig(
 fun ktorHealthConfig(binder: ConfigBinder): KtorHealthConfig = binder.config("health.ktor")
 
 /**
- * Serves the application's [Health] from a Ktor server: liveness at [KtorHealthConfig.livePath] and readiness at
- * [KtorHealthConfig.readyPath], each `200 OK` when healthy and `503 Service Unavailable` when not, with a JSON body:
- * `UP` or `DOWN`, and the lifecycle state, as `{"status": "UP", "state": "Running"}` for liveness, which runs no
- * checks ([HealthLiveReport]); and for readiness, each check's result too, by name, so a consumer can check one
+ * Serves the application's [HealthLifecycleController] from a Ktor server: liveness at [KtorHealthConfig.livePath] and
+ * readiness at [KtorHealthConfig.readyPath], each `200 OK` when healthy and `503 Service Unavailable` when not, with a
+ * JSON body: `UP` or `DOWN`, and the lifecycle state, as `{"status": "UP", "state": "Running"}` for liveness, which
+ * runs no checks ([HealthLiveReport]); and for readiness, each check's result too, by name, so a consumer can check one
  * ([HealthReadyReport]):
  *
  * ```
@@ -107,7 +107,7 @@ fun ktorHealthConfig(binder: ConfigBinder): KtorHealthConfig = binder.config("he
  * then add [listener] to the application's services too.
  */
 class KtorHealth(
-  val health: Health,
+  val health: HealthLifecycleController,
   val config: KtorHealthConfig = KtorHealthConfig(),
   val buildInfo: BuildInfo = BuildInfo(),
 ) {
@@ -152,7 +152,7 @@ fun Application.installHealth(health: KtorHealth) = health.install(this)
  * Unavailable` when not, with a JSON body, which no cache keeps; and [buildInfo] at [infoPath]: see [KtorHealth].
  */
 fun Route.healthRoutes(
-  health: Health,
+  health: HealthLifecycleController,
   livePath: String = KtorHealthConfig.DEFAULT_LIVE_PATH,
   readyPath: String = KtorHealthConfig.DEFAULT_READY_PATH,
   buildInfo: BuildInfo = BuildInfo(),
@@ -191,7 +191,7 @@ private suspend fun ApplicationCall.respondHealth(healthy: Boolean, json: String
 class HealthKtorService<TEngine : ApplicationEngine, TConfiguration : ApplicationEngine.Configuration>(
   hostPort: HostPort,
   engineFactory: ApplicationEngineFactory<TEngine, TConfiguration>,
-  private val health: Health,
+  private val health: HealthLifecycleController,
   private val livePath: String = KtorHealthConfig.DEFAULT_LIVE_PATH,
   private val readyPath: String = KtorHealthConfig.DEFAULT_READY_PATH,
   private val buildInfo: BuildInfo = BuildInfo(),

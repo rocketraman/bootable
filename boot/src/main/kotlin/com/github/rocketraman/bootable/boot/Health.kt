@@ -8,7 +8,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.apache.logging.log4j.kotlin.logger
 
-/** Where the application is in its lifecycle, as [Health] tracks it. */
+/** Where the application is in its lifecycle, as [HealthLifecycleController] tracks it. */
 @Serializable
 enum class LifecycleState {
   /** Initializing and starting the services. The state until the application's start has completed. */
@@ -46,8 +46,8 @@ sealed interface HealthStatus {
 }
 
 /**
- * A check that the application is ready to take work, such as that its database answers, which [Health.readiness]
- * runs, while the application is running, whenever readiness is asked for.
+ * A check that the application is ready to take work, such as that its database answers, which
+ * [HealthLifecycleController.readiness] runs, while the application is running, whenever readiness is asked for.
  *
  * Readiness only: liveness runs no checks, since an application whose dependency is down isn't helped by restarting.
  *
@@ -149,21 +149,21 @@ data class HealthReadyReport(
  * - [readiness] is healthy only while the application is running: once its start has completed, and until shutdown
  *   begins. Then, it runs the [checks] too, and is healthy only if they all are.
  *
- * When shutdown begins, readiness goes down, and then, if the application was running, Health waits for the
- * [ReadinessConfig.drainDelay] before the services stop, so that load balancers stop routing to it first.
+ * When shutdown begins, readiness goes down, and then, if the application was running, HealthLifecycleController waits
+ * for the [ReadinessConfig.drainDelay] before the services stop, so that load balancers stop routing to it first.
  *
  * Add it to the application's lifecycle controllers, and serve it, e.g. with `KtorHealth` from
  * `boot-server-http-ktor`:
  *
  * ```
- * val health = Health(setOf(JdbcHealthCheck(dataSource)), readinessConfig(binder))
+ * val health = HealthLifecycleController(setOf(JdbcHealthCheck(dataSource)), readinessConfig(binder))
  * Bootable(services, defaultLifecycleControllers() + health)
  * ```
  *
  * Kodein's `bootableModule` and Metro's `BootableDefaultBindings` add it for you, with the checks of the
  * `Set<HealthCheck>` they open.
  */
-class Health(
+class HealthLifecycleController(
   val checks: Set<HealthCheck> = emptySet(),
   val config: ReadinessConfig = ReadinessConfig(),
 ) : LifecycleController {

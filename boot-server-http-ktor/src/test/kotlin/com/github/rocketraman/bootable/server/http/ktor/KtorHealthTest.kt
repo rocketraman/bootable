@@ -4,7 +4,7 @@ import com.github.rocketraman.bootable.boot.AdvancedAppService
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BuildInfo
 import com.github.rocketraman.bootable.boot.DefaultPhase
-import com.github.rocketraman.bootable.boot.Health
+import com.github.rocketraman.bootable.boot.HealthLifecycleController
 import com.github.rocketraman.bootable.boot.HealthCheck
 import com.github.rocketraman.bootable.boot.HealthStatus
 import com.github.rocketraman.bootable.boot.LifecycleState
@@ -39,11 +39,11 @@ private class AppServer(private val health: KtorHealth) :
 }
 
 /**
- * Starts and stops [services] through [health], as Bootable's controllers do: the start, with [whileStarting] run
- * once they have started, but before the application is running, then its [Health.appRunning]; and the stop after its
- * [Health.appShutdown], which drains.
+ * Starts and stops [services] through [health], as Bootable's controllers do: the start, with [whileStarting] run once
+ * they have started, but before the application is running, then its [HealthLifecycleController.appRunning]; and the
+ * stop after its [HealthLifecycleController.appShutdown], which drains.
  */
-private class App(private val health: Health, vararg services: AppService) {
+private class App(private val health: HealthLifecycleController, vararg services: AppService) {
   private val context = ServiceContext(
     services.toSet(),
     services.toList(),
@@ -100,7 +100,7 @@ private suspend fun KtorService<*, *>.port() = server.engine.resolvedConnectors(
 val KtorHealthTest by testSuite {
   test("serves liveness and readiness on the application's server, following the lifecycle and the checks") {
     var dbUp = true
-    val health = Health(
+    val health = HealthLifecycleController(
       setOf(HealthCheck("db") { if (dbUp) HealthStatus.Healthy else HealthStatus.Unhealthy("db is down") }),
       ReadinessConfig(drainDelay = 500.milliseconds),
     )
@@ -144,7 +144,7 @@ val KtorHealthTest by testSuite {
   }
 
   test("serves them on a listener of their own, which starts first, when hostPort is set") {
-    val health = Health()
+    val health = HealthLifecycleController()
     val ktorHealth = KtorHealth(
       health,
       KtorHealthConfig(livePath = "/live", readyPath = "/ready", infoPath = "/info", hostPort = "127.0.0.1:0"),
@@ -172,13 +172,13 @@ val KtorHealthTest by testSuite {
   }
 
   test("has no listener of its own, and serves on the application's server, by default") {
-    val ktorHealth = KtorHealth(Health())
+    val ktorHealth = KtorHealth(HealthLifecycleController())
     assert(ktorHealth.listener(CIO) !is HealthKtorService<*, *>)
     assert(ktorHealth.config.applicationServerPaths == setOf("/health/live", "/health/ready", "/health/info"))
   }
 
   test("serves the build info, whatever the lifecycle state, which no cache keeps") {
-    val health = Health()
+    val health = HealthLifecycleController()
     val buildInfo = BuildInfo(version = "1.4.2", revision = "3f2c9e1", attributes = mapOf("branch" to "main"))
     val server = AppServer(KtorHealth(health, buildInfo = buildInfo))
     val app = App(health, server)

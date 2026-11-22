@@ -11,7 +11,7 @@ import kotlin.time.TimeSource
 
 /** Records [health]'s state, and whether it is live and ready, as it starts and stops. */
 private class ObservingService(
-  private val health: Health,
+  private val health: HealthLifecycleController,
   private val events: MutableList<String>,
   private val failStart: Boolean = false,
 ) : AppService {
@@ -25,7 +25,7 @@ private class ObservingService(
   }
 }
 
-private fun Health.observe() = "$state live=${liveness().healthy} ready=${readiness().healthy}"
+private fun HealthLifecycleController.observe() = "$state live=${liveness().healthy} ready=${readiness().healthy}"
 
 /** Captures the application's normal stop, to stop it from the test. */
 private class Stopper : LifecycleController {
@@ -46,7 +46,7 @@ private fun awaitCondition(timeout: Duration = 10.seconds, condition: () -> Bool
 
 /** Runs a [Bootable] of [services], [health] and [extraControllers] on a thread of its own, until [block] has run, then stops it. */
 private fun runApp(
-  health: Health,
+  health: HealthLifecycleController,
   services: Set<AppService>,
   extraControllers: Set<LifecycleController> = emptySet(),
   block: () -> Unit = {},
@@ -64,10 +64,10 @@ private fun runApp(
   return exitCode!!
 }
 
-val HealthTest by testSuite {
+val HealthLifecycleControllerTest by testSuite {
   test("is starting, then running, stopping, and stopped; live until stopped, and ready only while running") {
     val events = Collections.synchronizedList(mutableListOf<String>())
-    val health = Health()
+    val health = HealthLifecycleController()
     assert(health.observe() == "Starting live=true ready=false")
 
     runApp(health, setOf(ObservingService(health, events))) {
@@ -80,7 +80,7 @@ val HealthTest by testSuite {
 
   test("a failed start goes from starting to stopping, without draining") {
     val events = mutableListOf<String>()
-    val health = Health(config = ReadinessConfig(drainDelay = 1.hours))
+    val health = HealthLifecycleController(config = ReadinessConfig(drainDelay = 1.hours))
     val bootable = Bootable(
       setOf(ObservingService(health, events), ObservingService(health, events, failStart = true)),
       setOf(AppStartStopLifecycleController(), health),
@@ -96,7 +96,7 @@ val HealthTest by testSuite {
   test("readiness is down for the drain delay before the services stop, while liveness stays up") {
     val events = Collections.synchronizedList(mutableListOf<String>())
     val drainDelay = 300.milliseconds
-    val health = Health(config = ReadinessConfig(drainDelay = drainDelay))
+    val health = HealthLifecycleController(config = ReadinessConfig(drainDelay = drainDelay))
     var stopped: TimeSource.Monotonic.ValueTimeMark? = null
     val service = object : AppService {
       override fun shutdown() {
@@ -124,7 +124,7 @@ val HealthTest by testSuite {
 
   test("readiness runs the checks while running, and is down while any is unhealthy or throws") {
     var dbUp = true
-    val health = Health(
+    val health = HealthLifecycleController(
       setOf(
         HealthCheck("db") { if (dbUp) HealthStatus.Healthy else HealthStatus.Unhealthy("db is down") },
         HealthCheck("cache") { HealthStatus.Healthy },
@@ -144,7 +144,7 @@ val HealthTest by testSuite {
       assert(health.liveness() == HealthLiveReport(true, LifecycleState.Running))
     }
 
-    val throwing = Health(setOf(HealthCheck("boom") { error("kaboom") }))
+    val throwing = HealthLifecycleController(setOf(HealthCheck("boom") { error("kaboom") }))
     runApp(throwing, emptySet()) {
       assert(throwing.readiness().checks == mapOf("boom" to HealthStatus.Unhealthy("kaboom")))
     }
@@ -152,7 +152,7 @@ val HealthTest by testSuite {
 
   test("is running only once the whole start has completed, including the other controllers' code around it") {
     val events = Collections.synchronizedList(mutableListOf<String>())
-    val health = Health()
+    val health = HealthLifecycleController()
     val around = object : LifecycleController {
       override fun aroundAppStart(serviceContext: ServiceContext, timeline: StartupTimeline, start: () -> Unit) {
         start()
@@ -169,7 +169,7 @@ val HealthTest by testSuite {
 
   test("a start that fails in another controller's code after the services started doesn't drain") {
     val events = mutableListOf<String>()
-    val health = Health(config = ReadinessConfig(drainDelay = 1.hours))
+    val health = HealthLifecycleController(config = ReadinessConfig(drainDelay = 1.hours))
     val failing = object : LifecycleController {
       override fun aroundAppStart(serviceContext: ServiceContext, timeline: StartupTimeline, start: () -> Unit) {
         start()

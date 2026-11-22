@@ -1,4 +1,4 @@
-import com.github.rocketraman.bootable.boot.Health
+import com.github.rocketraman.bootable.boot.HealthLifecycleController
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientService
 import com.github.rocketraman.bootable.db.exposed.ExposedDatabaseService
@@ -19,7 +19,7 @@ import de.infix.testBalloon.framework.core.testSuite
 import io.ktor.server.cio.*
 
 private val noListener = KtorTelemetry(io.opentelemetry.api.OpenTelemetry.noop()).listener(CIO)
-private val noHealthListener = KtorHealth(Health()).listener(CIO)
+private val noHealthListener = KtorHealth(HealthLifecycleController()).listener(CIO)
 
 /** The wiring resolves; nothing is started, so no database is created. */
 val AppTest by testSuite {
@@ -51,7 +51,7 @@ val AppTest by testSuite {
 
   test("tracks the lifecycle's health, ready only while the database answers") {
     val controllers = EntriesApp(hopliteConfigBinder(report = false)).lifecycleControllers
-    val health = controllers.filterIsInstance<Health>().single()
+    val health = controllers.filterIsInstance<HealthLifecycleController>().single()
     assert(health.checks.single() is JdbcHealthCheck)
   }
 

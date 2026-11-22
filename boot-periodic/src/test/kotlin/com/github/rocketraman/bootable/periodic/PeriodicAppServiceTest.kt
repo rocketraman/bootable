@@ -2,7 +2,7 @@ package com.github.rocketraman.bootable.periodic
 
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.DefaultPhase
-import com.github.rocketraman.bootable.boot.Health
+import com.github.rocketraman.bootable.boot.HealthLifecycleController
 import com.github.rocketraman.bootable.boot.Ordering
 import com.github.rocketraman.bootable.boot.StartOrder
 import com.github.rocketraman.bootable.boot.startPlan
@@ -159,7 +159,7 @@ val PeriodicAppServiceTest by testSuite {
   }
 
   test("runs only while the application is running, with the running gate") {
-    val health = Health()
+    val health = HealthLifecycleController()
     val runs = AtomicInteger()
     val service = PeriodicAppService("running", testConfig(), PeriodicGate.running(health)) { runs.incrementAndGet() }
     service.startService()

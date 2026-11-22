@@ -1,6 +1,6 @@
 package com.github.rocketraman.bootable.periodic
 
-import com.github.rocketraman.bootable.boot.Health
+import com.github.rocketraman.bootable.boot.HealthLifecycleController
 import com.github.rocketraman.bootable.boot.LifecycleState
 import com.github.rocketraman.bootable.leader.LeaderElection
 import kotlinx.coroutines.awaitCancellation
@@ -63,6 +63,7 @@ fun interface PeriodicGate {
      * shutdown begins. A loop in the `Serving` phase, the default, starts with the last services to start, so this
      * holds its runs back only until the others in that phase, such as the HTTP server, have started too.
      */
-    fun running(health: Health): PeriodicGate = PeriodicGate { health.state == LifecycleState.Running }
+    fun running(health: HealthLifecycleController): PeriodicGate =
+      PeriodicGate { health.state == LifecycleState.Running }
   }
 }

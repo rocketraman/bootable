@@ -4,7 +4,7 @@ import com.github.rocketraman.bootable.db.exposed.ExposedDatabaseService
 import com.github.rocketraman.bootable.db.exposed.SchemaVerificationService
 import com.github.rocketraman.bootable.db.flyway.FlywayMigrationService
 import com.github.rocketraman.bootable.db.jdbc.JdbcConfig
-import com.github.rocketraman.bootable.boot.Health
+import com.github.rocketraman.bootable.boot.HealthLifecycleController
 import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
 import com.github.rocketraman.bootable.db.jdbc.JdbcHealthCheck
 import com.github.rocketraman.bootable.db.jdbc.SqliteConfig
@@ -23,7 +23,7 @@ import org.kodein.di.direct
 import org.kodein.di.instance
 
 private val noListener = KtorTelemetry(io.opentelemetry.api.OpenTelemetry.noop()).listener(CIO)
-private val noHealthListener = KtorHealth(Health()).listener(CIO)
+private val noHealthListener = KtorHealth(HealthLifecycleController()).listener(CIO)
 
 /** The graph resolves; nothing is started, so no database is created. */
 val AppTest by testSuite {
@@ -55,6 +55,6 @@ val AppTest by testSuite {
     assert(di.instance<DataSource>().isWrapperFor(HikariDataSource::class.java))
     assert(di.instance<Set<Table>>() == setOf(EntryTable))
     // readiness is down while the database doesn't answer
-    assert(di.instance<Health>().checks.single() is JdbcHealthCheck)
+    assert(di.instance<HealthLifecycleController>().checks.single() is JdbcHealthCheck)
   }
 }

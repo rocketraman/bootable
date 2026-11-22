@@ -1,6 +1,6 @@
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.Bootable
-import com.github.rocketraman.bootable.boot.Health
+import com.github.rocketraman.bootable.boot.HealthLifecycleController
 import com.github.rocketraman.bootable.boot.LifecycleController
 import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.boot.defaultLifecycleControllers
@@ -62,9 +62,9 @@ import io.ktor.server.cio.*
  * recurring task that logs the entry digest, once across the instances, with no leader, its table migrated by Flyway
  * along with the application's.
  *
- * `Health`, one of the lifecycle controllers, tracks the application's lifecycle, and the server serves it: liveness,
- * and readiness, which is up only while the application is running and the database answers (`health.readiness`,
- * `health.ktor`).
+ * `HealthLifecycleController`, one of the lifecycle controllers, tracks the application's lifecycle, and the server
+ * serves it: liveness, and readiness, which is up only while the application is running and the database answers
+ * (`health.readiness`, `health.ktor`).
  */
 class EntriesApp(binder: ConfigBinder) {
   val services: Set<AppService>
@@ -103,7 +103,7 @@ class EntriesApp(binder: ConfigBinder) {
     val exposed = ExposedDatabaseService(database.dataSource, exposedConfig)
     val repository = EntryRepository(exposed.database)
     // readiness is down while the database doesn't answer
-    val health = Health(setOf(JdbcHealthCheck(database.dataSource)), readinessConfig(binder))
+    val health = HealthLifecycleController(setOf(JdbcHealthCheck(database.dataSource)), readinessConfig(binder))
     val ktorHealth = KtorHealth(health, healthConfig, buildInfo(binder))
     // the election calls the API server through the kubernetes client
     val leaderElection = KubernetesLeaderElection(leaderConfig, clients.getOrDefault(leaderConfig.httpClient))

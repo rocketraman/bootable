@@ -698,7 +698,8 @@ project("boot-leader-k8s") {
 project("boot-periodic") {
   configureDiVariants()
   dependencies {
-    // PeriodicAppService is an AppService, and its gates ask boot's Health and boot-leader-common's LeaderElection
+    // PeriodicAppService is an AppService, and its gates ask boot's HealthLifecycleController and
+    // boot-leader-common's LeaderElection
     api(project(":boot"))
     api(project(":boot-leader-common"))
     api(rootProject.libs.kotlinx.coroutines.core)

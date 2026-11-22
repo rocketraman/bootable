@@ -72,7 +72,7 @@ See the Client HTTP section of the README.
 
 See the Health section of the README.
 
-* `Health` answers liveness and readiness from the lifecycle state and ``HealthCheck``s.
+* `HealthLifecycleController` answers liveness and readiness from the lifecycle state and ``HealthCheck``s.
 * `health.readiness.drainDelay` holds readiness down for a while before services stop.
 * `boot-db-jdbc` adds an opt-in `JdbcHealthCheck`.
 * `KtorHealth` serves `/health/live` and `/health/ready`, on the app server or its own listener.

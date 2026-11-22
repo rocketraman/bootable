@@ -31,13 +31,13 @@
       "allDeclaredFields": true
     },
     {
-      "type": "com.github.rocketraman.bootable.boot.Health",
+      "type": "com.github.rocketraman.bootable.boot.HealthLifecycleController",
       "allDeclaredConstructors": true,
       "allDeclaredMethods": true,
       "allDeclaredFields": true
     },
     {
-      "type": "com.github.rocketraman.bootable.boot.Health$Companion",
+      "type": "com.github.rocketraman.bootable.boot.HealthLifecycleController$Companion",
       "allDeclaredConstructors": true,
       "allDeclaredMethods": true,
       "allDeclaredFields": true

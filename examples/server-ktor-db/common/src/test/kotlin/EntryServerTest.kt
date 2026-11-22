@@ -5,7 +5,7 @@ import com.github.rocketraman.bootable.db.jdbc.HikariConnectionPoolFactory
 import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
 import com.github.rocketraman.bootable.db.jdbc.JdbcHealthCheck
 import com.github.rocketraman.bootable.db.jdbc.SqliteConfig
-import com.github.rocketraman.bootable.boot.Health
+import com.github.rocketraman.bootable.boot.HealthLifecycleController
 import com.github.rocketraman.bootable.server.http.ktor.KtorHealth
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.telemetry.otel.MetricsConfig
@@ -29,12 +29,12 @@ import org.apache.logging.log4j.Level
  * services started by hand instead of by Bootable.
  */
 @OptIn(ExperimentalPathApi::class)
-private fun withServer(block: suspend HttpClient.(health: Health) -> Unit) {
+private fun withServer(block: suspend HttpClient.(health: HealthLifecycleController) -> Unit) {
   val dir = createTempDirectory("server-ktor-db")
   val database = JdbcDataSourceService(SqliteConfig(path = dir.resolve("test.db").toString()), HikariConnectionPoolFactory())
   val exposed = ExposedDatabaseService(database.dataSource)
   val db = exposed.database
-  val health = Health(setOf(JdbcHealthCheck(database.dataSource)))
+  val health = HealthLifecycleController(setOf(JdbcHealthCheck(database.dataSource)))
   try {
     database.start()
     FlywayMigrationService(database.dataSource).start()
