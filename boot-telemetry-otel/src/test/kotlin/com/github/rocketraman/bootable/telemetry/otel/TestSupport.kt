@@ -28,7 +28,7 @@ class InMemoryTelemetry : OpenTelemetryCustomizer {
 internal class ExportRequest(val path: String, val headers: Map<String, String>, val body: String)
 
 /** An OTLP receiver that only records what is exported to it. */
-internal fun withCollector(block: (endpoint: String, requests: List<ExportRequest>) -> Unit) {
+internal suspend fun withCollector(block: suspend (endpoint: String, requests: List<ExportRequest>) -> Unit) {
   val requests = CopyOnWriteArrayList<ExportRequest>()
   val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
   server.createContext("/") { exchange ->

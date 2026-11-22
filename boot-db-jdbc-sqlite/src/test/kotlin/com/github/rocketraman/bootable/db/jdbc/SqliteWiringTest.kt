@@ -39,7 +39,7 @@ private fun inaraTestModule() = InaraTestModule(
   hikariPoolModule = hikariPoolModule(),
 )
 
-private fun JdbcDataSourceService.startAndStop() {
+private suspend fun JdbcDataSourceService.startAndStop() {
   start()
   try {
     dataSource.connection.use { connection ->

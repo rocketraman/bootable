@@ -143,7 +143,7 @@ val HikariConnectionPoolFactoryTest by testSuite {
 }
 
 @OptIn(ExperimentalPathApi::class)
-private fun withTempDir(block: (Path) -> Unit) {
+private suspend fun withTempDir(block: suspend (Path) -> Unit) {
   val dir = createTempDirectory("boot-db-pool-hikari")
   try {
     block(dir)

@@ -14,7 +14,7 @@ data class GreetingConfig(val message: String)
 
 class GreetingService(private val cfg: GreetingConfig) : AppService {
   private val log = logger()
-  override fun start() = log.info { "greeting: ${cfg.message}" }
+  override suspend fun start() = log.info { "greeting: ${cfg.message}" }
 }
 
 // The application's module: its config (boot-config-hoplite:inara) and Bootable's (boot:inara), composed with its own.

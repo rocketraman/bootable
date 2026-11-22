@@ -7,7 +7,6 @@ import com.github.rocketraman.bootable.db.jdbc.DbMilestones
 import org.apache.logging.log4j.kotlin.logger
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.migration.jdbc.MigrationUtils
 
 /**
@@ -30,14 +29,14 @@ class SchemaVerificationService(
   private val mode: SchemaVerification = SchemaVerification.FAIL,
 ) : AppService {
 
-  override fun start() {
+  override suspend fun start() {
     if (mode == SchemaVerification.OFF) return
     if (tables.isEmpty()) {
       log.debug { "No Exposed tables are registered, so there is no database schema to verify" }
       return
     }
 
-    val statements = transaction(database) {
+    val statements = database.withTransaction {
       MigrationUtils.statementsRequiredForDatabaseMigration(*tables.toTypedArray(), withLogs = false)
     }
     if (statements.isEmpty()) {

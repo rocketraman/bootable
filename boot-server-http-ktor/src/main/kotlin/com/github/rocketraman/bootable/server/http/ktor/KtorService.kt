@@ -1,6 +1,6 @@
 package com.github.rocketraman.bootable.server.http.ktor
 
-import com.github.rocketraman.bootable.boot.AdvancedAppService
+import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.DefaultPhase
 import com.github.rocketraman.bootable.boot.Ordering
 import com.github.rocketraman.bootable.config.common.HostPort
@@ -8,11 +8,13 @@ import com.github.rocketraman.bootable.config.common.host
 import com.github.rocketraman.bootable.config.common.port
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
+import kotlinx.coroutines.CoroutineScope
 import org.slf4j.LoggerFactory
 
 /**
- * A base ktor app service that deals with startup and shutdown. Implements [AdvancedAppService], so `die()` can
- * be called by implementations when a fatal service occurs to force the entire system to shut down.
+ * A base ktor app service that deals with startup and shutdown. It starts in the scope `AppService.start(scope)`
+ * gets, and keeps it in [scope], so a route that finds the service can't go on fails it, with `scope.launch { throw e }`, which stops the application,
+ * in order, with exit code 1.
  *
  * The engine is supplied by [engineFactory], so this class carries no engine dependency. Rather than naming the
  * engine's types here, extend the engine's own subclass: `NettyKtorService` or `CioKtorService`, from the
@@ -27,14 +29,16 @@ abstract class KtorService<TEngine : ApplicationEngine, TConfiguration : Applica
   private val name: String,
   private val hostPort: HostPort,
   private val engineFactory: ApplicationEngineFactory<TEngine, TConfiguration>,
-) : AdvancedAppService {
+) : AppService {
 
   lateinit var server: EmbeddedServer<TEngine, TConfiguration>
 
-  lateinit var die: () -> Unit
+  /** The service's scope, which lives until it has stopped (see `AppService.start(scope)`). */
+  protected lateinit var scope: CoroutineScope
+    private set
 
-  override fun start(die: () -> Unit) {
-    this.die = die
+  override suspend fun start(scope: CoroutineScope) {
+    this.scope = scope
     val environment = applicationEnvironment {
       log = LoggerFactory.getLogger(name)
     }
@@ -52,13 +56,13 @@ abstract class KtorService<TEngine : ApplicationEngine, TConfiguration : Applica
       },
       { module() }
     )
-    server.start(false)
+    server.startSuspend(wait = false)
   }
 
-  override fun shutdown() {
+  override suspend fun shutdown() {
     if(::server.isInitialized) {
       // pass both explicitly: Ktor's stop() defaults its timeout to the grace period, not to shutdownTimeout
-      server.stop(server.engineConfig.shutdownGracePeriod, server.engineConfig.shutdownTimeout)
+      server.stopSuspend(server.engineConfig.shutdownGracePeriod, server.engineConfig.shutdownTimeout)
     }
   }
 

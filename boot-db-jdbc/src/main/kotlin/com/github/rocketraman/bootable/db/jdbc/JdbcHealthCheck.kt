@@ -5,13 +5,16 @@ import com.github.rocketraman.bootable.boot.HealthStatus
 import javax.sql.DataSource
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * A readiness [HealthCheck] that the database answers: it takes a connection from [dataSource], usually the pool of
- * [JdbcDataSourceService], and checks that it is valid, waiting at most [timeout] for the database's answer.
+ * [JdbcDataSourceService], and checks that it is valid, on a thread of `Dispatchers.IO`.
  *
- * Taking the connection waits as long as the pool's own connection timeout, when every connection is in use, so set
- * that low enough for a probe, or a busy pool takes the application out of rotation.
+ * Readiness answers within its own `checkTimeout`, whether or not this has, but the thread stays blocked until this
+ * returns: [timeout] bounds the wait for the database's answer, and the pool's own connection timeout bounds taking the
+ * connection, when every connection is in use, so set both low, or a slow database holds a thread per check for long.
  *
  * Opt in to it, rather than getting it with the pool: a readiness check on a shared database takes every instance out
  * of rotation at once when the database is down, which turns failing requests into refused ones. That is what you
@@ -23,10 +26,12 @@ class JdbcHealthCheck(
 ) : HealthCheck {
   override fun name() = "jdbc"
 
-  override fun check(): HealthStatus = dataSource.connection.use { connection ->
-    // isValid takes whole seconds, and 0 means no timeout
-    if (connection.isValid(timeout.inWholeSeconds.toInt().coerceAtLeast(1))) HealthStatus.Healthy
-    else HealthStatus.Unhealthy("Connection from the pool is not valid")
+  override suspend fun check(): HealthStatus = withContext(Dispatchers.IO) {
+    dataSource.connection.use { connection ->
+      // isValid takes whole seconds, and 0 means no timeout
+      if (connection.isValid(timeout.inWholeSeconds.toInt().coerceAtLeast(1))) HealthStatus.Healthy
+      else HealthStatus.Unhealthy("Connection from the pool is not valid")
+    }
   }
 
   companion object {

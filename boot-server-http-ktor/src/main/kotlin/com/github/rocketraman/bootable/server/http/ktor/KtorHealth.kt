@@ -15,8 +15,6 @@ import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
 /**
@@ -177,9 +175,9 @@ fun Route.healthRoutes(
     val report = health.liveness()
     call.respondHealth(report.healthy, Json.encodeToString(report))
   }
-  // the checks may block, such as on a database
+  // readiness bounds the checks, and runs blocking ones on a thread of their own
   get(readyPath) {
-    val report = withContext(Dispatchers.IO) { health.readiness() }
+    val report = health.readiness()
     call.respondHealth(report.healthy, Json.encodeToString(report))
   }
   val info = Json.encodeToString(buildInfo)

@@ -33,7 +33,8 @@ NOTE: Importing the Metro DI artifact does bring annotations to your application
 == Features
 
 * Runs a set of application services and lifecycle controllers — assemble them however you like (plain Kotlin, Kodein, Metro, a service loader, …). Bootable embeds no DI framework; optional bindings for Kodein and Metro are available per module. See the `examples/` directory for one project per wiring style.
-* Manages the lifecycle of application services.
+* Manages the lifecycle of application services, on coroutines, under structured concurrency: services start and stop in suspending functions, a service's background work runs in a scope of its own, a child of the application's, and nothing outlives the application.
+See link:docs/coroutine-lifecycle.adoc[A coroutine lifecycle].
 * Allows registration of lifecycle controllers, which can be used to control the lifecycle of application services in various ways.
 The basic built-in implementation of this is the `AppStartStopLifecycleController` which starts application services on app start, and shuts them down on app close, in reverse.
 Services start phase by phase (telemetry, infrastructure, initialization, application, serving), and, within a phase, after the milestones they declare; see link:docs/service-ordering.adoc[Service ordering].
@@ -166,12 +167,16 @@ It comes before the shutdown timeout starts, so the platform's grace period, suc
 health {
   readiness {
     drainDelay = 5s
+    # how long readiness waits for each check
+    checkTimeout = 800ms
   }
 }
 ----
 
-A readiness check is a `HealthCheck`, which returns `HealthStatus.Healthy` or `HealthStatus.Unhealthy(reason)`; one that throws is unhealthy.
-A check runs on the thread asking for readiness, so it must bound its own wait.
+A readiness check is a `HealthCheck`, whose suspending `check()` returns `HealthStatus.Healthy` or `HealthStatus.Unhealthy(reason)`; one that throws is unhealthy.
+Readiness runs the checks at once, each within `health.readiness.checkTimeout`, 800 ms by default, below Kubernetes's default probe timeout, so a slow dependency fails the probe with a reason rather than timing it out.
+A check that doesn't answer by then is unhealthy.
+A check that blocks, such as on JDBC, runs in `withContext(Dispatchers.IO)`: readiness still answers in time, while the check finishes on its own thread, and isn't run again until it has, so it must still bound its own wait.
 `boot-db-jdbc` provides `JdbcHealthCheck`, which takes a connection from the pool and checks it is valid.
 It is opt-in: readiness that depends on a shared database takes every instance out of rotation at once when the database is down, turning failing requests into refused ones, which is what you want only when the application can do nothing useful without it.
 
@@ -205,6 +210,7 @@ Readiness also has each check's `status`, and an unhealthy one's `reason`, by th
 A consumer can check one service, such as with `jq -e '.checks["db-scheduler"].status == "UP"'`.
 Readiness's `checks` is empty unless the application is running, since the checks run only then.
 `HealthLiveReport`, `HealthReadyReport`, and `BuildInfo` are `@Serializable`, in these forms, so a Kotlin client, such as an end-to-end test, can decode them, e.g. with `Json.decodeFromString<HealthReadyReport>(body)`.
+Once the application starts, both reports also have each service's state, by name, in `services`, such as `"services": {"JdbcDataSourceService": "Running"}`: `Pending`, `Starting`, `Running`, `Skipped`, `Failed`, `Stopping`, or `Stopped`.
 Install it in your server's module with `installHealth(health)`, or add the routes anywhere with `healthRoutes(health)`.
 `health.ktor` configures it:
 
@@ -574,7 +580,7 @@ The first covers setting up logging and the `boot` lambda, including the config 
 The start's trace is always sampled, whatever `sampleRatio` is, so a slow or failed start is never missing from the traces.
 A start that fails records the exception, and an error status, on the service's span and on the root span.
 Add it to the lifecycle controllers: `defaultLifecycleControllers() + ServiceStartTracing(openTelemetry)` with vanilla wiring, `serviceStartTracingModule` with Kodein, and `ServiceStartTracingBindings` in the graph's `bindingContainers` with Metro.
-The span is current on the thread that calls `start`: a `start` that runs coroutines carries it into them with `runBlocking(Context.current().asContextElement()) { … }`.
+The span is carried in the coroutine context of the service's `start`, so it is current on whatever thread the start runs on, including in `withContext(Dispatchers.IO)`, and the coroutines it starts and waits for inherit it.
 The SDK times its spans and measurements, and `ServiceStartTracing` its root span, with a `kotlin.time.Clock`: `Clock.System` unless one is given to `OpenTelemetryService` and `ServiceStartTracing`, or bound, with Kodein or Metro, such as a fixed clock in a test.
 For SDK settings the config doesn't cover, such as a span processor, a metric view, or another sampler, add an `OpenTelemetryCustomizer` to its set binding (Kodein `inBindSet`, Metro `@IntoSet`, Inara `@OpenTelemetryCustomizers`); this is also how the modules below plug in.
 `excludeUrlPathsFromTraces(paths)` is one, which keeps requests such as health checks out of the traces.
@@ -922,13 +928,23 @@ Pass it to what takes a `Clock`, such as `OpenTelemetryService`, `ServiceStartTr
 `InMemoryTelemetry`, from `boot-test-otel`, collects the spans and metrics an OpenTelemetry SDK records, in memory: `spans(name)`, `metric(name)`.
 Pass it to `OpenTelemetryService` as a customizer, or add it to the customizers of a graph: with Kodein, import `inMemoryTelemetryModule`; with Metro, include `InMemoryTelemetryBindings(telemetry)` through the graph's factory.
 
+==== Failures in suspending code
+
+`runSuspendCatching { … }` is `runCatching` for a block that suspends, such as to assert that a service's start fails.
+It catches what the block throws, but not the cancellation of the test's own coroutine, which `runCatching` would swallow, so a cancelled test stops rather than carrying on.
+
 == How to Use
 
 See xref:./docs/wiring.adoc[Wiring Bootable] for the full guide, and the projects in the `examples` directory — there is one per wiring style, so you can copy the one that matches your choice of DI (or no DI).
 
 The essentials, regardless of wiring:
 
-* Application components that have a lifecycle implement `AppService` or `AdvancedAppService`.
+* Application components that have a lifecycle implement `AppService`, whose `start` and `shutdown` suspend.
+A service with background work overrides `start(scope)` rather than `start()`, and launches that work in the `CoroutineScope` it gets.
+Wrap blocking calls in them in `withContext(Dispatchers.IO)`.
+A coroutine in a service's scope that fails stops the application, in order, with exit code 1, unless the service's `scopeFailurePolicy` says otherwise: `ScopeFailurePolicy.StopApplication(exitCode)` sets the exit code, and `ScopeFailurePolicy.LogAndContinue` makes the scope supervise its coroutines, so a failure is logged and the service carries on.
+* `boot` runs the application on the main thread until a stop signal, then stops it, within `maxShutdownTime`, and exits.
+`Bootable.run()`, which it calls, is a suspending function that returns the exit code, so a test or a host can run an application in a coroutine, and stop it with `Bootable.stop()`.
 * You assemble a `Set<AppService>` and a `Set<LifecycleController>`, and hand them to the `boot` function, which runs them. With vanilla wiring that is just `boot { Bootable(setOf(MyService(...))) }` — `lifecycleControllers` defaults to `defaultLifecycleControllers()`.
 * `defaultLifecycleControllers()` provides the built-in start/stop, signal-handling, and health controllers. To run a custom lifecycle — e.g. starting/stopping services on command from an RPC or web request rather than at boot — pass your own controllers instead.
 

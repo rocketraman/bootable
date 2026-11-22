@@ -82,7 +82,7 @@ class KtorClientService(
 
   override fun name() = "KtorClientService"
 
-  override fun shutdown() = close()
+  override suspend fun shutdown() = close()
 
   override fun ordering() = Ordering(DefaultPhase.Infrastructure, provides = setOf(HttpClientMilestones.ClientsReady))
 

@@ -1,6 +1,5 @@
 package com.github.rocketraman.bootable.server.http.ktor
 
-import com.github.rocketraman.bootable.boot.AdvancedAppService
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BuildInfo
 import com.github.rocketraman.bootable.boot.DefaultPhase
@@ -10,6 +9,7 @@ import com.github.rocketraman.bootable.boot.HealthStatus
 import com.github.rocketraman.bootable.boot.LifecycleState
 import com.github.rocketraman.bootable.boot.ReadinessConfig
 import com.github.rocketraman.bootable.boot.ServiceContext
+import com.github.rocketraman.bootable.boot.StartupTimeline
 import com.github.rocketraman.bootable.config.common.HostPort
 import de.infix.testBalloon.framework.core.testSuite
 import io.ktor.server.application.*
@@ -21,6 +21,7 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import kotlin.concurrent.thread
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -28,7 +29,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlin.time.Duration.Companion.days
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.runBlocking
 
 /** An application server, which installs [health]'s routes. */
 private class AppServer(private val health: KtorHealth) :
@@ -48,19 +51,22 @@ private class App(private val health: HealthLifecycleController, vararg services
   private val context = ServiceContext(
     services.toSet(),
     services.toList(),
-    { (it as AdvancedAppService).start {} },
+    { it.start(CoroutineScope(SupervisorJob())) },
     { it.shutdown() },
   )
 
-  fun start(whileStarting: () -> Unit = {}) {
-    context.startPlan.forEach(context.serviceStart)
-    whileStarting()
+  suspend fun start(whileStarting: suspend () -> Unit = {}) {
+    // the controller tracks the services' states from the start's context
+    health.aroundAppStart(context, StartupTimeline(TimeSource.Monotonic.markNow())) {
+      context.startPlan.forEach { context.serviceStart(it) }
+      whileStarting()
+    }
     health.appRunning()
   }
 
-  fun stop() {
-    health.appShutdown(context, 1.days) {}
-    context.startPlan.asReversed().forEach(context.serviceShutdown)
+  suspend fun stop() {
+    health.appShutdown(context, 1.hours)
+    context.startPlan.asReversed().forEach { context.serviceShutdown(it) }
     health.appCleanup()
   }
 }
@@ -109,7 +115,7 @@ val KtorHealthTest by testSuite {
     val app = App(health, server)
 
     app.start {
-      val port = kotlinx.coroutines.runBlocking { server.port() }
+      val port = server.port()
       assert(getHealth(port, "/health/live") == health(200, """{"status": "UP", "state": "Starting"}"""))
       assert(getHealth(port, "/health/ready") == health(503, """{"status": "DOWN", "state": "Starting", "checks": {}}"""))
     }
@@ -131,7 +137,7 @@ val KtorHealthTest by testSuite {
     dbUp = true
 
     // during the drain, the server still serves, but isn't ready
-    val stopping = thread { app.stop() }
+    val stopping = thread { runBlocking { app.stop() } }
     val mark = TimeSource.Monotonic.markNow()
     while (health.state != LifecycleState.Stopping) {
       check(mark.elapsedNow() < 10.seconds)
@@ -176,15 +182,6 @@ val KtorHealthTest by testSuite {
     val ktorHealth = KtorHealth(HealthLifecycleController())
     assert(ktorHealth.listener(CIO) !is HealthKtorService<*, *>)
     assert(ktorHealth.config.applicationServerPaths == setOf("/health/live", "/health/ready", "/health/info"))
-  }
-
-  test("has its listener of its own on the application's KtorServerEngine, which it needs only when hostPort is set") {
-    val health = HealthLifecycleController()
-    val onItsOwn = KtorHealth(health, KtorHealthConfig(hostPort = ":0"))
-    assert(onItsOwn.listener(KtorServerEngine(CIO)) is HealthKtorService<*, *>)
-    val failure = runCatching { onItsOwn.listener(engine = null) }.exceptionOrNull()
-    assert(failure?.message?.contains("no KtorServerEngine") == true)
-    assert(KtorHealth(health).listener(engine = null) !is HealthKtorService<*, *>)
   }
 
   test("serves the build info, whatever the lifecycle state, which no cache keeps") {

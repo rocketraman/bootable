@@ -1,0 +1,685 @@
+= Design note: a coroutine lifecycle
+:toc: macro
+
+Status: *implemented* in 3.1, as recommended below, with the differences noted where they arise.
+The optional `BlockingAppService` adapter of decision 3 was not added.
+It follows rocketraman/bootable#96, which fixed a stop that deadlocked when it came before the run thread waited for one; this replaces the hand-off that race was in.
+
+toc::[]
+
+== Problem
+
+`Bootable.run` is thread-based.
+It starts the services on the calling thread, then blocks in `awaitTermination()` on a queue that `appTerminate(exitCode)` feeds.
+Four callers stop the application, from four kinds of thread:
+
+* the stop signal handler, on the JVM's signal thread;
+* the JVM shutdown hook, on a shutdown-hook thread;
+* `AdvancedAppService`'s `die` callback, on whatever thread the service noticed its failure on, such as a Ktor request's or a coroutine's;
+* a lifecycle controller's `normalStop`, on any thread, including the run thread itself, while it starts.
+
+A `java.util.Timer` per path (`AppStartStopLifecycleController` at shutdown, `Bootable.die` for a dying service) calls `Runtime.halt` when the stop takes too long.
+
+That model has costs:
+
+* The hand-off between those threads and the run thread is hand-written, and it was wrong: #96's race.
+* Services that are coroutine-based anyway call `runBlocking` to start or stop: `KubernetesLeaderElection` and `PeriodicAppService` in their `shutdown`, `SeedEntriesService` in its `start`.
+  Each builds its own `CoroutineScope`, `SupervisorJob` and `CoroutineExceptionHandler`, outside any structure, and each must remember to cancel it.
+* Background work that fails has two ways to say so, `die` or a log line, and neither is structured: nothing stops a scope a service forgot to cancel.
+* Halting skips the JVM's shutdown hooks, so an asynchronous logger can lose the very log lines that say why the stop hung.
+* The tests of draining and stopping wait in real time and poll (`awaitCondition`, `Thread.sleep`), with tolerances.
+
+== Goals
+
+* `run` is a suspending function that waits for one stop, and returns the exit code.
+* Starting and stopping a service suspend, so a service that is coroutine-based calls its suspending code directly.
+* The whole lifecycle runs under structured concurrency: a service's background coroutines are children of the application's scope, a failure among them stops the application, and none outlives it.
+* Every way to stop is one thread-safe, non-blocking call, from any thread, at any time, the first of which wins.
+* The tests of the lifecycle's timing run in virtual time.
+
+Non-goals: restarting an application, or starting and stopping single services at runtime (a custom `LifecycleController` can still do that through `ServiceContext`); suspending health checks (see <<health>>).
+
+== Decisions
+
+=== 1. The stop signal: a `CompletableDeferred<Int>`
+
+[source,kotlin]
+----
+private val stopRequested = CompletableDeferred<Int>()
+
+/** Asks the application to stop with [exitCode]. Thread-safe, never blocks, and only the first call counts. */
+fun stop(exitCode: Int = 0) {
+  if (stopRequested.complete(exitCode)) log.info { "=> Stop requested, exit code $exitCode" }
+}
+----
+
+`complete` is lock-free and returns at once, from any thread, before or after `run` waits, so the four callers above all call it, and #96's race can't arise: there is no hand-off to miss.
+It returns `false` to every call after the first, which is the "first stop wins" rule #96 introduced, without an `AtomicBoolean` beside it.
+
+A `Channel` or a `Flow` would model a stream of stops, and nothing needs more than one.
+A second stop, such as a second Ctrl-C while the application stops, changes nothing today, and should change nothing here: the shutdown timeout, not a second signal, bounds a stop that hangs.
+Should someone later want "a second signal halts at once", the signal handler can do that itself, by seeing that `stop` had been called already.
+
+`run` waits with `stopRequested.await()`.
+`normalStop` in `LifecycleController.appStart` and the stop signal handler keep their plain `(exitCode: Int) -> Unit` type, which is `::stop`: the signal thread can't call a suspending function, and needn't.
+
+==== A stop during the start cancels the start
+
+Today a stop that comes while the services start is held until they have all started (#96), and only then stops them.
+With a deferred, `run` can do better: it races the start against the stop, and a stop cancels the start.
+
+[source,kotlin]
+----
+val started = coroutineScope {
+  val start = async { appStart(timeline) }
+  select {
+    start.onAwait { true }
+    stopRequested.onAwait { start.cancelAndJoin(); false }
+  }
+}
+----
+
+A service starting at that moment sees a `CancellationException` at its next suspension point; one blocked in plain blocking code, such as a Flyway migration in `withContext(Dispatchers.IO)`, finishes that call first (see <<dispatchers>>).
+Then the services that started stop, in reverse, as after a failed start, and `run` returns the stop's exit code.
+That matters for an application whose start waits, such as on a database that isn't up yet: today a SIGTERM to it waits for the database, or for Kubernetes's SIGKILL.
+
+#96's regression test keeps passing unchanged in meaning: a controller that stops the application during its start stops it with that exit code, and the services that started stop.
+
+=== 2. The entry point: `boot { }` stays, and `suspend fun run()` becomes public
+
+[source,kotlin]
+----
+fun boot(maxShutdownTime: Duration = 30.seconds, loggingType: LoggingType? = null, bootable: () -> Bootable) {
+  // ...logging, building the application, as today
+  val exitCode = runBlocking { application.run(timeline, maxShutdownTime, halt = Runtime.getRuntime()::halt) }
+  exitProcess(exitCode)
+}
+
+class Bootable(...) {
+  /** Runs the application until it stops, and returns its exit code. It can be run once. */
+  suspend fun run(maxShutdownTime: Duration = 30.seconds): Int
+
+  fun stop(exitCode: Int = 0)
+}
+----
+
+`boot` remains what a `fun main() = boot { ... }` calls: it blocks the main thread in `runBlocking`, and exits the process with the code `run` returns.
+
+`run` and `stop` become public.
+`run` neither exits the process, nor installs the shutdown hook, nor halts; it only runs the application, so a test, or a host that embeds an application, such as a test harness or an IDE plugin, runs one with `run` in a coroutine and stops it with `stop`, or by cancelling that coroutine, which stops the application, as a stop with exit code 1 would.
+That is the seam that rocketraman/bootable#84 first added as `runEmbedded` and then dropped; here it is just the API, so it needs no opt-in annotation.
+A test of an application's wiring needn't use it, and its documentation says so, so it doesn't invite booting whole applications in unit tests.
+
+The shutdown hook moves from `run` to `boot`, which owns the process.
+It calls `stop(0)` and then waits for `run` to return, up to the shutdown timeout, rather than returning at once and letting the JVM exit under the services as they stop.
+
+`maxShutdownTime` becomes a `Duration`, rather than a `Long` of seconds; 3.1 already breaks the API.
+
+=== 3. The suspending lifecycle API: change the interfaces in place
+
+*Recommendation: (a), make the existing interfaces `suspend`.*
+
+[source,kotlin]
+----
+interface AppService {
+  fun name(): String = javaClass.simpleName
+  suspend fun start() {}
+  suspend fun shutdown() {}
+  fun ordering(): Ordering = Ordering()
+}
+
+interface LifecycleController {
+  fun name(): String = javaClass.simpleName
+  fun appInit() {}
+  suspend fun appStart(serviceContext: ServiceContext, normalStop: (exitCode: Int) -> Unit) {}
+  suspend fun aroundAppStart(serviceContext: ServiceContext, timeline: StartupTimeline, start: suspend () -> Unit) = start()
+  suspend fun appRunning() {}
+  fun serviceStartVote(appService: AppService): ServiceStartVote = ServiceStartVote.YES
+  suspend fun aroundServiceStart(appService: AppService, start: suspend () -> Unit) = start()
+  suspend fun appShutdown(serviceContext: ServiceContext, maxShutdownTime: Duration) {}
+  suspend fun appCleanup() {}
+  fun priority() = 0
+}
+
+data class ServiceContext(
+  val appServices: Set<AppService>,
+  val startPlan: List<AppService>,
+  val serviceStart: suspend (appService: AppService) -> Unit,
+  val serviceShutdown: suspend (appService: AppService) -> Unit,
+)
+----
+
+What stays plain, and why: `name`, `ordering`, `priority` and `serviceStartVote` are queries, called while planning, and shouldn't do IO.
+`appInit` stays plain too: it runs before anything starts, to set state, as `EnvironmentInitializer` does.
+`appShutdown` loses its `exitProcess` callback, since controllers no longer halt (see <<forced-shutdown>>).
+
+The options:
+
+(a) Change the interfaces in place::
+One API, and every implementation changes by adding `suspend` to its overrides, which the compiler finds for it.
+A service with nothing to suspend on still compiles once `suspend` is added: a suspending function may call only blocking code.
+Java can't implement a `suspend` function (it sees a `Continuation` parameter), so a Java service would need a Kotlin adapter.
+No implementer here, in the examples, or in the applications we know of is in Java.
+
+(b) Add suspending interfaces beside the blocking ones, and adapt::
+`SuspendingAppService`, `SuspendingLifecycleController`, and adapters that run a blocking one in `withContext(Dispatchers.IO)`.
+Nothing breaks, and Java keeps working, but every concept exists twice, the documentation explains both, every module picks one, and Bootable runs both.
+The blocking interfaces would be deprecated at once, since nothing would need them, so (b) defers (a)'s break by a release, at the cost of carrying both until then.
+
+3.1.0 is unreleased and already breaks the API (`priority()` became `ordering()`, Kotlin 2.3), so 3.1 is the cheapest release to break it again, and applications migrate once.
+
+A blocking adapter is still worth a few lines, for Java, and its documentation:
+
+[source,kotlin]
+----
+/** An [AppService] whose start and stop block, run on [Dispatchers.IO]: for Java, or code that only blocks. */
+abstract class BlockingAppService : AppService {
+  abstract fun startBlocking()
+  abstract fun shutdownBlocking()
+  final override suspend fun start() = withContext(Dispatchers.IO) { startBlocking() }
+  final override suspend fun shutdown() = withContext(Dispatchers.IO) { shutdownBlocking() }
+}
+----
+
+It is optional, and wasn't added: it can be, should a Java implementer need it.
+
+[#die]
+=== 4. `die` under structured concurrency: a service scope, and no `die`
+
+*Recommendation: `AppService` gets a second start, `start(scope)`, whose `CoroutineScope` is the service's own, a child of the application's; `AdvancedAppService` and `die` go.
+A service that can't go on fails its scope, which stops the application, in order, with exit code 1.*
+
+[source,kotlin]
+----
+interface AppService {
+  /** Starts a service with no background work. */
+  suspend fun start() {}
+
+  /**
+   * Starts a service with background work. [scope] lives until the service has stopped: launch the service's
+   * background work in it, and only there. If a coroutine in it fails, the application stops with exit code 1.
+   */
+  suspend fun start(scope: CoroutineScope) = start()
+  // ...
+}
+----
+
+Bootable calls `start(scope)` for every service, and a service overrides whichever start it needs.
+Every service has a scope of its own anyway, since Bootable tracks each service's job, so a separate `AdvancedAppService` would be a second type only to decide whether a service is handed its scope.
+With both starts on `AppService`, the scope is beside the start without one, where its documentation can say which to use.
+The default calls `start()` directly, rather than launching it, so that `start(scope)` still returns only once the service has started.
+Kotlin can't require that a service override exactly one of them: one that overrides both has only `start(scope)` called, which the documentation says.
+
+The scopes are layered:
+
+[source]
+----
+run()                      the lifecycle: start, wait, stop, on the caller's thread (main, under boot)
+└─ application scope       SupervisorJob + Dispatchers.Default + a handler that logs and calls stop(1)
+   ├─ service scope (A)    Job + CoroutineName(A)
+   │  ├─ A's coroutine
+   │  └─ A's coroutine
+   └─ service scope (B)    Job + CoroutineName(B)
+----
+
+* The application scope is a `SupervisorJob`, so that one service's failing coroutine doesn't cancel every other service's at once.
+  The application stops in order instead, phase by phase in reverse, each service's `shutdown` running while what it depends on still runs, as with any other stop.
+  As implemented, each service scope's completion with a failure, rather than a handler, logs it, marks the service `Failed` (see <<service-states>>), and calls `stop(1)`; the scope's `CoroutineExceptionHandler` only keeps the failure from being reported as uncaught too.
+* Each service scope is a plain `Job`, a child of that supervisor: a failing coroutine cancels its siblings in the same service, which is broken now, and only them.
+* A service can choose otherwise with its `scopeFailurePolicy`, a sealed `ScopeFailurePolicy` whose variants hold their own logic, so they can take arguments:
+  `StopApplication(exitCode = 1)`, the default, stops with its exit code; `LogAndContinue` makes the service's scope a `SupervisorJob`, so a failing coroutine is logged and ends alone, while the service and the application carry on.
+  `LogAndContinue` suits a service whose coroutines are independent, such as fire-and-forget work launched from request handlers, but such a service can't stop the application by failing its scope.
+* After a service's `shutdown` returns, Bootable cancels its scope and joins it.
+  A service whose background work is all in its scope needn't track, cancel or join its jobs: `PeriodicAppService` and `KubernetesLeaderElection` drop their scopes, handlers and `cancel` calls.
+  A service that wants to finish its work gracefully, as `PeriodicAppService` lets a run finish, still does so in `shutdown`, before the scope is cancelled.
+
+==== Why `die` goes
+
+`die` was meant to end the process at once.
+Today it doesn't quite: it asks for a normal stop with exit code 1, and arms a 30-second timer that halts if that stop doesn't finish.
+Under structured concurrency, a normal stop with exit code 1 is what a failing coroutine in the service's scope already causes, so a `die` that only stopped would be an alias of that, and a `die` that halted at once would skip every other service's `shutdown`, such as flushing telemetry, which is rarely what a service that noticed a problem wants.
+
+So:
+
+* Inside its scope, a service that can't go on throws, as `PeriodicAppService` will when `FailureLimitAction.Shutdown` is reached.
+* Outside it, such as in a Ktor request handler, it fails its scope: `scope.launch { throw e }`.
+  `KtorService` keeps its scope in a protected property for that.
+  The `server-ktor` example's `/die` route does just that, to show it.
+* A service that truly must end the process at once, skipping the rest of the stop, calls `exitProcess` or `Runtime.halt` itself: that is a decision about the whole process, which Bootable needn't offer an API for.
+
+The alternative is to keep `die` and make it what it was meant to be: a halt, after logging the thread and coroutine stacks.
+I recommend against it, for the reason above, but it would be a small addition later, should an application need it.
+
+==== Background work goes only in the service scope
+
+A suspending `start` runs in the lifecycle's coroutine, but it has no `CoroutineScope` to launch in that outlives it: a suspending function has a `coroutineContext`, not a scope.
+To launch, a `start` must make a scope, and the structured way, `coroutineScope { launch { ... } }`, doesn't return until what it launched has finished: background work launched that way makes the start hang, which is found at once, rather than leaking.
+Work that is part of the start, such as warming two caches in parallel, is exactly what that is for.
+
+What can't be prevented is a scope built outside the structure: `CoroutineScope(coroutineContext).launch`, which would make the work a child of the lifecycle's own coroutine, or `GlobalScope`, or a `CoroutineScope(SupervisorJob())` of the service's own, as today.
+Those are what the documentation of `AppService.start()` steers away from: background work goes in the scope `start(scope)` is given, which is the only scope that lives as long as the service.
+That is also why the start without a scope stays: most services have no background work, and need no scope.
+
+The service scope is also deliberately not derived from the start's context, so the start's OpenTelemetry span (see <<context>>) isn't current in its coroutines.
+Otherwise a periodic loop's runs would all be children of the span `start PeriodicAppService`, a span that ended long before them, and traces would group a day's work under the start.
+Background work starts its own traces, as `boot-periodic`'s tracing does for each run.
+
+What a failure means for the exit code:
+
+[cols="3,1", options="header"]
+|===
+| What happened | Exit code
+| A stop signal, or `stop()` | 0
+| `stop(n)`, `normalStop(n)` | n
+| A coroutine in a service's scope failed | 1
+| `run`'s own coroutine was cancelled, such as by an embedding host | 1
+| A service failed to start | -1 (as today)
+| The stop timed out (see <<forced-shutdown>>) | 1, whatever the stop asked for
+|===
+
+The first stop wins, so a failure while the application already stops changes no exit code; it is logged.
+An exception from a service's `shutdown` is logged and ignored, as today.
+
+Alternatives:
+
+* A `SupervisorJob` for every service: a failing coroutine would leave its sibling coroutines running, in a service that might be half broken. A service that wants that, such as one running independent jobs, chooses `ScopeFailurePolicy.LogAndContinue`.
+* A `Boolean` to choose between the two, or an enum: neither leaves room for a variant's arguments, such as `StopApplication`'s exit code.
+* A plain `Job` for the application scope: a failure would cancel every service's background work at once, before any `shutdown` ran, so services would stop with their work already gone, and out of order.
+* A `die` callback alone, without a scope: leaves services building unstructured scopes, as today.
+* `start(scope)` on a separate `AdvancedAppService`, as `start(die)` is today: a second type for a scope every service has, which keeps the scope out of sight of the services that most need to learn where background work goes.
+
+[#forced-shutdown]
+=== 5. Forced shutdown: a timeout that cancels, then a halt as the last resort
+
+*Recommendation: the stop runs in `NonCancellable`, under a timeout that cancels it; if the stop doesn't return a short grace after that, a watchdog thread halts the process.*
+
+[source,kotlin]
+----
+// in AppStartStopLifecycleController.appShutdown, after Health's drain, as today
+val stopped = withTimeoutOrNull(maxShutdownTime) {
+  serviceContext.startPlan.asReversed().forEach { serviceContext.serviceShutdown(it) }
+}
+if (stopped == null) log.warn { "Services didn't stop within $maxShutdownTime: ${serviceContext.states()}" }
+----
+
+[source,kotlin]
+----
+// in Bootable.run: the stop isn't cancelled by run's own cancellation, so an embedding host that cancels run
+// still gets the services stopped
+withContext(NonCancellable) {
+  withHaltingWatchdog(maxShutdownTime + HALT_GRACE) { appShutdown(maxShutdownTime); appCleanup() }
+}
+----
+
+In order:
+
+. At `maxShutdownTime` after the services begin to stop (after the drain, as today), the timeout cancels the stop.
+  The service stopping at that moment is cancelled: one that suspends, such as Ktor's `stopSuspend` or a join, returns at once.
+  Bootable logs each service's state (see <<service-states>>): which stopped, which was stopping when the time ran out, and which never got to stop, along with the stacks (see <<stacks>>).
+  The services not yet stopped are skipped.
+  Cleanup still runs, and `run` returns exit code 1, so `boot` exits the process through `exitProcess`: the JVM's shutdown hooks run, so an asynchronous logger flushes, and the stacks we just logged reach the log.
+. A service blocked in code that ignores cancellation, such as a blocking call in `withContext(Dispatchers.IO)` or a `Thread.sleep`, doesn't return when cancelled, and `withTimeout` waits for it.
+  So a watchdog, armed when the first service begins to stop (after the drain, as the timeout), on a daemon thread of its own rather than a coroutine, halts the process with exit code 1 if `run` hasn't returned `HALT_GRACE` (say 5 seconds) after the deadline.
+  It is a thread so that it fires even when the service blocks the thread the lifecycle runs on.
+  It logs the services' states and the stacks before it halts.
+. `die`, and its separate 30-second timer, go (see <<_why_die_goes>>): a failing service scope asks for a stop like any other, and the same timeout applies.
+. A stop that comes during the start cancels the start (see <<_a_stop_during_the_start_cancels_the_start>>).
+  A service whose start is blocked in code that ignores cancellation doesn't return, so the same watchdog, armed when the stop is asked for, bounds that too: the start gets `maxShutdownTime` to give up, then `HALT_GRACE`, then the process halts.
+. Only `boot` halts.
+  `run` is public (see decision 2), so a test, or a host that runs an application inside a JVM of its own, can call it; halting there would kill the host's JVM, such as the test runner's, along with every other test.
+  So the watchdog's last action is a parameter of `run`, internal to Bootable: `boot` passes `Runtime.getRuntime()::halt`.
+  Anything else that calls `run` gets the default, which only logs the states and the stacks: `run` returns, with exit code 1, once the blocked stop does.
+
+The drain stays outside the timeout, as `ReadinessConfig.drainDelay` documents, so the platform's grace period must still cover both.
+
+Alternative: halt at the deadline, as today, without cancelling first.
+It is simpler, but every hung stop loses the asynchronous logs, and skips the cleanup of the services that would have stopped.
+
+[#stacks]
+==== The stacks: threads, and coroutines
+
+A thread dump shows a coroutine only while it runs on a thread, and shows it as the dispatcher's frames.
+A coroutine that is suspended, such as a `stopSuspend` waiting for Ktor's engine, or a join waiting for a loop, is on no thread at all, so the thread dump, all we log today, misses exactly the coroutines that keep a stop waiting.
+
+Three things help, at increasing cost:
+
+. *Bootable's own job tree*, always: Bootable holds the application scope's `Job`, so it can walk its `children`, recursively, and log each one's `CoroutineName` and whether it is active.
+  That names, per service, the coroutines still running when the time runs out, with no agent and no cost until it is logged.
+  It shows where they are, not what they are waiting for.
+. *Coroutine names in thread names*: with `-Dkotlinx.coroutines.debug`, each thread running a coroutine is named after it while it does, such as `DefaultDispatcher-worker-3 @leader-election#12`, so the thread dump says which coroutine each blocked thread is running.
+  It costs little, and applications can turn it on; Bootable needn't.
+. *Full coroutine stacks*, with `kotlinx-coroutines-debug`'s `DebugProbes`, which records where every coroutine was created and is suspended, and dumps them, including the suspended ones.
+  It needs a Java agent, or ByteBuddy's self-attach, which a JVM may forbid (`-XX:+DisableAttachMechanism`, and GraalVM native images), and it slows every coroutine creation, so it is for debugging, not production.
+  Bootable can dump with it when an application has installed it (`DebugProbes.isInstalled`), reflectively, without depending on it.
+
+I'd do the first and the third in this change, and document the second.
+
+[#dispatchers]
+=== 6. Blocking work, and the dispatchers
+
+*Recommendation: services wrap the blocking calls in their `start` and `shutdown`, and in their background coroutines, in `withContext(Dispatchers.IO)`; `runInterruptible` only where an interrupt is known to be harmless.
+The lifecycle runs on the thread that calls `run`; background work runs on `Dispatchers.Default`.*
+
+The lifecycle (start, wait, stop) runs on the caller's thread: under `boot`, `runBlocking`'s event loop on the main thread.
+That is one thread, so starts and stops run in order on it as today, and a service that forgets `withContext` and blocks works as today, only blocking the lifecycle, which waits for it anyway.
+
+The application scope, and so every service scope, runs on `Dispatchers.Default`, not on that thread: background work must not queue behind a start or stop that blocks the main thread.
+A service that wants another dispatcher launches with it, as `PeriodicAppService`'s `dispatcher` parameter does.
+That is also where blocking without `withContext(Dispatchers.IO)` does harm: `Dispatchers.Default` has as many threads as there are cores, so a few coroutines that block on it starve every other service's.
+
+`withContext(Dispatchers.IO)`, not `runInterruptible`, by default, because interrupting a thread in JDBC or NIO code is not a cancellation:
+
+* An interrupt during NIO IO closes the channel, which, in a JDBC driver, closes the connection, and HikariCP evicts it, or worse, sees it half-used.
+* Interrupting Flyway mid-migration can leave a non-transactional migration (MySQL DDL) half applied.
+* `Thread.sleep`, `Object.wait` and the like are where an interrupt is harmless, and the modules here have none in their starts or stops.
+
+So a blocking start or stop ignores cancellation; the shutdown watchdog bounds it.
+
+[#context]
+=== 7. Context propagation: OpenTelemetry, and log4j's `ThreadContext`
+
+OpenTelemetry's current `Context` is thread-local.
+`ServiceStartTracing` today makes the span current with `span.makeCurrent().use { start() }`, which only works if `start` returns on the thread it began on.
+A suspending start may resume on another thread, such as after `withContext(Dispatchers.IO)`, where the span isn't current, and the `Scope` would be closed on a thread it wasn't opened on.
+
+So `ServiceStartTracing` puts the span in the coroutine context instead, with `opentelemetry-extension-kotlin`, already an `api` dependency of `boot-telemetry-otel`:
+
+[source,kotlin]
+----
+override suspend fun aroundServiceStart(appService: AppService, start: suspend () -> Unit) {
+  // the parent is the current context, which the `start application` span's context element made current
+  val span = tracer.spanBuilder("start ${appService.name()}").startSpan()
+  try {
+    withContext(Context.current().with(span).asContextElement()) { start() }
+  } catch (e: Throwable) {
+    span.recordException(e); span.setStatus(StatusCode.ERROR); throw e
+  } finally {
+    span.end()
+  }
+}
+----
+
+`asContextElement()` makes the context current on every thread the coroutine resumes on, including inside `withContext(Dispatchers.IO)`, which inherits it.
+The `start application` span is carried the same way, so each service's start span is its child.
+The log4j context-data instrumentation reads the current context on each log call, so a service's log lines during its start keep their trace and span ids, on any thread.
+
+`SeedEntriesService` in the `server-ktor-db` example carries the span itself today, `runBlocking(Context.current().asContextElement())`; with this, it becomes `override suspend fun start()`, and inherits it.
+
+log4j's `ThreadContext` (MDC) is thread-local too, but nothing in Bootable sets it: the trace ids come from OpenTelemetry's context-data provider, not from `ThreadContext`.
+An application that sets `ThreadContext` around a start would use log4j-api-kotlin's `CoroutineThreadContext` itself; Bootable needs nothing for it.
+
+[#health]
+=== 8. Health
+
+`HealthLifecycleController`'s drain `Thread.sleep(drainDelay)` becomes `delay(drainDelay)`, so it is virtual in tests, and cancellable.
+Its `appRunning` and `appShutdown` become `suspend`, and its `aroundAppStart` records the services' states (see <<service-states>>); the `LifecycleState` transitions are unchanged, including that a cancelled start, like a failed one, goes from `Starting` to `Stopping` without draining.
+
+[#health-checks]
+==== Suspending health checks, with the caller's timeout
+
+`HealthCheck.check()` becomes `suspend`, and `HealthLifecycleController.readiness()` with it; `liveness()` runs no checks, and stays plain.
+The caller, `HealthLifecycleController`, bounds each check, rather than each check bounding itself:
+
+[source,kotlin]
+----
+interface HealthCheck {
+  fun name(): String = javaClass.simpleName
+  suspend fun check(): HealthStatus
+}
+
+data class ReadinessConfig(
+  val drainDelay: Duration = Duration.ZERO,
+  /** How long readiness waits for each check, after which the check is unhealthy. Below a probe's own timeout. */
+  val checkTimeout: Duration = 800.milliseconds,
+)
+
+suspend fun readiness(): HealthReadyReport {
+  // ...not running: down, without running the checks, as today
+  val results = coroutineScope {
+    checks.map { check -> async { check.name() to check.runCheck(config.checkTimeout) } }.awaitAll().toMap()
+  }
+  // ...
+}
+----
+
+* The checks run concurrently, so readiness answers within `checkTimeout`, rather than within the sum of the checks' times.
+  A check that hasn't answered by then is `Unhealthy("no answer within 800ms")`, and one that throws is unhealthy, as today.
+* The default is below Kubernetes's default probe timeout, one second, so a slow dependency makes the probe fail with a reason, rather than time out without one.
+* A check that suspends, such as one calling a Ktor client, is cancelled at the timeout.
+  A check that blocks, such as `JdbcHealthCheck`'s `isValid`, can't be: it runs in `withContext(Dispatchers.IO)`, and the caller's timeout would wait for it.
+  So `HealthLifecycleController` runs each check in a coroutine of its own, in a scope of its own on `Dispatchers.IO`, which it cancels at cleanup, and only its await is under the timeout: readiness answers at the deadline, and the blocked check finishes on its own thread later.
+  A check still running from an earlier readiness isn't started again; the next readiness awaits the same run, so a dependency that hangs doesn't pile up blocked threads, one per probe.
+  A blocking check still bounds its own wait, as `JdbcHealthCheck` does with its `timeout`, so that run ends.
+* `KtorHealth` calls `health.readiness()` from its route directly, without its `withContext(Dispatchers.IO)`.
+* The `HealthCheck(name) { ... }` factory takes a suspending lambda.
+
+Optionally, `HealthLifecycleController.state` can become backed by a `StateFlow<LifecycleState>`, so a test or a host awaits a state, rather than polling it as `HealthLifecycleControllerTest` and `KtorHealthTest` do.
+
+[#service-states]
+==== Each service's state
+
+Bootable already wraps each service's start and stop, in `serviceStart` and `serviceShutdown`, and now owns each service's scope, so it can track each service's own state, at no cost to services:
+
+[source,kotlin]
+----
+enum class ServiceState { Pending, Starting, Running, Failed, Stopping, Stopped, Skipped }
+----
+
+* `Skipped` is a service a controller voted not to start; `Failed` is one whose start threw, or whose scope failed; `Pending` is one not started yet, or whose start a stop cancelled.
+  A service the shutdown timeout cut off stays `Stopping`, and one it never reached `Running`.
+* `ServiceContext.states` has them, as a `StateFlow<Map<AppService, ServiceState>>`, in the order of the start plan, for controllers.
+* The shutdown timeout and the watchdog log them (see <<forced-shutdown>>), so a hung stop names the service it hung in, and the ones it never reached.
+* `HealthLifecycleController` reports them: the readiness and liveness reports gain each service's state, beside the checks, so a probe, or a person reading `/health/ready`, sees which service is starting, or failed.
+  Whether a `Failed` service makes readiness unhealthy follows from the stop it causes: the application is `Stopping`, so readiness is already down.
+
+This is part of this change, since the timeout's log needs it.
+
+==== A service's own health, later
+
+`AppService` could also gain an optional health check of its own, run by readiness while the service is `Running`:
+
+[source,kotlin]
+----
+interface AppService {
+  /** This service's readiness, while it runs, for `HealthLifecycleController.readiness`. None by default. */
+  suspend fun health(): HealthStatus? = null
+}
+----
+
+A service knows best whether it can take work: a scheduler whose poller has stopped, a leader election that can't reach the API server, a pool that has no connections.
+Today each of those needs a separate `HealthCheck` bound beside the service, and an application must remember to bind it.
+With `health()`, the module's service brings its own, and readiness names it after the service.
+
+It is a feature rather than part of the move to coroutines, so I'd do it in a PR of its own, after this one; it would be `suspend`, and run under the same timeout as the other checks (see <<health-checks>>).
+
+=== 9. Migration
+
+`boot` takes `kotlinx-coroutines-core` as an `api` dependency, since its API now has `suspend` functions and `CoroutineScope`; today only `boot-common` has it, as `implementation`.
+Its tests take `kotlinx-coroutines-test`.
+
+==== Services
+
+[cols="2,5", options="header"]
+|===
+| Service | Change
+
+| `KtorService` (`boot-server-http-ktor`), and the `HealthKtorService` and `MetricsKtorService` listeners
+| `start(scope)`: `server.startSuspend(wait = false)`, Ktor 3's suspending start.
+`shutdown`: `server.stopSuspend(gracePeriod, timeout)`.
+The `die` property goes; a protected `scope` property holds the service scope, so a route can fail it with `scope.launch { throw e }`, as the `server-ktor` example's `/die` route will.
+The listeners' no-op `AppService` objects need no change.
+
+| `KtorClientService` (`boot-client-http-ktor`)
+| `suspend fun shutdown()`; closing the clients doesn't block.
+
+| `JdbcDataSourceService` (`boot-db-jdbc`)
+| `start`: `withContext(Dispatchers.IO)` around `prepare()` and the connection check.
+`shutdown`: the same around `pool.close()`.
+
+| `ExposedDatabaseService` (`boot-db-exposed`)
+| `suspend fun shutdown()`; `closeAndUnregister` doesn't block.
+
+| `SchemaVerificationService` (`boot-db-exposed`)
+| `start`: `withContext(Dispatchers.IO)` around the `transaction`.
+
+| `FlywayMigrationService` (`boot-db-flyway`)
+| `start`: `withContext(Dispatchers.IO) { flyway.migrate() }`, not interruptible (see <<dispatchers>>).
+
+| `DbSchedulerService` (`boot-scheduler-db`)
+| `start`: `withContext(Dispatchers.IO)` around detecting the database and `scheduler.start()`.
+`shutdown`: the same around `scheduler.stop()`, which waits for running executions.
+
+| `PeriodicAppService` (`boot-periodic`)
+| Already coroutine-based, it becomes a child of the application's scope: `start(scope)` launches its loop in `scope`, with its `dispatcher`, and it drops its own `SupervisorJob`, handler and `cancel`.
+`shutdown` signals the loop and joins it within its own `shutdownTimeout`, without `runBlocking`; Bootable cancels what remains.
+`FailureLimitAction.Shutdown` throws from the loop, which fails the scope.
+A run's failure is still the run's, handled by its `PeriodicFailureHandler`, not the scope's: only an error that escapes the loop, such as a `VirtualMachineError`, fails the scope, and stops the application.
+
+| `KubernetesLeaderElection` (`boot-leader-k8s`)
+| Overrides `start(scope)`, which makes the first attempt directly, without `runBlocking`, then launches the election loop in `scope`.
+`shutdown`: cancels and joins the loop, then releases the lease, without `runBlocking`.
+Today a loop that fails unexpectedly makes the instance stop leading and leaves the application running; to keep that, the loop catches its own failure, rather than failing the scope.
+Whether it should rather stop the application is worth deciding separately: an instance that can never lead again is arguably broken.
+
+| `OpenTelemetryService` (`boot-telemetry-otel`)
+| `shutdown`: `withContext(Dispatchers.IO)` around `sdk.shutdown().join(timeout)`.
+
+| The examples: `GreetingService` (the `wiring-*` examples), `ReadyFileService` (`start-order`), `SsrRenderer` (`kilua`), `SeedEntriesService` (`server-ktor-db`)
+| `override suspend fun`; the file IO of `ReadyFileService`, and `SeedEntriesService`'s repository, in `withContext(Dispatchers.IO)`.
+`SeedEntriesService` drops its `runBlocking` and its explicit OTel context (see <<context>>).
+|===
+
+The Kodein modules and Metro bindings bind the same types, so they don't change.
+
+==== Lifecycle controllers
+
+[cols="2,5", options="header"]
+|===
+| Controller | Change
+
+| `AppStartStopLifecycleController`
+| `suspend` hooks; the shutdown timeout as in <<forced-shutdown>>, without its `Timer`.
+
+| `StopSignalHandlerLifecycleController`
+| `suspend fun appStart`; the handler still calls `normalStop`, which is now `Bootable.stop`, and never blocks the signal thread.
+
+| `HealthLifecycleController`
+| As in <<health>>.
+
+| `ServiceStartTracing` (`boot-telemetry-otel`)
+| As in <<context>>.
+
+| `EnvironmentInitializer` (`boot-env`)
+| None: it implements only `appInit` and `priority`, which stay plain.
+|===
+
+==== Health checks
+
+[cols="2,5", options="header"]
+|===
+| Check | Change
+
+| `JdbcHealthCheck` (`boot-db-jdbc`)
+| `suspend fun check()`, in `withContext(Dispatchers.IO)`; it keeps its own `timeout`, for `isValid`, which bounds the blocked thread (see <<health-checks>>).
+
+| `DbSchedulerHealthCheck` (`boot-scheduler-db`)
+| `suspend fun check()`; it reads the scheduler's state, which doesn't block.
+
+| `KtorHealth` (`boot-server-http-ktor`)
+| Its readiness route calls `health.readiness()` directly.
+|===
+
+==== Applications
+
+The changelog's migration note, under the breaking changes:
+
+* Add `suspend` to the overrides of `AppService.start` and `shutdown`, and of the `LifecycleController` hooks.
+* Wrap blocking calls in them in `withContext(Dispatchers.IO)`; replace `runBlocking` in them with direct calls.
+* Replace `AdvancedAppService` with `AppService`, and `start(die)` with `start(scope)`: launch background work in `scope` rather than in a scope of the service's own, and, for `die()`, throw in it, or fail it with `scope.launch { throw e }` from outside it.
+* `boot(maxShutdownTime = 30)` becomes `boot(maxShutdownTime = 30.seconds)`.
+* A controller's `appShutdown` no longer gets an `exitProcess` callback.
+* Add `suspend` to the overrides of `HealthCheck.check`, wrapping blocking calls in `withContext(Dispatchers.IO)`; a check no longer needs to bound its own time to answer a probe, since readiness applies `health.readiness.checkTimeout`.
+
+=== 10. Testing
+
+`kotlinx-coroutines-test`'s `runTest` runs `run` in virtual time, with `StandardTestDispatcher`, so the lifecycle's timing becomes exact and instant:
+
+[source,kotlin]
+----
+test("readiness is down for the drain delay before the services stop") {
+  runTest {
+    val health = HealthLifecycleController(config = ReadinessConfig(drainDelay = 5.seconds))
+    val app = Bootable(setOf(service), setOf(AppStartStopLifecycleController(), health))
+    val running = async { app.run() }
+    runCurrent()
+    assert(health.state == LifecycleState.Running)
+    app.stop()
+    advanceTimeBy(5.seconds - 1.milliseconds); runCurrent()
+    assert(health.state == LifecycleState.Stopping && !service.stopped)
+    advanceTimeBy(1.milliseconds); runCurrent()
+    assert(service.stopped)
+    assert(running.await() == 0)
+  }
+}
+----
+
+Which tests become deterministic:
+
+[cols="3,4", options="header"]
+|===
+| Test today | In virtual time
+
+| `HealthTest`: "readiness is down for the drain delay…", which sleeps 300 ms and allows 50 ms of slack
+| Asserts the drain to the millisecond, as above, in no real time.
+
+| `HealthTest`'s `runApp` and `Stopper`, which run the application on a thread and poll `awaitCondition` for `Running`
+| `async { app.run() }`, then `health.states.first { it == Running }`, and `app.stop()`: no thread, no polling.
+
+| `BootableTest`: #96's "a stop asked for before the application waits for one…", which joins a thread for up to 10 s
+| `stop(5)` during the start, then `run()` returns 5; the stop before `run`, during the start, while running, and twice, each a test of a few lines, none of which can hang the suite.
+
+| None today: the shutdown timeout, which tests set to 1,000,000 s to stay away from
+| A service whose `shutdown` is `awaitCancellation()`: at exactly `maxShutdownTime` the stop is cancelled, the rest skipped, and `run` returns 1.
+The halt watchdog is a real thread, so its test injects the halt, with a short real timeout and a service that blocks in `Thread.sleep`.
+
+| `KtorHealthTest`'s drain, against a real server
+| Still real time, since Ktor's engine runs on real threads; awaits the `Stopping` state rather than polling, if `HealthLifecycleController` exposes a `StateFlow`.
+
+| `PeriodicAppService`'s tests, which run the loop on real dispatchers with `eventually`
+| Can run the loop in a `runTest` scope's virtual time, by passing its scheduler's dispatcher; a separate change, not needed here.
+|===
+
+A test that boots a real server, a database, or Kubernetes's fake API server stays in real time: virtual time only skips `delay`, not IO.
+
+Two things to know, from the implementation:
+
+* Virtual time skips ahead whenever the test's coroutines are all waiting, including on work on a real dispatcher, so a timeout in virtual time, such as the shutdown timeout, fires at once while the test waits for a real thread.
+  A test whose service has background work runs that work on the test's dispatcher (`BootableTest` does), and a test of real-time behavior, such as readiness's check timeout, runs in `runBlocking` instead.
+* TestBalloon runs a test in a `TestScope`, in virtual time, when `kotlinx-coroutines-test` is on the test classpath, so a test that calls a suspending start or stop with a real-time timeout opts out, with `TestConfig.testScope(isEnabled = false)`, as `PeriodicAppServiceTest` and the `kilua` example's rendering test do.
+
+== Later: starting and stopping in parallel
+
+The start plan's phases and milestones say what each service waits for, so services that wait for nothing in common, such as the HTTP clients and the connection pool, could start at the same time, each as soon as what it waits for has started, and stop likewise, in reverse.
+Under coroutines that is a few lines: a `Deferred` per milestone, and a coroutine per service that awaits its milestones' deferreds.
+
+It isn't part of this change.
+Its main cost is the log: the start's lines would interleave, so a log without the service's name in each line becomes hard to read.
+A `CoroutineName` per service start, in the log layout through log4j's `ThreadContext` (`CoroutineThreadContext`), would label them, and the `=> Starting` lines would need to say which services start together.
+So it would be an opt-in, such as `boot.service.order.parallel = true`, once the sequential lifecycle is on coroutines.
+This change keeps nothing in the way of it: the lifecycle tracks each service's state on its own, rather than by its position in the plan.
+
+== Summary of the decisions
+
+Raman accepted every recommendation:
+
+. *3, the API:* change `AppService` and `LifecycleController` to `suspend` in place, in 3.1, rather than adding suspending interfaces beside them.
+  Optionally add a `BlockingAppService` adapter for Java.
+. *4, `die`:* `AppService.start(scope: CoroutineScope)`, beside `start()`, which it calls by default, and `AdvancedAppService` goes; the application scope a `SupervisorJob` whose handler stops with exit code 1, each service's scope a plain `Job` under it, cancelled after its `shutdown`.
+  `die` goes: a service fails its scope instead, which stops the application in order with exit code 1.
+  A service's `scopeFailurePolicy` can change the exit code, or make its scope supervise its coroutines instead.
+  The alternative is to keep `die` as an immediate halt.
+. *5, forced shutdown:* the timeout cancels the stop at `maxShutdownTime` (after the drain), skipping the services not yet stopped, and `run` returns 1, so the process exits normally and its logs flush; a watchdog thread halts only if the stop is still blocked a grace (5 s) later.
+  The timeout's log and the watchdog's name each service's state, and dump Bootable's job tree, and the full coroutine stacks when `DebugProbes` is installed.
+. *8, service states:* Bootable tracks each service's `ServiceState`, and `HealthLifecycleController` reports them; a per-service `health()` comes in a later PR.
+. *8, health checks:* `HealthCheck.check()` and `HealthLifecycleController.readiness()` become `suspend`; readiness runs the checks concurrently, each under `checkTimeout` (800 ms by default), and answers at the deadline even when a blocking check hasn't returned.
+. Smaller ones, each recommended above: a stop during the start cancels the start (1); `run` and `stop` are public, and the shutdown hook moves to `boot` and waits for the stop (2); `maxShutdownTime` becomes a `Duration` (2); parallel start and stop is a later opt-in.

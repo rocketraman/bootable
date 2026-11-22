@@ -91,7 +91,7 @@ private class WorkingService(
   override fun name() = name
   override fun ordering() = Ordering(phase)
 
-  override fun start() {
+  override suspend fun start() {
     openTelemetry.getTracer("test").spanBuilder("$name.work").startSpan().end()
     check(!fail) { "$name failed to start" }
   }
@@ -108,11 +108,11 @@ private fun aSecondAgo() = StartupTimeline(TimeSource.Monotonic.markNow() - 1.se
 private val Long.startInstant: KotlinInstant get() = KotlinInstant.fromEpochSeconds(0, this)
 
 /** Runs a start with one service, traced by [tracing], and returns the root span's start and the service span's. */
-private fun traceStart(tracing: ServiceStartTracing, telemetry: InMemoryTelemetry): Pair<KotlinInstant, KotlinInstant> {
+private suspend fun traceStart(tracing: ServiceStartTracing, telemetry: InMemoryTelemetry): Pair<KotlinInstant, KotlinInstant> {
   tracing.aroundAppStart(ServiceContext(emptySet(), emptyList(), {}, {}), aSecondAgo()) {
     val pool = object : AppService {
       override fun name() = "pool"
-      override fun start() = Unit
+      override suspend fun start() = Unit
     }
     tracing.aroundServiceStart(pool, pool::start)
   }

@@ -1,6 +1,6 @@
 package com.github.rocketraman.bootable.server.http.ktor
 
-import com.github.rocketraman.bootable.boot.AdvancedAppService
+import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.config.common.HostPort
 import de.infix.testBalloon.framework.core.testSuite
 import io.ktor.server.application.*
@@ -11,6 +11,8 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 
 val NettyKtorServiceTest by testSuite {
   test("runs on Netty through the service lifecycle") {
@@ -19,8 +21,8 @@ val NettyKtorServiceTest by testSuite {
         routing { get("/hello") { call.respondText("hello") } }
       }
     }
-    val appService: AdvancedAppService = service
-    appService.start {}
+    val appService: AppService = service
+    appService.start(CoroutineScope(SupervisorJob()))
     try {
       assert(service.server.engine is NettyApplicationEngine)
       val port = service.server.engine.resolvedConnectors().single().port

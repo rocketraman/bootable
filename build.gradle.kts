@@ -240,6 +240,8 @@ project("boot") {
     // StaticConfigBinder, for the wiring tests' config
     testImplementation(project(":boot-test"))
     testImplementation(rootProject.libs.kotlinx.serialization.json)
+    // the lifecycle is suspending, and services launch their background work in a CoroutineScope
+    api(rootProject.libs.kotlinx.coroutines.core)
     implementation(project(":boot-common"))
     // todo for now, we depend on boot-logging-log4j2, later we could use service loaders to discover implementations at runtime
     implementation(project(":boot-logging-log4j2"))
@@ -249,6 +251,11 @@ project("boot") {
     "inaraApi"(project(path = ":boot-config-common", configuration = "inaraElements"))
     // the tests compose the inara flavor's BootableModule into a module of their own, as an application does
     "kspTest"(rootProject.libs.inara.processor)
+  }
+
+  dependencies {
+    // virtual time, for the drain, the shutdown timeout, and the stop races
+    testImplementation(rootProject.libs.kotlinx.coroutines.test)
   }
 
   // the tests exercise this module's kodein, metro, and inara flavors too, wired up as a consumer would
@@ -267,6 +274,8 @@ project("boot") {
 project("boot-client-http-ktor") {
   configureDiVariants()
   dependencies {
+    // runSuspendCatching
+    testImplementation(project(":boot-test"))
     // KtorClientService is an AppService, and the clients it owns are Ktor's own HttpClient
     api(project(":boot"))
     api(project(":boot-config-common"))
@@ -671,6 +680,8 @@ project("boot-db-jdbc-postgresql") {
 project("boot-db-exposed") {
   configureDiVariants()
   dependencies {
+    // runSuspendCatching
+    testImplementation(project(":boot-test"))
     api(project(":boot-db-jdbc"))
     api(rootProject.libs.bundles.exposed)
     // the logging API only: the application chooses the logging implementation (e.g. boot-logging-log4j2)
@@ -957,7 +968,7 @@ project("boot-logging-log4j2") {
 project("boot-server-http-ktor") {
   configureDiVariants()
   dependencies {
-    // KtorService is an AdvancedAppService, so boot is part of this module's API
+    // KtorService is an AppService, so boot is part of this module's API
     api(project(":boot"))
     api(project(":boot-config-common"))
     // engine-agnostic: the engine comes from one of the boot-server-http-ktor-<engine> modules, or the application
@@ -1027,6 +1038,8 @@ listOf(
 project("boot-telemetry-otel") {
   configureDiVariants()
   dependencies {
+    // runSuspendCatching
+    testImplementation(project(":boot-test"))
     // OpenTelemetryService is an AppService, and the OpenTelemetry instance is the module's whole point
     api(project(":boot"))
     api(project(":boot-config-common"))

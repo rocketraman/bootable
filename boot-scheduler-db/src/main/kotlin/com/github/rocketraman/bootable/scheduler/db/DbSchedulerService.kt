@@ -16,6 +16,8 @@ import kotlin.time.Clock
 import kotlin.time.toJavaDuration
 import kotlin.time.toJavaInstant
 import com.github.kagkarlsson.scheduler.Clock as DbSchedulerClock
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Adjusts db-scheduler's [SchedulerBuilder] after the typed settings are applied, for what [DbSchedulerConfig] doesn't
@@ -94,14 +96,15 @@ class DbSchedulerService(
     .also(customizer::customize)
     .build()
 
-  override fun start() {
+  override suspend fun start() = withContext(Dispatchers.IO) {
     // detect the database now, if it is to be detected, while no connection is held: detecting it on first use, within
     // a statement of the scheduler's, would wait for a second connection, which a pool of one, as SQLite's, never has
     (jdbcCustomization as? LazyJdbcCustomization)?.resolve()
     scheduler.start()
   }
 
-  override fun shutdown() {
+  // waits for the executions running to finish
+  override suspend fun shutdown() = withContext(Dispatchers.IO) {
     scheduler.stop()
   }
 

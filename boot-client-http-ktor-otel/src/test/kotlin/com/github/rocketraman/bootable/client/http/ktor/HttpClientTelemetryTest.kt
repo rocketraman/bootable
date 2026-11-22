@@ -47,6 +47,8 @@ import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
 import io.opentelemetry.sdk.trace.data.SpanData
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
 import io.opentelemetry.sdk.trace.export.SpanExporter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.kodein.di.direct
@@ -125,7 +127,7 @@ private class AppServer(private val telemetry: KtorTelemetry, private val client
 /** Starts [services] as Bootable does, in its start plan's order, runs [block], and stops them in reverse. */
 private suspend fun withStarted(vararg services: AppService, block: suspend () -> Unit) {
   val ordered = startPlan(services.toList())
-  ordered.forEach { if (it is KtorService<*, *>) it.start {} else it.start() }
+  ordered.forEach { it.start(CoroutineScope(SupervisorJob())) }
   try {
     block()
   } finally {

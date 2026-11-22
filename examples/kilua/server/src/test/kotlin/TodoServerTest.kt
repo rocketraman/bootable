@@ -13,7 +13,7 @@ import io.ktor.server.testing.*
  *
  * The renderer isn't started, so these tests leave `/` alone; [ServerRenderingTest] renders pages.
  */
-private fun withServer(block: suspend HttpClient.() -> Unit) = testApplication {
+private suspend fun withServer(block: suspend HttpClient.() -> Unit) = testApplication {
   val renderer = SsrRenderer(SsrConfig(node = "node"), serverUrl = "http://127.0.0.1:0")
   val server = TodoServer(ServerConfig("127.0.0.1:0"), TodoRepository(), renderer)
   application { with(server) { module() } }

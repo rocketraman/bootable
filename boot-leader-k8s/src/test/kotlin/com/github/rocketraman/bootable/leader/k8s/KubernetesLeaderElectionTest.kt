@@ -8,6 +8,8 @@ import de.infix.testBalloon.framework.core.testSuite
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.java.Java
 import io.ktor.client.request.get
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
@@ -52,7 +54,7 @@ private fun sleep(duration: Duration) = Thread.sleep(duration.inWholeMillisecond
 
 /** A temporary directory laid out as a pod's mounted service account: its token and namespace. */
 @OptIn(ExperimentalPathApi::class)
-private fun withServiceAccounts(vararg tokens: String, block: (Map<String, Path>) -> Unit) {
+private suspend fun withServiceAccounts(vararg tokens: String, block: suspend (Map<String, Path>) -> Unit) {
   val dirs = tokens.associateWith { token ->
     createTempDirectory("service-account").also {
       it.resolve("token").writeText("$token\n")
@@ -87,7 +89,13 @@ private fun FakeApiServer.transitions(): Int? =
 private fun FakeApiServer.spec(field: String): String? =
   lease(NAMESPACE, LEASE)?.get("spec")?.jsonObject?.get(field)?.jsonPrimitive?.content
 
-private inline fun <T> List<KubernetesLeaderElection>.use(block: (List<KubernetesLeaderElection>) -> T): T = try {
+/** The scope the elections run in, as a service's scope would be: each one's shutdown cancels its own election. */
+private val electionScope = CoroutineScope(SupervisorJob())
+
+/** Starts the election, as Bootable does. */
+private suspend fun KubernetesLeaderElection.startElection() = start(electionScope)
+
+private suspend inline fun <T> List<KubernetesLeaderElection>.use(block: suspend (List<KubernetesLeaderElection>) -> T): T = try {
   block(this)
 } finally {
   forEach { it.shutdown() }
@@ -98,7 +106,7 @@ val KubernetesLeaderElectionTest by testSuite {
     FakeApiServer(setOf("token-a")).use { server ->
       withServiceAccounts("token-a") { accounts ->
         listOf(KubernetesLeaderElection(testConfig(server, accounts.getValue("token-a"), "pod-a"), http)).use { (a) ->
-          a.start()
+          a.startElection()
           // the first attempt is part of the start, so it leads as soon as it has started
           assert(a.isLeader())
           assert(server.holder() == "pod-a")
@@ -114,7 +122,7 @@ val KubernetesLeaderElectionTest by testSuite {
     FakeApiServer(setOf("token-a")).use { server ->
       withServiceAccounts("token-a") { accounts ->
         listOf(KubernetesLeaderElection(testConfig(server, accounts.getValue("token-a"), "pod-a"), http)).use { (a) ->
-          a.start()
+          a.startElection()
           assert(server.requests.isNotEmpty())
           assert(server.requests.all { (_, path, token) -> token == "token-a" && "/namespaces/$NAMESPACE/leases" in path })
         }
@@ -126,7 +134,7 @@ val KubernetesLeaderElectionTest by testSuite {
     FakeApiServer(setOf("token-a")).use { server ->
       withServiceAccounts("token-a") { accounts ->
         listOf(KubernetesLeaderElection(testConfig(server, accounts.getValue("token-a"), "pod-a"), http)).use { (a) ->
-          a.start()
+          a.startElection()
           val first = server.spec("renewTime")
           eventually { server.spec("renewTime") != first }
           sleep(1500.milliseconds)
@@ -146,7 +154,7 @@ val KubernetesLeaderElectionTest by testSuite {
           KubernetesLeaderElection(testConfig(server, accounts.getValue("token-a"), "pod-a"), http),
           KubernetesLeaderElection(testConfig(server, accounts.getValue("token-b"), "pod-b"), http),
         ).use { instances ->
-          instances.forEach { it.start() }
+          instances.forEach { it.startElection() }
           sleep(1500.milliseconds)
           assert(instances.count { it.isLeader() } == 1)
           val leader = instances.single { it.isLeader() }
@@ -163,8 +171,8 @@ val KubernetesLeaderElectionTest by testSuite {
         val a = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-a"), "pod-a"), http)
         val b = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-b"), "pod-b"), http)
         listOf(a, b).use {
-          a.start()
-          b.start()
+          a.startElection()
+          b.startElection()
           assert(a.isLeader() && !b.isLeader())
           a.shutdown()
           assert(!a.isLeader())
@@ -185,8 +193,8 @@ val KubernetesLeaderElectionTest by testSuite {
         val a = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-a"), "pod-a"), http)
         val b = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-b"), "pod-b"), http)
         listOf(a, b).use {
-          a.start()
-          b.start()
+          a.startElection()
+          b.startElection()
           assert(a.isLeader())
           // pod-a loses its connection to the API server
           server.unavailableTo += "token-a"
@@ -222,8 +230,8 @@ val KubernetesLeaderElectionTest by testSuite {
         val a = KubernetesLeaderElection(config("token-a", "pod-a"), http)
         val b = KubernetesLeaderElection(config("token-b", "pod-b"), http)
         listOf(a, b).use {
-          a.start()
-          b.start()
+          a.startElection()
+          b.startElection()
           assert(a.isLeader())
           server.stalledFor += "token-a"
           val cutOff = TimeSource.Monotonic.markNow()
@@ -253,8 +261,8 @@ val KubernetesLeaderElectionTest by testSuite {
         val a = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-a"), "pod-a"), http)
         val b = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-b"), "pod-b"), http, jumpy)
         listOf(a, b).use {
-          a.start()
-          b.start()
+          a.startElection()
+          b.startElection()
           assert(a.isLeader() && !b.isLeader())
           // pod-a stops renewing, without releasing, so pod-b must wait out the lease
           server.unavailableTo += "token-a"
@@ -278,7 +286,7 @@ val KubernetesLeaderElectionTest by testSuite {
       })
       withServiceAccounts("token-a") { accounts ->
         listOf(KubernetesLeaderElection(testConfig(server, accounts.getValue("token-a"), "pod-a"), http)).use { (a) ->
-          a.start()
+          a.startElection()
           // its expiry is timed from when this instance saw it, not from its renew time, so clocks needn't agree
           assert(!a.isLeader())
           assert(a.holderIdentity == "gone")
@@ -294,7 +302,7 @@ val KubernetesLeaderElectionTest by testSuite {
     FakeApiServer(setOf("token-a")).use { server ->
       withServiceAccounts("token-a") { accounts ->
         listOf(KubernetesLeaderElection(testConfig(server, accounts.getValue("token-a"), "pod-a"), http)).use { (a) ->
-          a.start()
+          a.startElection()
           assert(a.fencingToken == 0L)
           val first = server.spec("renewTime")
           eventually { server.spec("renewTime") != first }
@@ -313,15 +321,15 @@ val KubernetesLeaderElectionTest by testSuite {
         val b = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-b"), "pod-b"), http)
         val c = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-c"), "pod-c"), http)
         listOf(a, b, c).use {
-          a.start()
-          b.start()
+          a.startElection()
+          b.startElection()
           assert(a.fencingToken == 0L && b.fencingToken == null)
           // pod-a releases the lease, and pod-b takes over
           a.shutdown()
           assert(a.fencingToken == null)
           eventually { b.isLeader() }
           assert(b.fencingToken == 1L)
-          c.start()
+          c.startElection()
           assert(c.fencingToken == null)
           // pod-b stops renewing, and pod-c takes over once the lease expires
           server.unavailableTo += "token-b"
@@ -339,7 +347,7 @@ val KubernetesLeaderElectionTest by testSuite {
       withServiceAccounts("token-a") { accounts ->
         val config = testConfig(server, accounts.getValue("token-a"), "pod-a").copy(requestTimeout = 3.seconds)
         listOf(KubernetesLeaderElection(config, http)).use { (a) ->
-          a.start()
+          a.startElection()
           assert(a.fencingToken == 0L)
           // its requests hang past the renew deadline, so it steps down, though no other instance takes the lease
           server.stalledFor += "token-a"
@@ -371,8 +379,8 @@ val KubernetesLeaderElectionTest by testSuite {
         val a = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-a"), "pod-a"), http)
         val b = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-b"), "pod-b"), http)
         listOf(a, b).use {
-          a.start()
-          b.start()
+          a.startElection()
+          b.startElection()
           // pod-a's work reads its token as it starts, and then pauses, longer than the lease
           val paused = a.fencingToken!!
           assert(write(paused))
@@ -394,7 +402,7 @@ val KubernetesLeaderElectionTest by testSuite {
     FakeApiServer(setOf("token-a")).use { server ->
       withServiceAccounts("token-a") { accounts ->
         listOf(KubernetesLeaderElection(testConfig(server, accounts.getValue("token-a"), "pod-a"), http, clock)).use { (a) ->
-          a.start()
+          a.startElection()
           assert(server.spec("acquireTime") == "2026-11-18T12:34:56.789000Z")
           assert(server.spec("renewTime") == "2026-11-18T12:34:56.789000Z")
         }
@@ -409,7 +417,7 @@ val KubernetesLeaderElectionTest by testSuite {
         val config = testConfig(server, accounts.getValue("token-a"), "pod-a").copy(requestTimeout = 200.milliseconds)
         listOf(KubernetesLeaderElection(config, http)).use { (a) ->
           // the start's first attempt times out, and the start carries on
-          a.start()
+          a.startElection()
           assert(!a.isLeader())
           server.stalledFor -= "token-a"
           eventually { a.isLeader() }
@@ -423,7 +431,7 @@ val KubernetesLeaderElectionTest by testSuite {
       server.forbidden += "token-a"
       withServiceAccounts("token-a") { accounts ->
         val a = KubernetesLeaderElection(testConfig(server, accounts.getValue("token-a"), "pod-a"), http)
-        val failure = runCatching { a.start() }.exceptionOrNull() as? KubernetesApiException
+        val failure = runCatching { a.startElection() }.exceptionOrNull() as? KubernetesApiException
         assert(failure?.status == 403)
         assert("leases is forbidden" in failure?.message.orEmpty())
         assert(!a.isLeader())
@@ -436,7 +444,7 @@ val KubernetesLeaderElectionTest by testSuite {
       server.unavailableTo += "token-a"
       withServiceAccounts("token-a") { accounts ->
         listOf(KubernetesLeaderElection(testConfig(server, accounts.getValue("token-a"), "pod-a"), http)).use { (a) ->
-          a.start()
+          a.startElection()
           assert(!a.isLeader())
           server.unavailableTo -= "token-a"
           eventually { a.isLeader() }
@@ -451,7 +459,7 @@ val KubernetesLeaderElectionTest by testSuite {
       http,
       environment = mapOf("HOSTNAME" to "local"),
     )
-    a.start()
+    a.startElection()
     assert(a.isLeader())
     assert(a.fencingToken == 0L)
     a.shutdown()

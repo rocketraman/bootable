@@ -82,7 +82,7 @@ interface AppService {
 
 class JdbcDataSourceService(...) : AppService { override fun phase() = Phase.Infrastructure }
 class FlywayMigrationService(...) : AppService { override fun phase() = Phase.Initialization }
-abstract class KtorService(...) : AdvancedAppService { override fun phase() = Phase.Serving }
+abstract class KtorService(...) : AppService { override fun phase() = Phase.Serving }
 ----
 
 Sort key: `(phase, -priority)`. Shutdown is the reverse.
@@ -548,7 +548,7 @@ class SchemaVerificationService(...) : AppService {
 }
 
 // boot-server-http-ktor
-abstract class KtorService(...) : AdvancedAppService {
+abstract class KtorService(...) : AppService {
   override fun ordering() = Ordering(DefaultPhase.Serving)
 }
 ----
@@ -599,8 +599,6 @@ Shutdown is `plan.asReversed()`. (Bootable already skips services that never sta
 * `LifecycleController.priority()` is unchanged. Controllers are few, framework-level, and mostly ordered against
   the built-ins (`Int.MAX_VALUE` for `AppStartStopLifecycleController` and `EnvironmentInitializer`); this note
   doesn't touch them.
-* `AdvancedAppService` is unaffected: it is an `AppService`, so it has `ordering()`. A `die()` runs the normal
-  shutdown, which uses the reversed plan.
 * `serviceStartVote` is unchanged: a vote skips one service, as today. (Whether a `NO` on a provider should also
   skip its `requires` dependents is a reasonable follow-up, not part of this.)
 

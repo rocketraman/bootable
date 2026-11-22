@@ -1,6 +1,5 @@
 package com.github.rocketraman.bootable.periodic
 
-import com.github.rocketraman.bootable.boot.AdvancedAppService
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.AppServices
@@ -35,6 +34,8 @@ import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
 import io.opentelemetry.sdk.trace.data.SpanData
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.kodein.di.direct
@@ -60,8 +61,8 @@ class InMemorySpans : OpenTelemetryCustomizer {
 private val loopConfig = PeriodicConfig(interval = 10.milliseconds)
 
 /** Runs [loop] until it has run twice, then stops it, and returns the spans of its runs. */
-private fun traceRuns(loop: AppService, spans: InMemorySpans): List<SpanData> {
-  (loop as AdvancedAppService).start { error("died") }
+private suspend fun traceRuns(loop: AppService, spans: InMemorySpans): List<SpanData> {
+  loop.start(CoroutineScope(SupervisorJob()))
   try {
     eventually { spans.spans.count { it.name == "periodic ${loop.name()}" } >= 2 }
   } finally {

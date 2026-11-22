@@ -1,5 +1,6 @@
 package com.github.rocketraman.bootable.db.exposed
 
+import com.github.rocketraman.bootable.test.runSuspendCatching
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.StartOrder
 import com.github.rocketraman.bootable.boot.startPlan
@@ -168,7 +169,7 @@ val ExposedDatabaseTest by testSuite {
 
     test("rolls back when the statement throws") {
       withDatabase { db ->
-        runCatching {
+        runSuspendCatching {
           db.withTransaction {
             GreetingTable.insert { it[id] = 1; it[text] = "hello" }
             error("boom")
@@ -205,7 +206,7 @@ val ExposedDatabaseTest by testSuite {
 
       test("rolls back with the outer transaction") {
         withDatabase { db ->
-          runCatching {
+          runSuspendCatching {
             db.withTransaction {
               db.insertGreeting(1)
               db.insertGreeting(2)
@@ -218,7 +219,7 @@ val ExposedDatabaseTest by testSuite {
 
       test("rolls back the outer transaction when it fails") {
         withDatabase { db ->
-          runCatching {
+          runSuspendCatching {
             db.withTransaction {
               db.insertGreeting(1)
               db.insertGreeting(1) // duplicate key
@@ -234,7 +235,7 @@ val ExposedDatabaseTest by testSuite {
           transaction(db) { SchemaUtils.create(GreetingTable) }
           db.withTransaction {
             db.insertGreeting(1)
-            runCatching { db.withTransaction { db.insertGreeting(2); error("boom") } }
+            runSuspendCatching { db.withTransaction { db.insertGreeting(2); error("boom") } }
           }
           assert(db.withTransaction { GreetingTable.selectAll().map { it[GreetingTable.id] } } == listOf(1))
         }

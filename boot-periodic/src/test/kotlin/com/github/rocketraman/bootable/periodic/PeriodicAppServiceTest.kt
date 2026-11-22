@@ -7,6 +7,8 @@ import com.github.rocketraman.bootable.boot.Ordering
 import com.github.rocketraman.bootable.boot.StartOrder
 import com.github.rocketraman.bootable.boot.startPlan
 import com.github.rocketraman.bootable.leader.LeaderElection
+import de.infix.testBalloon.framework.core.TestConfig
+import de.infix.testBalloon.framework.core.testScope
 import de.infix.testBalloon.framework.core.testSuite
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -21,7 +23,8 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlin.time.TimeSource
 
-val PeriodicAppServiceTest by testSuite {
+// real time: the loops run on real dispatchers, so their shutdown's timeout must too
+val PeriodicAppServiceTest by testSuite(testConfig = TestConfig.testScope(isEnabled = false)) {
   test("runs its work every interval") {
     val runs = AtomicInteger()
     val service = PeriodicAppService("counter", testConfig()) { runs.incrementAndGet() }

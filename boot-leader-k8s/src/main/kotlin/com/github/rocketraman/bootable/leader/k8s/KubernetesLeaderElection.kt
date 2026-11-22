@@ -4,20 +4,19 @@ import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.DefaultPhase
 import com.github.rocketraman.bootable.boot.Ordering
 import com.github.rocketraman.bootable.leader.LeaderElection
-import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.apache.logging.log4j.kotlin.logger
@@ -39,12 +38,12 @@ private val log = logger("com.github.rocketraman.bootable.leader.k8s.KubernetesL
  * A [LeaderElection] among the pods of an application in Kubernetes: the leader is the one that holds a
  * `coordination.k8s.io/v1` Lease, as Kubernetes's own controllers elect theirs, following client-go's leader election.
  *
- * It is an [AppService], in the [DefaultPhase.Infrastructure] phase, so it leads, if it can, before the services that
- * ask it, such as `boot-periodic`'s loops, start, and stops after them. Starting it makes the first attempt to take the
- * Lease, and fails the start if the API server refuses it access (a 401 or 403 status), such as when the pod's service
- * account lacks the permission; it then keeps trying, or renewing, every [KubernetesLeaderElectionConfig.retryPeriod]
- * in the background, retrying whatever fails. On shutdown it stops, and the leader releases the Lease, so another pod
- * takes over at once.
+ * It is an [AppService], in the [DefaultPhase.Infrastructure] phase, so it leads, if it can, before the
+ * services that ask it, such as `boot-periodic`'s loops, start, and stops after them. Starting it makes the first
+ * attempt to take the Lease, and fails the start if the API server refuses it access (a 401 or 403 status), such as
+ * when the pod's service account lacks the permission; it then keeps trying, or renewing, every
+ * [KubernetesLeaderElectionConfig.retryPeriod] in the background, retrying whatever fails. On shutdown it stops, and
+ * the leader releases the Lease, so another pod takes over at once. The election runs in the service's scope.
  *
  * Leadership is conservative, so that two instances never lead at once, as long as neither pauses, such as for a
  * garbage collection, longer than the margin between the lease duration and the renew deadline:
@@ -108,7 +107,6 @@ class KubernetesLeaderElection(
     private set
 
   private val client: LeaseClient? = if (config.assumeLeader) null else leaseClient(httpClient, environment)
-  private var scope: CoroutineScope? = null
   private var election: Job? = null
 
   // the Lease as this instance last saw it, and when, by the monotonic clock: another holder's lease expires
@@ -144,32 +142,33 @@ class KubernetesLeaderElection(
   // after the HTTP clients, in the same phase, so it stops, releasing the Lease, before they close
   override fun ordering() = Ordering(DefaultPhase.Infrastructure, after = setOf(HttpClientMilestones.ClientsReady))
 
-  override fun start() {
+  override suspend fun start(scope: CoroutineScope) {
     if (client == null) {
       log.info { "Leader election is off (leader.kubernetes.assumeLeader): $identity always leads" }
       return
     }
     // the first attempt fails the start if the API server refuses access, which retrying wouldn't fix
-    runBlocking { attempt(firstAttempt = true) }
-    val scope = CoroutineScope(
-      SupervisorJob() + Dispatchers.IO + CoroutineName("leader-election") + CoroutineExceptionHandler { _, e ->
+    withContext(Dispatchers.IO) { attempt(firstAttempt = true) }
+    election = scope.launch(Dispatchers.IO + CoroutineName("leader-election")) {
+      // a failure stops this instance from leading, rather than the application: the others can lead
+      @Suppress("TooGenericExceptionCaught")
+      try {
+        elect()
+      } catch (e: Exception) {
+        // the election's own cancellation, by shutdown, ends it; any other cancellation is a failure like the rest
+        if (e is CancellationException) currentCoroutineContext().ensureActive()
         log.error(e) { "Leader election stopped unexpectedly; $identity no longer leads" }
         state.value = false
       }
-    )
-    this.scope = scope
-    election = scope.launch { elect() }
+    }
   }
 
-  override fun shutdown() {
+  override suspend fun shutdown() {
     val client = client ?: return
-    runBlocking {
-      election?.cancelAndJoin()
-      scope?.cancel()
-      if (state.value) {
-        state.value = false
-        if (config.releaseOnShutdown) release(client)
-      }
+    election?.cancelAndJoin()
+    if (state.value) {
+      state.value = false
+      if (config.releaseOnShutdown) withContext(Dispatchers.IO) { release(client) }
     }
   }
 
@@ -224,9 +223,8 @@ class KubernetesLeaderElection(
     } else {
       Attempt.HeldByOther
     }
-  } catch (e: CancellationException) {
-    throw e
   } catch (e: Exception) {
+    if (e is CancellationException) currentCoroutineContext().ensureActive()
     if (firstAttempt && e is KubernetesApiException && e.status in ACCESS_DENIED) throw e
     // a conflict is another instance updating the lease first, which is the election working
     if (e is KubernetesApiException && e.status == HTTP_CONFLICT) {
@@ -300,6 +298,8 @@ class KubernetesLeaderElection(
       }
       log.info { "$identity released lease ${config.leaseName}" }
     } catch (e: Exception) {
+      // the request's own timeout is a failure to release; the shutdown's cancellation isn't caught
+      if (e is CancellationException) currentCoroutineContext().ensureActive()
       log.warn(e) { "$identity couldn't release lease ${config.leaseName}; another instance takes it once it expires" }
     }
   }
