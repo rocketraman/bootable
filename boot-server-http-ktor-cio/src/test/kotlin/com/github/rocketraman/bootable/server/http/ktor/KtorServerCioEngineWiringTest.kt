@@ -25,4 +25,8 @@ val KtorServerCioEngineWiringTest by testSuite {
   test("KtorServerCioEngineBindings provides CIO as the KtorServerEngine, in metro") {
     assert(createGraph<KtorServerCioEngineGraph>().engine.factory === CIO)
   }
+
+  test("ktorServerCioEngineModule() provides CIO as the KtorServerEngine, in inara") {
+    assert(ktorServerCioEngineModule().ktorServerEngine?.factory === CIO)
+  }
 }

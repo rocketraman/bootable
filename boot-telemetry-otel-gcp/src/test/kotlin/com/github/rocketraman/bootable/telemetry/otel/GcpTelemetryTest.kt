@@ -2,10 +2,12 @@ package com.github.rocketraman.bootable.telemetry.otel
 
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
-import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.google.auth.oauth2.AccessToken
 import com.google.auth.oauth2.GoogleCredentials
 import com.sun.net.httpserver.HttpServer
@@ -16,6 +18,7 @@ import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import org.kodein.di.DI
 import org.kodein.di.direct
+import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import java.net.InetSocketAddress
 import java.util.Date
@@ -133,6 +136,10 @@ interface TestGraph : BootableGraph {
   val openTelemetryCustomizers: Set<OpenTelemetryCustomizer>
 }
 
+/** An application's module, composed as an Inara application composes it. */
+@DIModule(composed = true)
+interface InaraTestModule : ConfigModule, BootableModule, OpenTelemetryModule, GcpTelemetryModule
+
 private val expectedConfig = GcpTelemetryConfig(detectResource = false, projectId = "wiring-project")
 
 /** Config comes from src/test/resources/application.conf, as it would in an application. */
@@ -159,6 +166,19 @@ val GcpTelemetryWiringTest by testSuite {
       val graph = createGraph<TestGraph>()
       assert(graph.gcpTelemetryConfig == expectedConfig)
       assert(graph.openTelemetryCustomizers.single() is GcpTelemetry)
+    }
+
+    test("inara") {
+      val module = InaraTestModule(
+        configModule = hopliteConfigModule(),
+        bootableModule = bootableModule(),
+        openTelemetryModule = openTelemetryModule(),
+        gcpTelemetryModule = gcpTelemetryModule(),
+      )
+
+      assert(module.gcpTelemetryConfig == expectedConfig)
+      assert(module.setOfOpenTelemetryCustomizers() == setOf<OpenTelemetryCustomizer>(module.gcpTelemetry))
+      module.openTelemetryService.shutdown()
     }
   }
 }

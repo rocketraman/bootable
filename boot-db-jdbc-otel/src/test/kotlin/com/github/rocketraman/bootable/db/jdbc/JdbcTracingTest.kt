@@ -3,12 +3,17 @@ package com.github.rocketraman.bootable.db.jdbc
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.setOfAppServices
+import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.db.exposed.ExposedDatabaseService
 import com.github.rocketraman.bootable.db.exposed.withTransaction
 import com.github.rocketraman.bootable.telemetry.otel.MetricsConfig
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizer
+import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizers
+import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
 import com.github.rocketraman.bootable.telemetry.otel.TelemetryConfig
 import com.github.rocketraman.bootable.telemetry.otel.openTelemetryModule
@@ -35,6 +40,8 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.kodein.di.DI
 import org.kodein.di.direct
+import org.kodein.di.inara.Binding
+import org.kodein.di.inara.DIModule
 import org.kodein.di.inBindSet
 import org.kodein.di.instance
 import org.kodein.di.singleton
@@ -166,6 +173,30 @@ object TestBindings {
   @Provides @IntoSet fun inMemory(spans: InMemorySpans): OpenTelemetryCustomizer = spans
 }
 
+@DIModule(composed = true)
+interface InaraTestModule :
+  ConfigModule,
+  BootableModule,
+  OpenTelemetryModule,
+  JdbcDataSourceModule,
+  HikariPoolModule,
+  JdbcTracingModule {
+  @OpenTelemetryCustomizers val inMemorySpans: InMemorySpans
+}
+
+// a call resolves to the Kodein flavor's jdbcTracingModule, of the same signature; a reference of this type to Inara's
+private val inaraJdbcTracingModule: (JdbcTelemetryBuilder.() -> Unit) -> JdbcTracingModulePart = ::jdbcTracingModule
+
+private fun inaraTestModule(configure: JdbcTelemetryBuilder.() -> Unit = {}) = InaraTestModule(
+  configModule = hopliteConfigModule(),
+  bootableModule = bootableModule(),
+  openTelemetryModule = openTelemetryModule(),
+  jdbcDataSourceModule = jdbcDataSourceModule(JdbcGenericConfigSource),
+  hikariPoolModule = hikariPoolModule(),
+  jdbcTracingModule = inaraJdbcTracingModule(configure),
+  inMemorySpans = Binding.single { InMemorySpans() },
+)
+
 /** Starts [services], runs [block], and shuts them down in reverse. */
 private suspend fun Set<AppService>.running(block: suspend () -> Unit) {
   val ordered = sortedBy { if (it is OpenTelemetryService) 0 else 1 }
@@ -293,6 +324,27 @@ val JdbcTracingTest by testSuite {
         graph.openTelemetry.checkQueryUnderSpan(graph.inMemorySpans) {
           withContext(Dispatchers.IO) { graph.dataSource.selectSecret() }
         }
+      }
+    }
+
+    test("inara") {
+      val module = inaraTestModule()
+
+      assert(module.setOfDataSourceWrappers().size == 1)
+      module.setOfAppServices().running {
+        module.dataSource.createEntries()
+        module.openTelemetry.checkQueryUnderSpan(module.inMemorySpans) {
+          withContext(Dispatchers.IO) { module.dataSource.selectSecret() }
+        }
+      }
+    }
+
+    test("inara, configured") {
+      val module = inaraTestModule { setQuerySanitizationEnabled(false) }
+      module.setOfAppServices().running {
+        module.dataSource.createEntries()
+        module.dataSource.selectSecret()
+        assert(module.inMemorySpans.spans.query("FROM entry WHERE").attributes.get(DB_STATEMENT)!!.contains(SECRET))
       }
     }
   }

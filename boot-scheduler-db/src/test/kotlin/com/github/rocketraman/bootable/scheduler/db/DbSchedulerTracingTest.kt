@@ -6,15 +6,22 @@ import com.github.kagkarlsson.scheduler.task.helper.Tasks
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.boot.startPlan
+import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.db.flyway.FlywayConfig
+import com.github.rocketraman.bootable.db.flyway.FlywayMigrationModule
 import com.github.rocketraman.bootable.db.flyway.FlywayMigrationService
 import com.github.rocketraman.bootable.db.flyway.flywayMigrationModule
 import com.github.rocketraman.bootable.db.jdbc.HikariConnectionPoolFactory
+import com.github.rocketraman.bootable.db.jdbc.HikariPoolModule
+import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceModule
 import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
 import com.github.rocketraman.bootable.db.jdbc.SqliteConfig
+import com.github.rocketraman.bootable.db.jdbc.SqliteConfigSource
 import com.github.rocketraman.bootable.db.jdbc.hikariPoolModule
 import com.github.rocketraman.bootable.db.jdbc.jdbcDataSourceModule
 import com.github.rocketraman.bootable.db.jdbc.jdbcTracing
@@ -22,6 +29,8 @@ import com.github.rocketraman.bootable.db.jdbc.sqliteConfigModule
 import com.github.rocketraman.bootable.telemetry.otel.ALWAYS_SAMPLE
 import com.github.rocketraman.bootable.telemetry.otel.MetricsConfig
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizer
+import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizers
+import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
 import com.github.rocketraman.bootable.telemetry.otel.Sample
 import com.github.rocketraman.bootable.telemetry.otel.TelemetryConfig
@@ -44,6 +53,8 @@ import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
 import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.kodein.di.direct
+import org.kodein.di.inara.Binding
+import org.kodein.di.inara.DIModule
 import org.kodein.di.inBindSet
 import org.kodein.di.instance
 import org.kodein.di.singleton
@@ -157,6 +168,31 @@ object TracingTestBindings {
   @Provides @IntoSet fun taskProvider(tasks: TestTasks): DbSchedulerTaskProvider = tasks
 }
 
+@DIModule(composed = true)
+interface InaraTracingTestModule :
+  ConfigModule,
+  BootableModule,
+  OpenTelemetryModule,
+  JdbcDataSourceModule,
+  HikariPoolModule,
+  FlywayMigrationModule,
+  DbSchedulerModule {
+  @OpenTelemetryCustomizers val inMemorySpans: InMemorySpans
+  @DbSchedulerTaskProviders val tasks: TestTasks
+}
+
+private fun inaraTracingTestModule() = InaraTracingTestModule(
+  configModule = hopliteConfigModule(),
+  bootableModule = bootableModule(),
+  openTelemetryModule = openTelemetryModule(),
+  jdbcDataSourceModule = jdbcDataSourceModule(SqliteConfigSource),
+  hikariPoolModule = hikariPoolModule(),
+  flywayMigrationModule = flywayMigrationModule(),
+  dbSchedulerModule = dbSchedulerModule(),
+  inMemorySpans = Binding.single { InMemorySpans() },
+  tasks = Binding.single { TestTasks() },
+)
+
 /** Starts the services in their planned order, runs an execution, checks it is traced, and shuts them down. */
 private fun Set<AppService>.startAndTrace(spans: InMemorySpans, tasks: TestTasks, client: SchedulerClient) {
   // a fresh database each time, so the migration runs
@@ -231,6 +267,11 @@ val DbSchedulerTracingTest by testSuite {
   test("metro, through the graph's OpenTelemetry") {
     val graph = createGraph<TracingTestGraph>()
     graph.appServices.startAndTrace(graph.inMemorySpans, graph.tasks, graph.schedulerClient)
+  }
+
+  test("inara, through the OpenTelemetryModule's OpenTelemetry") {
+    val module = inaraTracingTestModule()
+    module.setOfAppServices().startAndTrace(module.inMemorySpans, module.tasks, module.schedulerClient)
   }
 
   test("options: tracing through an OpenTelemetry, unless it is the no-op one, or they turn it off") {

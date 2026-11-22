@@ -6,9 +6,10 @@ import io.ktor.server.engine.*
  * The engine on which modules start the listeners of their own, such as [KtorHealth]'s health probes and the metrics
  * scrape of boot-server-http-ktor-otel's `KtorTelemetry`, each when its `hostPort` is set.
  *
- * The Kodein and Metro flavors of the engine modules provide one: `ktorServerCioEngineModule` and
- * `ktorServerNettyEngineModule`, or `KtorServerCioEngineBindings` and `KtorServerNettyEngineBindings`. For any other
- * engine, such as Jetty, provide one of your own, e.g. `KtorServerEngine(Jetty)`.
+ * The flavors of the engine modules provide one: Kodein's `ktorServerCioEngineModule` and
+ * `ktorServerNettyEngineModule`, Metro's `KtorServerCioEngineBindings` and `KtorServerNettyEngineBindings`, or Inara's
+ * `ktorServerCioEngineModule()` and `ktorServerNettyEngineModule()`. For any other engine, such as Jetty, provide one
+ * of your own, e.g. `KtorServerEngine(Jetty)`.
  *
  * An application with no engine can still serve those routes on its own server: only a listener of their own needs
  * one.

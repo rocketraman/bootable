@@ -3,15 +3,21 @@ package com.github.rocketraman.bootable.db.flyway
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.StartOrder
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.boot.startPlan
+import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
-import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.db.jdbc.HikariPoolConfig
+import com.github.rocketraman.bootable.db.jdbc.HikariPoolModule
+import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceModule
 import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService
 import com.github.rocketraman.bootable.db.jdbc.SqliteConfig
+import com.github.rocketraman.bootable.db.jdbc.SqliteConfigSource
 import com.github.rocketraman.bootable.db.jdbc.hikariPoolModule
 import com.github.rocketraman.bootable.db.jdbc.jdbcDataSourceModule
 import com.github.rocketraman.bootable.db.jdbc.sqliteConfigModule
@@ -23,6 +29,7 @@ import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.createGraph
 import org.kodein.di.DI
 import org.kodein.di.direct
+import org.kodein.di.inara.DIModule
 import org.kodein.di.inBindSet
 import org.kodein.di.instance
 import org.kodein.di.singleton
@@ -48,6 +55,17 @@ object TestCustomizerBindings {
   @Provides @IntoSet
   fun installedBy(): FlywayConfigurationCustomizer = FlywayConfigurationCustomizer { it.installedBy("metro") }
 }
+
+@DIModule(composed = true)
+interface InaraTestModule : ConfigModule, BootableModule, JdbcDataSourceModule, HikariPoolModule, FlywayMigrationModule
+
+private fun inaraTestModule() = InaraTestModule(
+  configModule = hopliteConfigModule(),
+  bootableModule = bootableModule(),
+  jdbcDataSourceModule = jdbcDataSourceModule(SqliteConfigSource),
+  hikariPoolModule = hikariPoolModule(),
+  flywayMigrationModule = flywayMigrationModule(setOf(FlywayConfigurationCustomizer { it.installedBy("inara") })),
+)
 
 /** Starts the services in their planned order, as Bootable does, checks the migrated schema, and shuts them down. */
 private fun Set<AppService>.startAndStop() {
@@ -116,6 +134,15 @@ val FlywayWiringTest by testSuite {
       assert(service.flyway.configuration.installedBy == "metro")
       assert(service.flyway.configuration.dataSource === graph.dataSource)
       graph.appServices.startAndStop()
+    }
+
+    test("inara") {
+      val module = inaraTestModule()
+
+      val service = module.setOfAppServices().filterIsInstance<FlywayMigrationService>().single()
+      assert(service.flyway.configuration.installedBy == "inara")
+      assert(service.flyway.configuration.dataSource === module.dataSource)
+      module.setOfAppServices().startAndStop()
     }
   }
 }

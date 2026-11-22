@@ -3,17 +3,21 @@ package com.github.rocketraman.bootable.db.jdbc
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
+import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.setOfAppServices
+import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.Masked
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
-import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.zaxxer.hikari.HikariDataSource
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.createGraph
 import org.kodein.di.DI
 import org.kodein.di.direct
+import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import javax.sql.DataSource
 import kotlin.time.Duration.Companion.seconds
@@ -25,6 +29,16 @@ interface TestGraph : BootableGraph {
   val dataSource: DataSource
   val jdbcConfig: JdbcConfig
 }
+
+@DIModule(composed = true)
+interface InaraTestModule : ConfigModule, BootableModule, JdbcDataSourceModule, HikariPoolModule
+
+private fun inaraTestModule() = InaraTestModule(
+  configModule = hopliteConfigModule(),
+  bootableModule = bootableModule(),
+  jdbcDataSourceModule = jdbcDataSourceModule(PostgresqlConfigSource),
+  hikariPoolModule = hikariPoolModule(),
+)
 
 private val expectedConfig = PostgresqlConfig(
   host = "db.test",
@@ -84,6 +98,16 @@ val PostgresqlWiringTest by testSuite {
       val hikari = graph.dataSource as HikariDataSource
       hikari.assertBuiltFromConfig()
       assert(graph.appServices.filterIsInstance<JdbcDataSourceService>().single().dataSource === hikari)
+      hikari.close()
+    }
+
+    test("inara") {
+      val module = inaraTestModule()
+
+      assert(module.jdbcConfig == expectedConfig)
+      val hikari = module.dataSource as HikariDataSource
+      hikari.assertBuiltFromConfig()
+      assert(module.setOfAppServices().filterIsInstance<JdbcDataSourceService>().single().dataSource === hikari)
       hikari.close()
     }
   }
