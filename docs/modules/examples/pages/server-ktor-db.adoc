@@ -259,6 +259,8 @@ Leave out `-PcontainerCli=podman` to use Docker.
 The repository's `server-ktor-db` https://dagger.io[Dagger] module builds the same image as a CI pipeline.
 `mise run demo` uses it to run the image with the `otel-lgtm` stack, in containers, with the OTLP endpoint set, so its traces and metrics are pushed to Grafana at http://localhost:3000.
 
+See xref:ROOT:aot-cache.adoc[] for how the cache is trained, and what it gains.
+
 == Tests
 
 [source,shell]

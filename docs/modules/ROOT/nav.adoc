@@ -2,3 +2,4 @@
 * xref:index.adoc[Overview]
 * xref:wiring.adoc[Choosing a wiring style]
 * xref:modules.adoc[All modules]
+* xref:aot-cache.adoc[Faster start: AOT cache]
