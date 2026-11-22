@@ -1,0 +1,184 @@
+= Database
+:description: A connection pool tied to the application's lifecycle, with migrations and an ORM on top.
+
+`boot-db-jdbc` runs a JDBC connection pool as part of the application's lifecycle.
+It validates a connection when the application starts, so an unreachable database fails the boot, and it closes the pool on shutdown.
+On top of the pool, xref:flyway.adoc[Flyway] migrates the schema and xref:exposed.adoc[Exposed] gives the application a `Database` to query, both optional.
+
+The pool is in the `Infrastructure` phase, so services that use the database start after it and stop before it.
+Migrations run just after the pool, and reach the `DbMilestones.SchemaMigrated` milestone, so nothing uses an unmigrated schema.
+
+== Modules
+
+An application makes two choices, each its own dependency: one xref:drivers.adoc[driver], which supplies the `JdbcConfig`, and one xref:hikari.adoc[connection pool], which supplies the `ConnectionPoolFactory`.
+Migrations, the ORM, and statement tracing are optional.
+Each of these is a dependency you add; the core, last, comes with the driver.
+
+A module marked `(-otel)` has an `-otel` variant: the same module, with its telemetry added, which you use in its place.
+Every module comes in a `-kodein` and a `-metro` flavour too, for those wiring styles.
+
+modules::database[]
+
+== Install
+
+Add a driver (here SQLite) and a pool (HikariCP), plus Flyway and Exposed if you use them, in the flavour of your wiring style.
+
+install::[boot-db-jdbc-sqlite, boot-db-pool-hikari, boot-db-flyway, boot-db-exposed]
+
+A driver module depends on `boot-db-jdbc`, so it needn't be listed.
+
+[#with-telemetry]
+=== With telemetry
+
+Turn on the *Telemetry* switch, at the end of the tabs above, for the install with telemetry:
+
+* `boot-db-pool-hikari-otel`, in place of `boot-db-pool-hikari`, for the pool's metrics.
+* `boot-db-jdbc-otel`, added, for a span for each statement.
+* `boot-telemetry-otel`, the application's OpenTelemetry SDK, which both report through; an exporter, such as xref:telemetry:exporters.adoc#prometheus[`boot-telemetry-otel-prometheus`], brings it in too.
+
+The switch applies to every install on the site, and is remembered, as the wiring style is.
+<<telemetry>> shows how to wire them.
+
+== Configure
+
+Each module reads its own subsection of `db`:
+
+[source,hocon]
+----
+include::ROOT:example$common/application.conf[tag=db]
+----
+<1> The driver's settings: for SQLite, the database file; see xref:drivers.adoc[].
+<2> HikariCP's settings, from `HikariPoolConfig`; see xref:hikari.adoc[].
+<3> Where Flyway finds the migrations; see xref:flyway.adoc[].
+<4> Fail the start if the migrated schema doesn't match the Exposed tables; see xref:exposed.adoc[].
+
+== Wire
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+Construct the pool's service, hand its `dataSource` to whatever needs connections, and pass the services to `Bootable`:
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/database/Wiring.kt[tag=wire]
+----
+
+Kodein::
++
+Import the pool's module, a driver config module, and a pool module, plus Flyway's and Exposed's, and register your tables in the `Set<Table>`:
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/database/Wiring.kt[tag=wire]
+----
+
+Metro::
++
+The `-metro` modules contribute the database's bindings on their own; contribute your tables into the `Set<Table>`.
+A graph without a driver or a pool fails to compile with a missing binding.
++
+[source,kotlin]
+----
+include::ROOT:example$metro/database/Wiring.kt[tag=wire]
+----
+
+Inara::
++
+Compose `jdbcDataSourceModule(...)`, with the driver's config source, over a pool module, plus Flyway's and Exposed's, and pass your tables to `exposedDatabaseModule(...)`:
++
+[source,kotlin]
+----
+include::ROOT:example$inara/database/Wiring.kt[tag=wire]
+----
+======
+
+The tables are plain Exposed tables, and repositories use the `Database` through `withTransaction`; see xref:exposed.adoc[].
+
+[#telemetry]
+== Telemetry
+
+With the <<with-telemetry,`-otel` variants>> installed, wire in the statement tracing and the pool's metrics:
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/database/Tracing.kt[tag=tracing]
+----
+
+Kodein::
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/database/Tracing.kt[tag=tracing]
+----
+
+Metro::
++
+The `-metro` modules contribute the tracing wrapper and the pool's metrics on their own.
+To change the instrumentation's defaults, provide a `JdbcTelemetryConfigurer`:
++
+[source,kotlin]
+----
+include::ROOT:example$metro/database/Tracing.kt[tag=tracing]
+----
+
+Inara::
++
+[source,kotlin]
+----
+include::ROOT:example$inara/database/Tracing.kt[tag=tracing]
+----
+======
+
+Each statement is a client span, named for its operation and table, such as `SELECT note`, a child of the span current where it runs.
+The query text is sanitized, with its literals replaced by `?`, and parameters aren't recorded.
+The pool's metrics are on xref:hikari.adoc#metrics[the HikariCP page].
+
+== Example
+
+`examples/server-ktor-db` is a small Ktor server that keeps entries in SQLite through a HikariCP pool, migrated by Flyway and queried with Exposed, and traces and measures itself with OpenTelemetry.
+It is wired each of the four ways; from the repository root, run yours:
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:vanilla:run
+----
+
+Kodein::
++
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:kodein:run
+----
+
+Metro::
++
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:metro:run
+----
+
+Inara::
++
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:inara:run
+----
+======
+
+It serves http://localhost:8001, whose index lists its endpoints.
+
+== Reference
+
+* kdoc:boot-db-jdbc:com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService[]: the pool's service
+* kdoc:boot-db-jdbc:com.github.rocketraman.bootable.db.jdbc.DataSourceWrapper[]: wraps the pool's `DataSource`, as the tracing does
+* kdoc:boot-db-jdbc-otel:com.github.rocketraman.bootable.db.jdbc.jdbcTracing[]: the statement tracing

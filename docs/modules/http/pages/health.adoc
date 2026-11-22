@@ -1,0 +1,274 @@
+= Health
+:description: Liveness and readiness from the application's lifecycle, with readiness checks and a drain at shutdown, and the build info, served as JSON by Ktor.
+
+`HealthLifecycleController`, in the core `boot` module, answers liveness and readiness from where the application is in its lifecycle, such as for Kubernetes's probes, a Cloud Run startup probe, or a load balancer's health check.
+It is a lifecycle controller, which tracks the application's `LifecycleState` and each service's `ServiceState`, and runs the application's readiness checks.
+`KtorHealth`, from `boot-server-http-ktor`, serves both over HTTP, as JSON, with the application's <<build-info,build info>>.
+
+== Install
+
+`HealthLifecycleController` is in `boot`, which every application has, and is one of the `defaultLifecycleControllers()`.
+To serve it, add a xref:server.adoc[server]:
+
+install::[boot-server-http-ktor, boot-server-http-ktor-cio]
+
+== Lifecycle states
+
+`HealthLifecycleController` tracks four states:
+
+`Starting`::
+The services are starting; the state until the whole start has completed.
+`Running`::
+Every service has started, and so has every other lifecycle controller.
+`Stopping`::
+Shutdown has begun: draining, then stopping the services.
+A start that fails goes here too.
+`Stopped`::
+Every service has stopped.
+
+== Liveness and readiness
+
+Liveness::
+Up until the application has stopped.
+It runs no checks: an application whose database is down isn't helped by being restarted, and restarting every instance at once makes an outage worse.
+Readiness::
+Up only while the application is `Running`: once the whole start has completed, and until shutdown begins.
+Then it runs the readiness checks too, and is up only if they all pass.
+
+`HealthLifecycleController` is the lowest-priority lifecycle controller, so readiness goes down before any other controller shuts down.
+The application is `Running` only once every other controller's work around the start has completed too, such as `ServiceStartTracing` ending the start's trace.
+
+[#checks]
+== Readiness checks
+
+A readiness check is a `HealthCheck`, whose suspending `check()` returns `HealthStatus.Healthy`, or `HealthStatus.Unhealthy(reason)`; one that throws is unhealthy, with the exception's message as its reason.
+Its `name()`, by default its class's simple name, is its key in the readiness report's `checks`, as <<ktor,below>>: the `consumer` check's status is `.checks.consumer.status`.
+`HealthCheck(name) { ... }` makes one from a function:
+
+[source,kotlin]
+----
+include::ROOT:example$vanilla/http/Health.kt[tag=check,indent=0]
+----
+
+Readiness runs the checks at once, each time it is asked, and waits for each at most `health.readiness.checkTimeout`, 800 ms by default, below Kubernetes's default probe timeout of a second.
+A check that hasn't answered by then is unhealthy, so a slow dependency fails the probe with a reason, rather than timing it out.
+
+A check that blocks, such as on JDBC, runs in `withContext(Dispatchers.IO)`.
+Readiness still answers in time, while the check finishes on its own thread, and isn't run again until it has, so it must still bound its own wait.
+
+[#jdbc]
+=== The database
+
+`boot-db-jdbc` provides `JdbcHealthCheck`, named `jdbc`, so its status is `.checks.jdbc.status`, which takes a connection from the pool and checks it is valid, waiting at most 2 seconds for the database's answer.
+Taking the connection waits as long as the pool's own connection timeout when every connection is in use, so set that low enough for a probe, or a busy pool takes the application out of rotation.
+
+It is opt-in: the pool doesn't add it.
+Readiness that depends on a shared database takes every instance out of rotation at once when the database is down, which turns failing requests into refused ones.
+That is what you want only when the application can do nothing useful without its database.
+
+* With vanilla wiring, add `JdbcHealthCheck(dataSource)` to the checks, as <<wire,below>>.
+* With Kodein, import `jdbcHealthCheckModule`, alongside `jdbcDataSourceModule`.
+* With Metro, name `JdbcHealthCheckBindings` in the graph's `bindingContainers`: `@DependencyGraph(AppScope::class, additionalScopes = [BootScope::class], bindingContainers = [JdbcHealthCheckBindings::class])`.
+
+See xref:database:index.adoc[] for the pool.
+
+=== The scheduler
+
+`boot-scheduler-db` provides `DbSchedulerHealthCheck`, named `db-scheduler`, so its status is `.checks["db-scheduler"].status`, which is down unless db-scheduler is started, and neither paused nor shutting down; see xref:background:scheduler.adoc[].
+
+[#drain]
+== The drain delay
+
+When shutdown begins, readiness goes down, and then, if the application was running, `HealthLifecycleController` waits for `health.readiness.drainDelay` before any service stops.
+A load balancer takes a few seconds to stop routing to an instance that is going away: Kubernetes, for one, removes a terminating pod from its endpoints asynchronously, and a server that stops before then refuses the requests still routed to it.
+
+[source,hocon]
+----
+health.readiness {
+  drainDelay = 5s      # <1>
+  checkTimeout = 800ms # <2>
+}
+----
+<1> Gives the load balancer time to stop routing to the instance before its server stops; none by default, and a few seconds suits Kubernetes.
+<2> How long readiness waits for each check; see <<checks>>.
+
+The wait comes before the shutdown timeout starts, so the platform's grace period must cover both: in Kubernetes, `terminationGracePeriodSeconds` must be at least the drain delay plus the time the services take to stop.
+That time is bounded by the `maxShutdownTime` of `boot`, 30 seconds by default, after which the stop is cancelled; see xref:concepts:lifecycle.adoc#shutdown[shutdown].
+Kubernetes's default grace period is 30 seconds, so with a drain delay, raise it, or lower `maxShutdownTime`.
+
+[#ktor]
+== Serving them with Ktor
+
+`KtorHealth` serves liveness at `/health/live` and readiness at `/health/ready`, each `200 OK` when up and `503 Service Unavailable` when down, and the application's build info at `/health/info`, always `200 OK`; see <<build-info>>.
+Each body is JSON, which no cache keeps.
+
+Liveness runs no checks, so its body has the overall `status`, `UP` or `DOWN`, the lifecycle `state`, and, once the application starts, each service's state in `services`, by name, in the order of the start plan.
+Readiness has those, and each check's result in `checks`, by the check's name: its `status`, and, when it is down, its `reason`.
+These are the responses of xref:examples:server-ktor-db.adoc[`server-ktor-db`], whose one check is the database's:
+
+[source,shell]
+----
+$ curl -s http://localhost:8001/health/live
+{"status":"UP","state":"Running","services":{"OpenTelemetryService":"Running","JdbcDataSourceService":"Running","ExposedDatabaseService":"Running","KtorClientService":"Running","KubernetesLeaderElection":"Running","FlywayMigrationService":"Running","SchemaVerificationService":"Running","SeedEntriesService":"Running","HealthKtorService (none)":"Running","MetricsKtorService (none)":"Running","DbSchedulerService":"Running","EntryServer":"Running","entry-count":"Running"}}
+$ curl -s http://localhost:8001/health/ready | jq -c 'del(.services)'
+{"status":"UP","state":"Running","checks":{"jdbc":{"status":"UP"}}}
+----
+
+When a check is down, so is readiness, and the check says why, such as the `consumer` check of <<checks,above>>:
+
+[source,json]
+----
+{
+  "status": "DOWN",
+  "state": "Running",
+  "checks": {
+    "jdbc": { "status": "UP" },
+    "consumer": { "status": "DOWN", "reason": "not connected to the queue" }
+  },
+  "services": { ... }
+}
+----
+
+The checks run only while the application is `Running`, so in any other state `checks` is empty, but still there, such as `{"status":"DOWN","state":"Starting","checks":{}}`.
+A script can check one check, or one service, such as the database, with `jq`:
+
+[source,shell]
+----
+curl -s http://localhost:8001/health/ready | jq -e '.checks.jdbc.status == "UP"'
+curl -s http://localhost:8001/health/live | jq -e '.services.DbSchedulerService == "Running"'
+----
+
+The bodies are ``HealthLiveReport``'s and ``HealthReadyReport``'s, which are `@Serializable` in these forms, so a Kotlin client, such as an end-to-end test, can decode them, as with `Json.decodeFromString<HealthReadyReport>(body)`.
+
+Install it in the server's module with `installHealth(health)`, as on xref:server.adoc[the server page], or add the routes to any route with `healthRoutes`, which takes the `HealthLifecycleController` itself, the `BuildInfo`, and the paths.
+
+`KtorHealthConfig` reads `health.ktor`; every setting is optional:
+
+[source,hocon]
+----
+health.ktor {
+  hostPort = ":9091"  # <1>
+}
+----
+<1> Serves the routes on a listener of their own, on a port that only the platform's probes reach, which answers liveness while the application starts; see <<listener>>.
+Unset, they are served on the application's server.
+
+The others are the routes' paths, `livePath`, `readyPath`, and `infoPath`, by default those above: see kdoc:boot-server-http-ktor:com.github.rocketraman.bootable.server.http.ktor.KtorHealthConfig[all the settings].
+
+[#listener]
+=== A listener of their own
+
+With `hostPort` set, `installHealth` adds no routes to the application's server.
+They are served instead by a listener of their own, a `HealthKtorService`, on a port that only the platform's probes reach.
+With Kodein, `ktorHealthModule` adds it to the application's services, with Metro, `boot-server-http-ktor-metro` does, and with Inara, `ktorHealthModule()` does, on the application's `KtorServerEngine`, which an engine module's flavor provides; see xref:server.adoc#listener-engine[the engine of the listeners].
+With vanilla wiring, add `KtorHealth.listener(engine)` to the application's services yourself, such as `ktorHealth.listener(CIO)`.
+Without `hostPort`, the listener is a service that does nothing, and needs no engine, so it can be added either way.
+
+Unlike other servers, the listener is in the `Telemetry` phase, so it starts first and stops last.
+Liveness is answered while the other services start, such as during long migrations, and readiness is down until the application is running, and from when shutdown begins until it has stopped.
+It isn't traced.
+
+On the application's server, the probes are kept out of the traces by the DI flavours of xref:server.adoc#telemetry[`boot-server-http-ktor-otel`]; with vanilla wiring, add `ktorHealthConfig(binder).excludeHealthFromTraces()` to ``OpenTelemetryService``'s customizers.
+Either way, that covers the three paths of `health.ktor`.
+
+[#build-info]
+== Build info
+
+`BuildInfo`, in the core `boot` module, says which build of the application this is: its `version`, its source `revision`, and any other `attributes`, such as its branch or build number.
+Every field is optional.
+`KtorHealth` serves it at `/health/info`, so a client can check which build answered it, such as an end-to-end test run against a new version during a rollout, which would prove nothing if it reached the old one.
+xref:telemetry:index.adoc[`boot-telemetry-otel`] takes its `serviceVersion` from `build.version` too, unless `telemetry.sdk` sets one.
+
+It is decoded from the `build` config section:
+
+[source,hocon]
+----
+build {
+  version = "1.4.2"            # <1>
+  revision = "3f2c9e1"         # <2>
+  attributes { branch = main } # <3>
+}
+----
+<1> Tells a client which version answered, such as `1.4.2` or an image tag; telemetry's `service.version` too.
+<2> Tells which source it was built from, such as a git commit.
+<3> Anything else that identifies the build, such as its branch or build number.
+
+The build knows these values, not the deployment, so set them where the image is built, as the environment variables `BUILD_VERSION` and `BUILD_REVISION`, rather than in the application's config file.
+The body has only the fields that are set:
+
+[source,shell]
+----
+$ BUILD_VERSION=1.4.2 BUILD_REVISION=3f2c9e1 ./gradlew :examples:server-ktor-db:vanilla:run
+$ curl -s http://localhost:8001/health/info
+{"version":"1.4.2","revision":"3f2c9e1"}
+$ curl -s http://localhost:8001/health/info | jq -e '.version == "1.4.2"'
+true
+----
+
+With none set, the body is `{}`.
+`BuildInfo` is `@Serializable` in this form too.
+
+[#wire]
+== Wire
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+Construct `HealthLifecycleController` with its checks and `health.readiness`, put it in place of the default one with `withHealthLifecycleController`, and serve it with `KtorHealth`, with `buildInfo(binder)` for `/health/info`:
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/http/Health.kt[tag=wire,indent=0]
+----
+
+Kodein::
++
+`bootableModule` binds `HealthLifecycleController`, with the checks of the `Set<HealthCheck>` it opens, and `health.readiness` when there is a `ConfigBinder`, and adds it to the lifecycle controllers.
+It binds `BuildInfo` too, from `build` when there is a `ConfigBinder`.
+Add checks to the set; `ktorHealthModule` provides `KtorHealth`, over both, as on xref:server.adoc[the server page]:
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/http/Health.kt[tag=wire,indent=0]
+----
+
+Metro::
++
+`BootableDefaultBindings`, from `boot-metro`, provides `HealthLifecycleController`, with the checks of the graph's `Set<HealthCheck>`, and `health.readiness` when the graph has a `ConfigBinder`, and adds it to the lifecycle controllers.
+It provides `BuildInfo` too, from `build` when the graph has a `ConfigBinder`.
+Contribute checks into the set; `boot-server-http-ktor-metro` contributes `KtorHealth`, over both, as on xref:server.adoc[the server page]:
++
+[source,kotlin]
+----
+include::ROOT:example$metro/http/Health.kt[tag=wire,indent=0]
+----
+
+Inara::
++
+`bootableModule()` provides `HealthLifecycleController`, with the members marked `@HealthChecks` as its checks, and `health.readiness`, and adds it to the lifecycle controllers; it provides `BuildInfo` too, from `build`. Mark checks `@HealthChecks`; `ktorHealthModule()` provides `KtorHealth`, over both:
++
+[source,kotlin]
+----
+include::ROOT:example$inara/http/Health.kt[tag=wire,indent=0]
+----
+======
+
+== Example
+
+`examples/server-ktor-db` serves both probes, with readiness down while its database doesn't answer, and the build info, in each of the four wiring styles; see xref:examples:server-ktor-db.adoc[].
+Its config shows `drainDelay`, and `health.ktor.hostPort` for a listener of their own.
+
+== Reference
+
+* kdoc:boot:com.github.rocketraman.bootable.boot.HealthLifecycleController[]: liveness and readiness
+* kdoc:boot:com.github.rocketraman.bootable.boot.LifecycleState[] and kdoc:boot:com.github.rocketraman.bootable.boot.ServiceState[]: the states
+* kdoc:boot:com.github.rocketraman.bootable.boot.HealthCheck[] and kdoc:boot:com.github.rocketraman.bootable.boot.HealthStatus[]: readiness checks
+* kdoc:boot:com.github.rocketraman.bootable.boot.HealthLiveReport[] and kdoc:boot:com.github.rocketraman.bootable.boot.HealthReadyReport[]: the reports, and their JSON
+* kdoc:boot:com.github.rocketraman.bootable.boot.ReadinessConfig[]: `health.readiness`
+* kdoc:boot:com.github.rocketraman.bootable.boot.withHealthLifecycleController[]: in place of the default one
+* kdoc:boot:com.github.rocketraman.bootable.boot.BuildInfo[] and kdoc:boot:com.github.rocketraman.bootable.boot.buildInfo[]: the build info, from `build`
+* kdoc:boot-db-jdbc:com.github.rocketraman.bootable.db.jdbc.JdbcHealthCheck[]: the database's check
+* kdoc:boot-server-http-ktor:com.github.rocketraman.bootable.server.http.ktor.KtorHealth[]: the probes, served
+* kdoc:boot-server-http-ktor:com.github.rocketraman.bootable.server.http.ktor.KtorHealthConfig[]: `health.ktor`
+* kdoc:boot-server-http-ktor:com.github.rocketraman.bootable.server.http.ktor.healthRoutes[]: the routes, anywhere

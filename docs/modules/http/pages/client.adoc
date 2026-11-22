@@ -1,0 +1,333 @@
+= Client (Ktor)
+:description: The application's Ktor HttpClients, configured from http.client, and closed when the application stops.
+
+`boot-client-http-ktor` gives the application its Ktor ``HttpClient``s, tied to its lifecycle.
+`KtorClientService` builds them when it is constructed, so they can be handed to other classes right away, and a bad setting, such as an unreadable key store, fails the boot.
+When the application stops, it closes them, and their engines.
+
+They are plain Ktor clients: the typed settings are applied through Ktor's own plugins, and nothing is wrapped.
+
+The service is in the `Infrastructure` phase, so the services that make calls, in later phases, stop before the clients close, and a call in flight isn't cut off.
+It reaches the `HttpClientMilestones.ClientsReady` milestone, so something in the same phase that uses the clients can start after it, with `Ordering(after = setOf(HttpClientMilestones.ClientsReady))`, and stop before them.
+
+== Install
+
+Add an engine's module, which brings `boot-client-http-ktor` and the engine with it, here CIO.
+With a DI, add `boot-client-http-ktor` too, for its flavour, which provides the service.
+
+install::[boot-client-http-ktor, boot-client-http-ktor-cio]
+
+== Clients
+
+There is a default client, `clients.default`, and any number of named ones, such as `clients["github"]`.
+Each is its own `HttpClient`, with its own connection pool and settings.
+`clients["name"]` fails for a client that isn't configured; `clients.getOrDefault(name)` gives the default client instead, for, say, a client per partner, where only some need settings of their own.
+
+Hand a client to whatever makes calls:
+
+[source,kotlin]
+----
+include::ROOT:example$vanilla/http/Client.kt[tag=use,indent=0]
+----
+
+== Configure
+
+`KtorClientsConfig` reads `http.client`: the `default` client, and the `named` ones.
+Every setting is optional.
+
+[source,hocon]
+----
+http.client {
+  default {
+    connectTimeout = 5s       # <1>
+    requestTimeout = 30s      # <2>
+    retry { maxRetries = 3 }  # <3>
+  }
+  named {
+    github {
+      baseUrl = "https://api.github.com/"                   # <4>
+      headers { Authorization = ${?GITHUB_AUTHORIZATION} }  # <5>
+    }
+  }
+}
+----
+<1> Fails a call to a host that can't be reached quickly, rather than after the engine's own limit.
+<2> Bounds how long a whole call may take, so a stalled server doesn't hold up the caller; unset, the engine's limit applies, which differs between engines (see <<engines>>).
+<3> Rides out transient failures; see <<retries>>.
+<4> Lets calls use relative URLs, through Ktor's `DefaultRequest`; end it with a `/` to keep its last path segment.
+<5> Authenticates every request that doesn't set its own; take the token from the environment.
+Headers are `Masked`, so the config report hides them.
+
+The others include `socketTimeout`, and `tls`, for a client certificate and the certificates to trust (see <<tls>>): see kdoc:boot-client-http-ktor:com.github.rocketraman.bootable.client.http.ktor.KtorClientConfig[all the settings].
+
+A named client takes every setting it leaves unset from the default client.
+Its `headers` are added to the default client's, replacing any of the same name, and it takes `retry` and `tls` whole: an empty `tls {}` turns off a client certificate the default client has.
+A named client can't be called `default`.
+
+[#retries]
+=== Retries
+
+`retry`, through Ktor's `HttpRequestRetry`, retries only transient failures: a 5xx, 408, or 429 response, a timeout, or a failed connection.
+Any other 4xx is permanent, since the same request would fail the same way, and so is a failed TLS handshake.
+Unset, a request is never retried.
+
+[source,hocon]
+----
+retry {
+  maxRetries = 5                                  # <1>
+  methods = [GET, HEAD, OPTIONS, PUT, DELETE, POST]  # <2>
+}
+----
+<1> Sets how many times a call is retried after its first attempt, 3 by default; 0 turns retries off.
+<2> Retries a `POST` too, for an API where repeating one is safe, such as with an idempotency key.
+By default only the idempotent methods are retried, so a request that may have changed something isn't sent twice.
+
+The delay doubles from `initialDelay`, 500 milliseconds, up to `maxDelay`, 30 seconds, with up to `jitter`, 500 milliseconds, added at random, so clients that failed together don't retry together.
+When a response has a `Retry-After` header, the client waits at least as long as it asks, even beyond `maxDelay`, unless `respectRetryAfter` is false.
+Only a `Retry-After` in seconds counts; one given as a date is ignored.
+kdoc:boot-client-http-ktor:com.github.rocketraman.bootable.client.http.ktor.KtorClientRetryConfig[All the settings] are optional once `retry` is set.
+`HttpStatusCode.isTransient()` and `Throwable.isTransient()` give the same answer to code that decides for itself.
+
+[#tls]
+=== TLS
+
+`tls` holds a client certificate to present, for mutual TLS, and the certificates to trust:
+
+[source,hocon]
+----
+tls {
+  keyStore {                                  # <1>
+    path = /etc/partner/client.p12
+    password = ${?PARTNER_KEYSTORE_PASSWORD}  # <2>
+  }
+  trustStore {                                # <3>
+    path = /etc/partner/ca.crt
+    type = PEM
+  }
+}
+----
+<1> Presents a client certificate, for a server that requires mutual TLS: the key store holds its key and chain.
+Unset, the client presents none.
+<2> Opens the key store; take it from a secret.
+<3> Trusts a server whose certificate the platform's certificate authorities don't vouch for, such as one from a private CA.
+Unset, only the platform's are trusted.
+
+Each store is given inline, as `base64`, so it can come from an environment variable or a secret, or as a file, at `path`, with its `password`, and its `type`: `PKCS12`, the default, or `JKS`.
+A trust store can also be `PEM`: one or more certificates, such as a CA bundle, or a platform's mounted `ca.crt`.
+When the key store holds more than one key entry, `keyAlias` picks the one to present, and `keyPassword` is its password, when it differs from the key store's; see kdoc:boot-client-http-ktor:com.github.rocketraman.bootable.client.http.ktor.KtorClientTlsConfig[all the settings].
+The certificate is presented whatever certificate authorities the server asks for, so a self-signed one works too; the server decides whether to accept it.
+
+[#engines]
+== Engines
+
+`boot-client-http-ktor` depends on no engine.
+Choose one, by its module, and give its `KtorClientEngine` to the service:
+
+[cols="2,2,4",options="header"]
+|===
+| Module | Engine | Notes
+
+| `boot-client-http-ktor-cio` | `CioClientEngine` | Ktor's CIO: pure Kotlin, on coroutines, and the engine that works best in a GraalVM native image.
+Its own TLS supports TLS 1.2, but not 1.3 (https://youtrack.jetbrains.com/issue/KTOR-6737[KTOR-6737]).
+Unless the client sets a `requestTimeout`, CIO's own 15 seconds applies.
+| `boot-client-http-ktor-java` | `JavaClientEngine` | The JDK's `java.net.http.HttpClient`, with the JDK's TLS, including TLS 1.3, and HTTP/2, and no dependency beyond Ktor's.
+It works in a native image too.
+Unless the client sets a `requestTimeout`, a request has no time limit.
+|===
+
+Each applies the client's TLS material in its engine's terms, and takes a lambda that sets the engine's own options:
+
+[source,kotlin]
+----
+include::ROOT:example$vanilla/http/Client.kt[tag=java,indent=0]
+----
+
+For another engine, such as Apache5 or OkHttp, write a `KtorClientEngine`: a few lines that create the engine from the client's `KtorClientSpec`, applying its `tls.sslContext`.
+The engine is also the seam for tests: one that returns Ktor's `MockEngine` answers every client's requests, with no other change to the wiring.
+
+== Wire
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+Construct the service with the engine, hand its clients to whatever makes calls, and pass it to `Bootable`:
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/http/Client.kt[tag=wire,indent=0]
+----
+
+Kodein::
++
+Import `ktorClientModule`, which binds the service, adds it to the app services, and binds the default `HttpClient`, and bind the engine:
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/http/Client.kt[tag=wire,indent=0]
+----
+
+Metro::
++
+`boot-client-http-ktor-metro` contributes the service, adds it to the app services, and provides the default `HttpClient`; provide the engine.
+A graph without one fails to compile with a missing binding.
++
+[source,kotlin]
+----
+include::ROOT:example$metro/http/Client.kt[tag=wire,indent=0]
+----
+
+Inara::
++
+Compose `ktorClientModule(...)`, with the engine, which provides the service and marks it `@AppServices`; a module of your own requires it, to reach its clients:
++
+[source,kotlin]
+----
+include::ROOT:example$inara/http/Client.kt[tag=wire,indent=0]
+----
+======
+
+== Customize the clients
+
+For anything the settings don't cover, such as a plugin, add a `KtorClientCustomizer`.
+It runs for each client after the typed settings, with the client's name, or `default`, and Ktor's own `HttpClientConfig`:
+
+[source,kotlin]
+----
+include::ROOT:example$vanilla/http/Client.kt[tag=customizer,indent=0]
+----
+
+Bootable installs no `ContentNegotiation`: which serialization library, and which settings, are the application's choice, and a customizer is where to install it.
+
+A module that calls a service of its own can contribute its named client's default settings with a `KtorClientDefaults`, so the application needn't configure the client.
+The client exists whether or not the application configures it.
+The application's `http.client.named.<name>` settings override the contributed ones, field by field, with `tls` taken whole, and what both leave unset comes from the default client.
+Two contributors of the same client fail the boot.
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+Pass the customizer, and the defaults, to the service:
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/http/Client.kt[tag=defaults,indent=0]
+----
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/http/Client.kt[tag=options,indent=0]
+----
+
+Kodein::
++
+Add them to the sets `ktorClientModule` opens:
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/http/Client.kt[tag=options,indent=0]
+----
+
+Metro::
++
+Contribute them into their sets:
++
+[source,kotlin]
+----
+include::ROOT:example$metro/http/Client.kt[tag=options,indent=0]
+----
+
+Inara::
++
+Mark them as the sets that `ktorClientModule(...)` lists, `@KtorClientCustomizers` and `@NamedClientDefaults`:
++
+[source,kotlin]
+----
+include::ROOT:example$inara/http/Client.kt[tag=options,indent=0]
+----
+======
+
+[#telemetry]
+== Telemetry
+
+`boot-client-http-ktor-otel` traces and measures every client's requests, with OpenTelemetry's Ktor client instrumentation.
+Each request is a client span, a child of the span current where the call is made, such as a server request's, and carries its trace to the server it calls, in a `traceparent` header.
+Each also records the standard HTTP client metrics, such as `http.client.request.duration`.
+A request that `retry` retries is a span for each attempt.
+
+It is a `KtorClientCustomizer`, `HttpClientTelemetry`, over the application's OpenTelemetry, from xref:telemetry:index.adoc[`boot-telemetry-otel`].
+
+install::[boot-client-http-ktor, boot-client-http-ktor-cio, boot-client-http-ktor-otel, boot-telemetry-otel]
+
+`HttpClientTelemetryConfig` reads `telemetry.httpClient`; both its settings are optional, and both are empty by default:
+
+[source,hocon]
+----
+telemetry.httpClient {
+  capturedRequestHeaders = [X-Correlation-Id]  # <1>
+  capturedResponseHeaders = [X-Request-Id]     # <2>
+}
+----
+<1> Records these request headers on each request's span, as `http.request.header.<name>`, so a trace can be found by a value the application sends.
+<2> Records these response headers, as `http.response.header.<name>`, such as the id a server gives a request, to match the span with the server's own logs.
+
+For an instrumentation setting the config doesn't cover, such as a span's name or extra attributes, add an `HttpClientTelemetryCustomizer` to its set binding (Kodein `inBindSet`, Metro `@IntoSet`), or, with vanilla wiring, pass one to `HttpClientTelemetry`.
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+Give `HttpClientTelemetry` to the service as its customizer, or, with others, combine them with `KtorClientCustomizer.of(...)`:
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/http/Telemetry.kt[tag=client,indent=0]
+----
+
+Kodein::
++
+Import `httpClientTelemetryModule` after `openTelemetryModule` and `ktorClientModule`:
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/http/Telemetry.kt[tag=client,indent=0]
+----
+
+Metro::
++
+`boot-client-http-ktor-otel-metro` adds the instrumentation to every client on its own.
+To change its defaults, contribute an `HttpClientTelemetryCustomizer`:
++
+[source,kotlin]
+----
+include::ROOT:example$metro/http/Telemetry.kt[tag=client,indent=0]
+----
+
+Inara::
++
+Compose `httpClientTelemetryModule()`, which requires the client's and the OpenTelemetry modules:
++
+[source,kotlin]
+----
+include::ROOT:example$inara/http/Telemetry.kt[tag=client,indent=0]
+----
+======
+
+== Example
+
+`examples/server-ktor-db` has a named client, `entries`, with which `GET /relay/\{name}` calls the server back, so one trace shows the request, the client's call within it, and the server's handling of that call within that; see xref:index.adoc[].
+
+== Reference
+
+* kdoc:boot-client-http-ktor:com.github.rocketraman.bootable.client.http.ktor.KtorClientService[]: the clients
+* kdoc:boot-client-http-ktor:com.github.rocketraman.bootable.client.http.ktor.HttpClientMilestones[]: its milestone
+* kdoc:boot-client-http-ktor:com.github.rocketraman.bootable.client.http.ktor.KtorClientsConfig[]: the settings, `http.client`
+* kdoc:boot-client-http-ktor:com.github.rocketraman.bootable.client.http.ktor.KtorClientConfig[]: one client's settings
+* kdoc:boot-client-http-ktor:com.github.rocketraman.bootable.client.http.ktor.KtorClientRetryConfig[]: retries
+* kdoc:boot-client-http-ktor:com.github.rocketraman.bootable.client.http.ktor.KtorClientTlsConfig[]: TLS
+* kdoc:boot-client-http-ktor:com.github.rocketraman.bootable.client.http.ktor.KtorClientEngine[]: the engine seam
+* kdoc:boot-client-http-ktor:com.github.rocketraman.bootable.client.http.ktor.KtorClientCustomizer[]: for the other settings
+* kdoc:boot-client-http-ktor:com.github.rocketraman.bootable.client.http.ktor.KtorClientDefaults[]: a module's named clients
+* kdoc:boot-client-http-ktor-cio:com.github.rocketraman.bootable.client.http.ktor.CioClientEngine[] and kdoc:boot-client-http-ktor-java:com.github.rocketraman.bootable.client.http.ktor.JavaClientEngine[]: the engines
+* kdoc:boot-client-http-ktor-otel:com.github.rocketraman.bootable.client.http.ktor.HttpClientTelemetry[]: the telemetry

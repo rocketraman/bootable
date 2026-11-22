@@ -1,0 +1,49 @@
+= ORM (Exposed)
+:description: An Exposed Database over the pool, with transactions and a check of the schema.
+
+`boot-db-exposed` gives the application an Exposed `Database` over the pool, and checks the schema against the application's tables when it starts.
+
+== The Database
+
+`ExposedDatabaseService` owns the `Database`, configured by `ExposedConfig` from `db.exposed`: the default isolation level, read-only, retries, query timeout, and so on; see kdoc:boot-db-exposed:com.github.rocketraman.bootable.db.exposed.ExposedConfig[all the settings].
+The settings apply to that `Database` only.
+On shutdown, before the pool closes, it unregisters the `Database` from Exposed's process-wide registry.
+
+For Exposed settings `ExposedConfig` doesn't cover, add an `ExposedConfigCustomizer` to its set binding.
+
+== Transactions
+
+`db.withTransaction { … }` runs a suspending transaction on the ``Database``'s dispatcher, `Dispatchers.IO` by default.
+Called inside another, it joins it, so several calls make one unit of work.
+
+[source,kotlin]
+----
+include::ROOT:example$common/database/Notes.kt[tag=repository]
+----
+
+WARNING: Don't call Exposed's own `transaction { … }` from a coroutine, such as a Ktor route.
+It blocks the thread it's called on until the transaction ends, while its JDBC statements wait on the database, rather than running them on the ``Database``'s dispatcher.
+Blocking a Ktor route's thread holds up the other requests that thread serves.
+Use `withTransaction` instead, which suspends.
+
+[#schema-verification]
+== Schema verification
+
+`SchemaVerificationService` checks, after the migrations, that the schema matches the Exposed tables in its `Set<Table>`.
+If it doesn't, it fails the boot, listing the SQL the schema needs, or only warns, with `schemaVerification = WARN`.
+
+[source,kotlin]
+----
+include::ROOT:example$common/database/Notes.kt[tag=table]
+----
+
+How a table gets into the set depends on the wiring style; see xref:index.adoc#_wire[Wire] on the Database page.
+
+Exposed logs SQL statements at DEBUG on its `Exposed` logger.
+
+== Reference
+
+* kdoc:boot-db-exposed:com.github.rocketraman.bootable.db.exposed.ExposedDatabaseService[]
+* kdoc:boot-db-exposed:com.github.rocketraman.bootable.db.exposed.ExposedConfig[]
+* kdoc:boot-db-exposed:com.github.rocketraman.bootable.db.exposed.SchemaVerificationService[]
+* kdoc:boot-db-exposed:com.github.rocketraman.bootable.db.exposed.withTransaction[]

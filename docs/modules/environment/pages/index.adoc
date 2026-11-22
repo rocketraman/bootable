@@ -1,0 +1,103 @@
+= Environment
+:description: The deployment environment, such as dev, test, or prod, from config, in a global variable.
+
+`boot-env` sets a global variable, `environment`, to the environment the application is deployed in: `Env.Dev`, `Env.Test`, `Env.Prod`, or `Env.Custom` with any other name.
+It reads it from the `env.environment` config key.
+
+WARNING: Over-using this is a code smell.
+Code that asks which environment it runs in rather than reading a setting from config is harder to reason about, and can have unintended consequences.
+
+Use it rarely for cross-cutting concerns where sharing a configuration setting would be invasive, or for environment-specific config too complex to express in the xref:configuration:index.adoc[config classes].
+For example:
+
+* Tagging metrics, traces, or logs with the environment.
+* Refusing to start in `Env.Prod` with settings meant only for development, such as a default password, TLS turned off, or a SQLite database.
+A flag in the config couldn't guard against these, since a config that is wrong for prod would be as likely to have the flag wrong too.
+
+`environment` is set by a lifecycle controller, `EnvironmentInitializer`, in its `appInit`, which runs once the application is built, before any service starts.
+It has the highest priority, so it runs before every other controller's `appInit`.
+Read `environment` from a service's `start`, or later; read while the application is being built, such as in a constructor or a config binding, it isn't set yet, and throws.
+
+== Modules
+
+modules::environment[]
+
+== Install
+
+install::[boot-env]
+
+`boot-env` reads its config with a `ConfigBinder`, such as xref:configuration:index.adoc[`boot-config-hoplite`]'s.
+
+== Configure
+
+[source,hocon]
+----
+env {
+  environment = prod  # <1>
+}
+----
+<1> `dev`, `test`, or `prod`, in any case, or any other name, which is an `Env.Custom` of that name.
+The key is required.
+
+As an environment variable, it is `ENV_ENVIRONMENT=prod`.
+
+== Wire
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+Add `environmentInitializer(binder)` to the lifecycle controllers you pass to `Bootable`:
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/environment/Wiring.kt[tag=wire]
+----
+
+Kodein::
++
+Import `environmentModule`, which binds the `EnvironmentConfig` and adds the initializer to the lifecycle controllers:
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/environment/Wiring.kt[tag=wire]
+----
+
+Metro::
++
+`boot-env-metro` contributes the `EnvironmentConfig` and the initializer on their own: a graph that discovers Bootable's bindings, with `additionalScopes = [BootScope::class]`, needs nothing more.
++
+A graph that names its binding containers instead names `EnvironmentConfigBindings` and `EnvironmentBindings`:
++
+[source,kotlin]
+----
+include::ROOT:example$metro/environment/Wiring.kt[tag=explicit]
+----
+
+Inara::
++
+Compose `environmentModule()`, which provides the `EnvironmentConfig` and adds the initializer to the lifecycle controllers:
++
+[source,kotlin]
+----
+include::ROOT:example$inara/environment/Wiring.kt[tag=wire]
+----
+======
+
+== Use it
+
+`Env` is a sealed class, so a `when` over it covers every case:
+
+[source,kotlin]
+----
+include::ROOT:example$vanilla/environment/Usage.kt[tag=use]
+----
+
+xref:telemetry:index.adoc[Telemetry] reads the same `env.environment` key, for its resource's `deployment.environment.name`, unless its own config sets one.
+
+== Reference
+
+* kdoc:boot-env:com.github.rocketraman.bootable.env.environment[]: the global variable
+* kdoc:boot-env:com.github.rocketraman.bootable.env.Env[]: the environments
+* kdoc:boot-env:com.github.rocketraman.bootable.env.environmentInitializer[]: the lifecycle controller that sets it, for vanilla wiring
+* kdoc:boot-env:com.github.rocketraman.bootable.env.EnvironmentConfig[]: the `env` config section

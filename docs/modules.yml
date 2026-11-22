@@ -1,0 +1,267 @@
+# Bootable's published modules, by function, for the docs site.
+#
+# The site's modules extension (docs/site/extensions/modules.js) reads this file. From it, the build writes each
+# function's module table (modules::<function>[]), the dependency tabs for each wiring style (install::[...]), and
+# the catalogue of every module (modules::all[]).
+# The build warns when a module in settings.gradle.kts is missing here, or one here isn't in the build.
+#
+# Each function lists its modules in groups, each group a decision, in the order an application makes them. A
+# group's choice says how an application picks from it:
+#   one        choose one of its modules
+#   optional   add any of its modules, or none
+#   implied    comes with another group's module, so the application doesn't add it; its note says which
+#   (none)     the group's modules, which the function needs
+# A group's note, if it has one, takes the place of its choice in the table.
+# Every module in a one or optional group is a dependency the application writes, so the implied groups go last.
+#
+# A module's provides text is AsciiDoc, so its kdoc: links are checked like any page's.
+# A module in a one or optional group with an -otel variant names what the variant adds under otel: the variant is
+# the same module, with its telemetry added, used in its place. An implied module's -otel variant is a module the
+# application adds alongside it, so it is listed in an optional group of its own.
+# Such a module names the module it adds to under extends:, and an implied group names the group whose modules bring
+# it in under with:. An install's telemetry variant (install::[...]) uses both: it swaps each module for its otel:
+# variant, and adds each extends: module whose base is in the install, listed or brought in by a listed module.
+# A module that traces whenever the application has OpenTelemetry, with no variant of its own, says what it records
+# under traced:; an install's telemetry variant adds the SDK for it.
+# A module's DI flavours aren't listed: the build gives a module its -kodein and -metro flavours when it has
+# src/kodein or src/metro sources, and the extension checks for those the same way.
+
+functions:
+
+- id: core
+  title: Core
+  groups:
+  - modules:
+    - name: boot
+      provides: '`Bootable`: the application''s services and lifecycle controllers, run phase by phase, and `Health`'
+    - name: boot-common
+      provides: Small helpers the other modules share
+
+- id: configuration
+  title: Configuration
+  page: configuration:index.adoc
+  groups:
+  - title: Config library
+    choice: one
+    modules:
+    - name: boot-config-hoplite
+      provides: '`ConfigBinder` over Hoplite, from HOCON and the environment'
+      page: configuration:index.adoc
+  - title: Common
+    choice: implied
+    note: comes with the config library, and the modules that read config
+    modules:
+    - name: boot-config-common
+      provides: '`ConfigBinder`, and `Masked`, for secrets in config'
+
+- id: environment
+  title: Environment
+  page: environment:index.adoc
+  groups:
+  - modules:
+    - name: boot-env
+      provides: '`environment`: the deployment environment, such as dev or prod, from config'
+      page: environment:index.adoc
+
+- id: logging
+  title: Logging
+  page: logging:index.adoc
+  groups:
+  - title: Log4j2
+    choice: implied
+    note: comes with `boot`; add it yourself to call its API, such as `LoggingType`
+    modules:
+    - name: boot-logging-log4j2
+      provides: Log4j2, with layouts for plain, coloured, JSON, and Google Cloud output
+      page: logging:index.adoc
+  - title: Core
+    choice: implied
+    note: comes with Log4j2
+    modules:
+    - name: boot-logging
+      provides: '`BootLoggingLevel`'
+
+- id: database
+  title: Database
+  page: database:index.adoc
+  groups:
+  - title: Driver
+    choice: one
+    modules:
+    - name: boot-db-jdbc-sqlite
+      provides: 'kdoc:boot-db-jdbc-sqlite:com.github.rocketraman.bootable.db.jdbc.SqliteConfig[], and the SQLite driver'
+      page: database:drivers.adoc#sqlite
+    - name: boot-db-jdbc-postgresql
+      provides: 'kdoc:boot-db-jdbc-postgresql:com.github.rocketraman.bootable.db.jdbc.PostgresqlConfig[], the PostgreSQL driver, and Flyway''s PostgreSQL support'
+      page: database:drivers.adoc#postgresql
+    - name: boot-db-jdbc-mysql
+      provides: 'kdoc:boot-db-jdbc-mysql:com.github.rocketraman.bootable.db.jdbc.MysqlConfig[], Connector/J, and Flyway''s MySQL support'
+      page: database:drivers.adoc#mysql
+  - title: Connection pool
+    choice: one
+    modules:
+    - name: boot-db-pool-hikari
+      provides: 'kdoc:boot-db-pool-hikari:com.github.rocketraman.bootable.db.jdbc.HikariConnectionPoolFactory[]: HikariCP, configured by kdoc:boot-db-pool-hikari:com.github.rocketraman.bootable.db.jdbc.HikariPoolConfig[]'
+      otel: 'the pool''s metrics, with kdoc:boot-db-pool-hikari-otel:com.github.rocketraman.bootable.db.jdbc.hikariPoolMetrics[]'
+      page: database:hikari.adoc
+  - title: Migrations
+    choice: optional
+    modules:
+    - name: boot-db-flyway
+      provides: 'kdoc:boot-db-flyway:com.github.rocketraman.bootable.db.flyway.FlywayMigrationService[]: Flyway''s migrations, when the application starts'
+      page: database:flyway.adoc
+  - title: ORM
+    choice: optional
+    modules:
+    - name: boot-db-exposed
+      provides: 'kdoc:boot-db-exposed:com.github.rocketraman.bootable.db.exposed.ExposedDatabaseService[], an Exposed `Database` over the pool, and kdoc:boot-db-exposed:com.github.rocketraman.bootable.db.exposed.SchemaVerificationService[]'
+      page: database:exposed.adoc
+  - title: Statement tracing
+    choice: optional
+    modules:
+    - name: boot-db-jdbc-otel
+      extends: boot-db-jdbc
+      provides: 'A span for each statement, with kdoc:boot-db-jdbc-otel:com.github.rocketraman.bootable.db.jdbc.jdbcTracing[]'
+      page: database:index.adoc#telemetry
+  - title: Core
+    choice: implied
+    note: comes with the driver
+    with: Driver
+    modules:
+    - name: boot-db-jdbc
+      provides: 'kdoc:boot-db-jdbc:com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceService[]: the pool, tied to the application''s lifecycle, and its health check'
+
+- id: http
+  title: Web / HTTP
+  page: http:index.adoc
+  groups:
+  - title: Server engine
+    choice: one
+    note: choose one, for a server
+    modules:
+    - name: boot-server-http-ktor-cio
+      provides: Ktor's CIO engine
+      page: http:server.adoc
+    - name: boot-server-http-ktor-netty
+      provides: Ktor's Netty engine
+      page: http:server.adoc
+  - title: Server telemetry
+    choice: optional
+    modules:
+    - name: boot-server-http-ktor-otel
+      extends: boot-server-http-ktor
+      provides: Each request traced and measured, and a metrics scrape
+      page: http:server.adoc#telemetry
+  - title: Server
+    choice: implied
+    note: comes with the engine; with Kodein or Metro, add it too, for its flavour
+    with: Server engine
+    modules:
+    - name: boot-server-http-ktor
+      provides: '`KtorService`: a Ktor server that starts and stops with the application, and `KtorHealth`, which serves the liveness and readiness probes'
+      page: http:server.adoc
+  - title: Client engine
+    choice: one
+    note: choose one, for a client
+    modules:
+    - name: boot-client-http-ktor-cio
+      provides: Ktor's CIO engine
+      page: http:client.adoc
+    - name: boot-client-http-ktor-java
+      provides: The JDK's `HttpClient`, as Ktor's Java engine
+      page: http:client.adoc
+  - title: Client telemetry
+    choice: optional
+    modules:
+    - name: boot-client-http-ktor-otel
+      extends: boot-client-http-ktor
+      provides: Each call traced and measured
+      page: http:client.adoc#telemetry
+  - title: Client
+    choice: implied
+    note: comes with the engine; with Kodein or Metro, add it too, for its flavour
+    with: Client engine
+    modules:
+    - name: boot-client-http-ktor
+      provides: '`KtorClientService`: the application''s Ktor ``HttpClient``s, closed when it stops'
+      page: http:client.adoc
+
+- id: background
+  title: Background work
+  page: background:index.adoc
+  groups:
+  - title: Periodic work
+    choice: optional
+    modules:
+    - name: boot-periodic
+      provides: '`PeriodicAppService`: a loop in the background, on the leader only if you like'
+      page: background:periodic.adoc
+      traced: a trace for each run
+  - title: Leader election
+    choice: optional
+    modules:
+    - name: boot-leader-k8s
+      provides: '`KubernetesLeaderElection`: a leader among the pods, with a Lease'
+      page: background:leader.adoc
+  - title: Scheduled tasks
+    choice: optional
+    modules:
+    - name: boot-scheduler-db
+      provides: '`DbSchedulerService`: db-scheduler''s persistent tasks, over the application''s database'
+      page: background:scheduler.adoc
+      traced: a trace for each execution
+  - title: Leader election API
+    choice: implied
+    note: comes with `boot-periodic` and `boot-leader-k8s`
+    modules:
+    - name: boot-leader-common
+      provides: '`LeaderElection`, and `AlwaysLeader`, the leader of an application that runs as one instance'
+      page: background:leader.adoc
+
+- id: telemetry
+  title: Telemetry
+  page: telemetry:index.adoc
+  groups:
+  - title: SDK
+    note: add it, for export over OTLP, or an exporter or integration, which brings it in
+    modules:
+    - name: boot-telemetry-otel
+      provides: '`OpenTelemetryService`: the application''s OpenTelemetry SDK, for traces and metrics, pushed over OTLP'
+      page: telemetry:index.adoc
+  - title: Exporters and integrations
+    choice: optional
+    modules:
+    - name: boot-telemetry-otel-prometheus
+      provides: The metrics, for Prometheus to scrape
+      page: telemetry:exporters.adoc#prometheus
+    - name: boot-telemetry-otel-signoz
+      provides: Traces and metrics to SigNoz, over OTLP
+      page: telemetry:exporters.adoc#signoz
+    - name: boot-telemetry-otel-gcp
+      provides: Google Cloud's resource attributes, and export to Cloud Trace and Cloud Monitoring over OTLP
+      page: telemetry:exporters.adoc#gcp
+    - name: boot-telemetry-otel-micrometer-bridge
+      provides: A Micrometer `MeterRegistry`, for libraries that report only to Micrometer
+      page: telemetry:exporters.adoc#micrometer-bridge
+  - title: API
+    choice: implied
+    note: comes with the SDK, and with the modules that trace
+    modules:
+    - name: boot-telemetry-otel-common
+      provides: '`withSpan`, `withRootSpan`, and `Sample`, over the OpenTelemetry API alone, for code that traces without depending on the SDK'
+      page: telemetry:index.adoc#spans
+
+- id: testing
+  title: Testing
+  page: testing:index.adoc
+  groups:
+  - title: Test helpers
+    choice: optional
+    note: optional, as test dependencies
+    modules:
+    - name: boot-test
+      provides: Helpers for unit tests, such as a test clock, captured logs, and the start plan, without booting the application
+      page: testing:index.adoc
+    - name: boot-test-otel
+      provides: An in-memory OpenTelemetry SDK, to check a component's spans and metrics
+      page: testing:index.adoc#telemetry

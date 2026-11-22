@@ -1,6 +1,9 @@
 [tools]
 java = "temurin-25"
 dagger = "0.21.11"
+# the documentation site: Node for its Antora build, and Python to serve it locally
+node = "22"
+python = "3.15"
 
 [env]
 # The Dagger module needs the Dagger 1.0 beta. The stable CLI downloads and runs the release named here.
@@ -16,3 +19,17 @@ run = "dagger start server-ktor-db/dev otel-lgtm/otel-stack"
 [tasks.demo-without-tracing]
 description = "Run the server-ktor-db example alone, exporting nothing"
 run = "dagger api call server-ktor-db dev --tracing=false up"
+
+# The documentation site, from docs/: the API reference with Dokka, then the site with Antora, into
+# docs/site/build/site.
+[tasks.docs-build]
+description = "Build the documentation site into docs/site/build/site"
+run = [
+  "./gradlew -q :dokkaGeneratePublicationHtml",
+  "npm --prefix docs/site ci --no-audit --no-fund",
+  "npm --prefix docs/site run build",
+]
+
+[tasks.docs-serve]
+description = "Serve the documentation site, as docs-build last built it, on http://localhost:8765"
+run = "python -m http.server 8765 --directory docs/site/build/site"

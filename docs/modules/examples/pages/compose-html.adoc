@@ -1,0 +1,75 @@
+= Web app with Compose HTML
+:description: A todo list in Kotlin end to end, with a Compose HTML browser client and a Ktor server run by Bootable.
+
+`compose-html` is the same todo list as xref:htmx.adoc[htmx] and xref:kilua.adoc[Kilua], written in Kotlin end to end: a browser client written with https://github.com/JetBrains/compose-multiplatform#compose-html[Compose HTML], and a Ktor server run by Bootable.
+The server serves the client's files and a JSON API, so the whole application runs as one process and one jar.
+
+It is in three projects:
+
+`shared`:: The API's models (`Todo`, `NewTodo`, `TodoUpdate`), its path, and the rule for a valid title, in a Kotlin Multiplatform module compiled for the browser and the JVM, so the client and the server agree on the JSON and on what makes a todo valid.
+`client`:: The Compose HTML UI, compiled to JavaScript, which calls the API with Ktor's client, and checks a title with the shared rule as the user types.
+`server`:: `TodoServer`, a `NettyKtorService`, which serves the JSON API under `/api/todos`, and the client's files at `/`, and checks every title with the same shared rule.
+
+Todos are kept in memory; xref:server-ktor-db.adoc[] stores data in a database.
+
+The same application is also written with xref:htmx.adoc[htmx], rendered on the server, and with xref:kilua.adoc[Kilua], rendered on the server and then in the browser.
+
+== What it uses
+
+* `boot-server-http-ktor-netty`, for the server on Ktor's Netty engine; see xref:http:server.adoc[].
+* `boot-config-hoplite`, for the `server` config section; see xref:configuration:index.adoc[].
+* `boot-logging-log4j2`, for the log; see xref:logging:index.adoc[].
+
+The server is the only service, wired with plain Kotlin:
+
+[source,kotlin]
+----
+fun appServices(binder: ConfigBinder): Set<AppService> = setOf(
+  TodoServer(binder.config("server"), TodoRepository()),
+)
+
+fun main() = boot {
+  Bootable(appServices = appServices(hopliteConfigBinder()))
+}
+----
+
+== Run it
+
+From the repository root:
+
+[source,shell]
+----
+./gradlew :examples:compose-html:server:run
+----
+
+Then open http://localhost:8002.
+
+The server's build copies the client's production bundle onto its classpath, under `web/`, so this one command builds the client too.
+The server's jar and distribution (`installDist`, `distZip`) contain the client, and need nothing else to run.
+
+=== Live reload
+
+For changes to the UI, run the client from Kotlin/JS's webpack development server, which reloads the page whenever the client is rebuilt.
+Run the server in one terminal, for the API, and the development server in another:
+
+[source,shell]
+----
+./gradlew :examples:compose-html:server:run
+./gradlew --continuous :examples:compose-html:client:jsBrowserDevelopmentRun
+----
+
+Then open http://localhost:8080, webpack's port, which forwards requests under `/api` to the server.
+Changes to `client` or `shared` are picked up without a restart; changes to `server` still need one.
+
+== Tests
+
+[source,shell]
+----
+./gradlew :examples:compose-html:server:test
+----
+
+The tests run the server's routes in Ktor's test host, with a client that sends and receives the shared models, and check that the server serves the client's bundle.
+
+== Source
+
+https://github.com/rocketraman/bootable/tree/master/examples/compose-html[`examples/compose-html`]; its README also covers styling a Compose HTML application.

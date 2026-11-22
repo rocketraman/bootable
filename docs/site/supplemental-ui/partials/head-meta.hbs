@@ -1,0 +1,13 @@
+{{!-- the theme before the first paint, so a dark page doesn't flash light: the reader's choice, else the system's;
+     and the install blocks' telemetry choice --}}
+<script>
+  (function () {
+    try { var theme = localStorage.getItem('bootable-theme') } catch (e) {}
+    if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme
+    // and whether install blocks show their telemetry variant (bootable.js), so the right one shows from the start
+    try { if (localStorage.getItem('bootable-install-telemetry') === 'on') document.documentElement.dataset.installTelemetry = 'on' } catch (e) {}
+  })()
+</script>
+{{!-- data-sync-storage-key: the reader's choice in a synced tab set, such as their DI, is kept in localStorage --}}
+<script defer src="{{{uiRootPath}}}/js/vendor/tabs.js" data-sync-storage-key="bootable-tabs"></script>
+<script defer src="{{{uiRootPath}}}/js/bootable.js"></script>

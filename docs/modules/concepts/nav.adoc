@@ -1,0 +1,5 @@
+.Concepts
+* xref:index.adoc[Overview]
+* xref:philosophy.adoc[No magic]
+* xref:lifecycle.adoc[Lifecycle and services]
+* xref:start-order.adoc[Start order]

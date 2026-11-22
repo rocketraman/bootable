@@ -1,0 +1,10 @@
+<article class="doc">
+{{#with page.title}}
+<h1 class="page">{{{this}}}</h1>
+{{/with}}
+{{#with page.description}}
+<p class="page-lead is-before-toc">{{{this}}}</p>
+{{/with}}
+{{{page.contents}}}
+{{> pagination}}
+</article>

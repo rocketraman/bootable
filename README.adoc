@@ -772,7 +772,7 @@ It runs with `./gradlew :examples:kilua:server:run`, at http://localhost:8004, w
 === Client HTTP (Ktor)
 
 `boot-client-http-ktor` provides the application's Ktor ``HttpClient``s, tied to the application lifecycle.
-`KtorClientService` builds them when it is constructed, so they can be handed to other components right away, and a bad setting, such as an unreadable key store, fails the boot; it closes them, and their engines, when the application stops.
+`KtorClientService` builds them when it is constructed, so they can be handed to other classes right away, and a bad setting, such as an unreadable key store, fails the boot; it closes them, and their engines, when the application stops.
 It is in the `Infrastructure` phase, so services that make calls, in later phases, stop before the clients close, and a call in flight isn't cut off.
 Something in the same phase that uses the clients starts after the `HttpClientMilestones.ClientsReady` milestone.
 
@@ -872,8 +872,9 @@ They deliberately don't boot the application.
 NOTE: Bootable won't add a way to boot the application in tests.
 Where one exists, as in the Spring Boot ecosystem, it tends to become the way every test is written, because it is the easy way out: nobody has to think about injecting fakes.
 That makes tests slow and brittle, and replaces unit tests rather than complementing them.
+If this style of testing makes sense for your project, it is easy to implement yourself.
 
-Test a component by constructing it, with fakes for what it uses; test a Ktor server's routes by running its module in Ktor's `testApplication`, with the server constructed the same way.
+Test a class by constructing it, with fakes for what it uses; test a Ktor server's routes by running its module in Ktor's `testApplication`, with the server constructed the same way.
 Check the wiring without starting anything: build the application's graph, or call its vanilla wiring, and check the services it builds, and their start plan.
 With Metro, the compiler checks that the graph is complete.
 

@@ -1,0 +1,92 @@
+= Web / HTTP
+:description: A Ktor server and Ktor clients that start and stop with the application, and its liveness and readiness probes.
+
+Bootable runs Ktor on both sides of HTTP, tied to the application's lifecycle.
+A xref:server.adoc[server] is a `KtorService`, which starts once the services it uses have started, and stops first, so requests in flight can finish.
+The xref:client.adoc[clients] are plain Ktor ``HttpClient``s, owned by `KtorClientService`, which closes them only once the services that make calls have stopped.
+xref:health.adoc[`HealthLifecycleController`], in the core `boot` module, tracks the application's lifecycle, and the server serves it as liveness and readiness probes.
+
+The server is in the `Serving` phase, the last to start.
+The clients are in the `Infrastructure` phase, and reach the `HttpClientMilestones.ClientsReady` milestone.
+A server, its clients, and the probes are independent: an application can have any of them without the others.
+
+== Modules
+
+A server and a client each make one choice, an engine, which brings the server's or the client's core module with it.
+Each has an optional telemetry module, which traces and measures its requests.
+
+Every module with DI bindings comes in a `-kodein` and a `-metro` flavour too, for those wiring styles; the engine modules have none.
+
+modules::http[]
+
+== Install
+
+For a typical server: the core server module, for its DI flavour, and an engine, here CIO.
+
+install::[boot-server-http-ktor, boot-server-http-ktor-cio]
+
+The engine module brings `boot-server-http-ktor` with it, so a vanilla application needn't list it.
+With a DI, list it for its flavour, which provides `KtorHealth`, for the probes.
+
+[#with-telemetry]
+=== With telemetry
+
+Turn on the *Telemetry* switch, at the end of the tabs above, for the install with telemetry: it adds `boot-server-http-ktor-otel`, to trace and measure each request, and `boot-telemetry-otel`, the application's OpenTelemetry SDK, which it reports through.
+To serve a metrics scrape, add an exporter, such as xref:telemetry:exporters.adoc#prometheus[`boot-telemetry-otel-prometheus`].
+For clients, see xref:client.adoc[].
+
+== The pages
+
+xref:server.adoc[Server (Ktor)]::
+`KtorService`, the engines, its address and engine options, and its telemetry: each request traced and measured, and the metrics scrape.
+xref:client.adoc[Client (Ktor)]::
+`KtorClientService`, the default and named clients, their timeouts, retries, headers, and TLS, the engines, and their telemetry.
+xref:health.adoc[Health]::
+Liveness and readiness from the lifecycle, readiness checks, the drain delay at shutdown, and serving them with `KtorHealth`.
+
+== Example
+
+`examples/server-ktor-db` is a Ktor server that serves its probes, with a readiness check of its database, calls itself back through a named client, and traces and measures both.
+It is wired each of the four ways; from the repository root, run yours:
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:vanilla:run
+----
+
+Kodein::
++
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:kodein:run
+----
+
+Metro::
++
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:metro:run
+----
+
+Inara::
++
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:inara:run
+----
+======
+
+It serves http://localhost:8001, whose index lists its endpoints, among them `/health/live`, `/health/ready`, and `/metrics`.
+
+`examples/server-ktor` is the smallest server, wired by hand, on Netty: `./gradlew :examples:server-ktor:run` serves http://localhost:8000.
+
+== Reference
+
+* kdoc:boot-server-http-ktor:com.github.rocketraman.bootable.server.http.ktor.KtorService[]: the server
+* kdoc:boot-client-http-ktor:com.github.rocketraman.bootable.client.http.ktor.KtorClientService[]: the clients
+* kdoc:boot:com.github.rocketraman.bootable.boot.HealthLifecycleController[]: liveness and readiness
+* kdoc:boot-server-http-ktor:com.github.rocketraman.bootable.server.http.ktor.KtorHealth[]: the probes, served
