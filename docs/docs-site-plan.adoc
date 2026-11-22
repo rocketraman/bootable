@@ -239,8 +239,10 @@ A Gradle task, `docsSite`, wraps it, so contributors don't need to know Antora i
 
 == Build and hosting
 
-* A GitHub Actions workflow runs `./gradlew :dokkaGeneratePublicationHtml`, builds the site, and publishes it to GitHub Pages, at its default address, `rocketraman.github.io/bootable`, on every push to `master`.
-* PRs build the site as a check, and upload it as an artifact to look at.
+* A GitHub Actions workflow, `.github/workflows/docs.yml`, runs `./gradlew :dokkaGeneratePublicationHtml`, builds the site, and publishes it to GitHub Pages, at its default address, `rocketraman.github.io/bootable`, on every push to `master`.
+Pages serves the `gh-pages` branch, whose root is `master`'s site.
+* A PR that changes `docs/` deploys a preview of its site to `pr-preview/pr-<number>/` on the same branch, comments on the PR with its link, and removes it when the PR closes.
+A PR from a fork is built, but gets no preview, since its token can't push.
 * A custom domain may come later.
 
 == API reference
