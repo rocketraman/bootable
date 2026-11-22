@@ -17,10 +17,9 @@ import org.kodein.di.singleton
  * [DefaultStartOrder], and the [StartOrder.Tiebreaker] of the `boot.service.order` config section (see
  * [ServiceOrderConfig]) if there is a [ConfigBinder] binding, or else [StartOrder.Tiebreaker.ByName].
  *
- * It binds the application's [Health], and adds it to the lifecycle controllers, with the checks of the
- * `Set<HealthCheck>` it opens, and the [ReadinessConfig] of the `health.readiness` config section if there is a
- * [ConfigBinder] binding. Add a readiness check with
- * `inBindSet<HealthCheck> { add { singleton { MyCheck() } } }`.
+ * It binds the application's [HealthLifecycleController], and adds it to the lifecycle controllers, with the checks of
+ * the `Set<HealthCheck>` it opens, and the [ReadinessConfig] of the `health.readiness` config section if there is a
+ * [ConfigBinder] binding. Add a readiness check with `inBindSet<HealthCheck> { add { singleton { MyCheck() } } }`.
  *
  * It binds the application's [BuildInfo], from the `build` config section if there is a [ConfigBinder] binding.
  */
@@ -29,13 +28,14 @@ val bootableModule by DI.Module {
   bindSet<LifecycleController>()
   bindSet<HealthCheck>()
   bindSingleton {
-    Health(instance(), instanceOrNull<ConfigBinder>()?.let { readinessConfig(it) } ?: ReadinessConfig())
+    val config = instanceOrNull<ConfigBinder>()?.let { readinessConfig(it) } ?: ReadinessConfig()
+    HealthLifecycleController(instance(), config)
   }
   bindSingleton { instanceOrNull<ConfigBinder>()?.let { buildInfo(it) } ?: BuildInfo() }
   inBindSet<LifecycleController> {
     add { singleton { AppStartStopLifecycleController() } }
     add { singleton { StopSignalHandlerLifecycleController() } }
-    add { singleton { instance<Health>() } }
+    add { singleton { instance<HealthLifecycleController>() } }
   }
   bindSingleton {
     val tiebreaker = instanceOrNull<StartOrder.Tiebreaker>()

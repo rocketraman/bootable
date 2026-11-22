@@ -8,13 +8,16 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.apache.logging.log4j.kotlin.logger
 
-/** Where the application is in its lifecycle, as [Health] tracks it. */
+/** Where the application is in its lifecycle, as [HealthLifecycleController] tracks it. */
 @Serializable
 enum class LifecycleState {
-  /** Initializing and starting the services. The state until every service has started. */
+  /** Initializing and starting the services. The state until the application's start has completed. */
   Starting,
 
-  /** Every service started: the application is running. */
+  /**
+   * The application's whole start completed, including every lifecycle controller's code around it, such as
+   * `ServiceStartTracing`'s span: the application is running.
+   */
   Running,
 
   /** Shutting down: draining, then stopping the services. A start that fails goes here too. */
@@ -43,8 +46,8 @@ sealed interface HealthStatus {
 }
 
 /**
- * A check that the application is ready to take work, such as that its database answers, which [Health.readiness]
- * runs, while the application is running, whenever readiness is asked for.
+ * A check that the application is ready to take work, such as that its database answers, which
+ * [HealthLifecycleController.readiness] runs, while the application is running, whenever readiness is asked for.
  *
  * Readiness only: liveness runs no checks, since an application whose dependency is down isn't helped by restarting.
  *
@@ -143,24 +146,24 @@ data class HealthReadyReport(
  *
  * - [liveness] is healthy until the application has stopped. It runs no checks, so a dependency that is down
  *   doesn't get the application restarted, which wouldn't help it.
- * - [readiness] is healthy only while the application is running: once every service has started, and until shutdown
+ * - [readiness] is healthy only while the application is running: once its start has completed, and until shutdown
  *   begins. Then, it runs the [checks] too, and is healthy only if they all are.
  *
- * When shutdown begins, readiness goes down, and then, if the application was running, Health waits for the
- * [ReadinessConfig.drainDelay] before the services stop, so that load balancers stop routing to it first.
+ * When shutdown begins, readiness goes down, and then, if the application was running, HealthLifecycleController waits
+ * for the [ReadinessConfig.drainDelay] before the services stop, so that load balancers stop routing to it first.
  *
- * Add it to the application's lifecycle controllers, and serve it, e.g. with `KtorHealth` from
- * `boot-server-http-ktor`:
+ * One with no checks is among the [defaultLifecycleControllers]; replace it with [withHealthLifecycleController] to
+ * give it checks, and serve it, e.g. with `KtorHealth` from `boot-server-http-ktor`:
  *
  * ```
- * val health = Health(setOf(JdbcHealthCheck(dataSource)), readinessConfig(binder))
- * Bootable(services, defaultLifecycleControllers() + health)
+ * val health = HealthLifecycleController(setOf(JdbcHealthCheck(dataSource)), readinessConfig(binder))
+ * Bootable(services, defaultLifecycleControllers().withHealthLifecycleController(health))
  * ```
  *
  * Kodein's `bootableModule` and Metro's `BootableDefaultBindings` add it for you, with the checks of the
  * `Set<HealthCheck>` they open.
  */
-class Health(
+class HealthLifecycleController(
   val checks: Set<HealthCheck> = emptySet(),
   val config: ReadinessConfig = ReadinessConfig(),
 ) : LifecycleController {
@@ -184,9 +187,8 @@ class Health(
     return HealthReadyReport(results.values.all { it.healthy } && this.state == LifecycleState.Running, state, results)
   }
 
-  override fun aroundAppStart(serviceContext: ServiceContext, timeline: StartupTimeline, start: () -> Unit) {
-    start()
-    // a start that throws leaves the state Starting, until the shutdown that follows
+  // a start that fails never calls it, leaving the state Starting, until the shutdown that follows
+  override fun appRunning() {
     if (state == LifecycleState.Starting) state = LifecycleState.Running
   }
 
@@ -205,8 +207,8 @@ class Health(
 
   /**
    * The lowest, so readiness goes down, and the drain runs, before any other controller shuts down, such as
-   * [AppStartStopLifecycleController] stopping the services; and the application is running only once the rest of
-   * the start, within every other controller's [aroundAppStart], has completed.
+   * [AppStartStopLifecycleController] stopping the services; and the application is running only once every other
+   * controller's [appRunning] has completed.
    */
   override fun priority() = Int.MIN_VALUE
 
@@ -222,3 +224,10 @@ class Health(
     private val log = logger()
   }
 }
+
+/**
+ * These lifecycle controllers, with [health] in place of any [HealthLifecycleController] among them, such as the one of
+ * the [defaultLifecycleControllers]: an application has one.
+ */
+fun Set<LifecycleController>.withHealthLifecycleController(health: HealthLifecycleController): Set<LifecycleController> =
+  filterNot { it is HealthLifecycleController }.toSet() + health

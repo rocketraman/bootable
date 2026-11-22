@@ -42,6 +42,7 @@ An app can pass its own `StartOrder` to add phases; see link:./examples/start-or
 Another basic implementation, intended to be used in conjunction with `AppStartStopLifecycleController`, is the `StopSignalHandlerLifecycleController`, which registers signal handlers, which, when received, cleanly shuts the system down.
 Other implementations are possible: for example starting/stopping services at runtime based on a command system, like start/stop messages from RPCs or web requests.
 A controller can also run code around the application's start, and each service's, by overriding `aroundAppStart` and `aroundServiceStart`, as `ServiceStartTracing` does to trace them.
+`appRunning` runs once the whole start has completed, as `HealthLifecycleController` uses to mark the application running.
 * Tracks the application's lifecycle state, and answers liveness and readiness from it, with an optional drain delay before shutdown; see <<Health>>.
 * Runs periodic background work, on the elected leader only if you like, with leader election through a Kubernetes Lease; see <<Periodic>>.
 * Runs persistent scheduled tasks with db-scheduler, once across the application's instances; see <<Scheduler>>.
@@ -147,14 +148,14 @@ NOTE: We currently do not publish multi-platform versions of these modules, but 
 [[Health]]
 === Health (liveness and readiness)
 
-`Health`, in the core `boot` module, is a lifecycle controller that tracks where the application is in its lifecycle, `Starting`, `Running`, `Stopping`, or `Stopped`, and answers liveness and readiness from that, such as for Kubernetes probes, a Cloud Run startup probe, or a load balancer's health check:
+`HealthLifecycleController`, in the core `boot` module, is a lifecycle controller that tracks where the application is in its lifecycle, `Starting`, `Running`, `Stopping`, or `Stopped`, and answers liveness and readiness from that, such as for Kubernetes probes, a Cloud Run startup probe, or a load balancer's health check:
 
 * *Liveness* is up until the application has stopped.
 It runs no checks: an application whose database is down isn't helped by being restarted, and restarting every instance at once makes an outage worse.
-* *Readiness* is up only while the application is running: once every service has started, and until shutdown begins.
+* *Readiness* is up only while the application is running: once its start has completed, including every lifecycle controller's code around it, and until shutdown begins.
 Then, it runs the readiness checks too, and is up only if they all pass.
 
-When shutdown begins, readiness goes down, and, if the application was running, `Health` waits for `health.readiness.drainDelay` before any service stops.
+When shutdown begins, readiness goes down, and, if the application was running, `HealthLifecycleController` waits for `health.readiness.drainDelay` before any service stops.
 Load balancers take a few seconds to stop routing to an instance that is going away: Kubernetes, for one, removes a terminating pod from its endpoints asynchronously, and a server that stops before then refuses the requests still routed to it.
 The delay is none by default; a few seconds suits Kubernetes.
 It comes before the shutdown timeout starts, so the platform's grace period, such as `terminationGracePeriodSeconds`, must cover both.
@@ -173,15 +174,15 @@ A check runs on the thread asking for readiness, so it must bound its own wait.
 `boot-db-jdbc` provides `JdbcHealthCheck`, which takes a connection from the pool and checks it is valid.
 It is opt-in: readiness that depends on a shared database takes every instance out of rotation at once when the database is down, turning failing requests into refused ones, which is what you want only when the application can do nothing useful without it.
 
-With vanilla wiring, construct `Health` and add it to the lifecycle controllers:
+With vanilla wiring, `defaultLifecycleControllers()` includes a `HealthLifecycleController` with no checks; to give it checks or a drain delay, and to serve it, construct one and put it in that one's place with `withHealthLifecycleController`:
 
 [source,kotlin]
 ----
-val health = Health(setOf(JdbcHealthCheck(database.dataSource)), readinessConfig(binder))
-Bootable(services, defaultLifecycleControllers() + health)
+val health = HealthLifecycleController(setOf(JdbcHealthCheck(database.dataSource)), readinessConfig(binder))
+Bootable(services, defaultLifecycleControllers().withHealthLifecycleController(health))
 ----
 
-With Kodein, `bootableModule` binds `Health`, adds it to the lifecycle controllers, and opens a `Set<HealthCheck>`; import `jdbcHealthCheckModule` for the JDBC check.
+With Kodein, `bootableModule` binds `HealthLifecycleController`, adds it to the lifecycle controllers, and opens a `Set<HealthCheck>`; import `jdbcHealthCheckModule` for the JDBC check.
 With Metro, `BootableDefaultBindings` does the same, with a `Set<HealthCheck>` multibinding; name `JdbcHealthCheckBindings` in your graph's `bindingContainers` for the JDBC check.
 
 `boot-server-http-ktor` serves them with `KtorHealth`: liveness at `/health/live` and readiness at `/health/ready`, each `200` when up and `503` when down, with a JSON body: the overall `status`, `UP` or `DOWN`, and the lifecycle `state`.
@@ -903,7 +904,7 @@ The essentials, regardless of wiring:
 
 * Application components that have a lifecycle implement `AppService` or `AdvancedAppService`.
 * You assemble a `Set<AppService>` and a `Set<LifecycleController>`, and hand them to the `boot` function, which runs them. With vanilla wiring that is just `boot { Bootable(setOf(MyService(...))) }` — `lifecycleControllers` defaults to `defaultLifecycleControllers()`.
-* `defaultLifecycleControllers()` provides the built-in start/stop and signal-handling controllers. To run a custom lifecycle — e.g. starting/stopping services on command from an RPC or web request rather than at boot — pass your own controllers instead.
+* `defaultLifecycleControllers()` provides the built-in start/stop, signal-handling, and health controllers. To run a custom lifecycle — e.g. starting/stopping services on command from an RPC or web request rather than at boot — pass your own controllers instead.
 
 To use a DI framework, depend on the `-kodein` or `-metro` artifact of each module you use (e.g. `boot-kodein`, `boot-config-hoplite-kodein`, `boot-env-kodein`, or the `-metro` equivalents) and let it assemble the sets:
 

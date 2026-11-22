@@ -3,7 +3,7 @@ package com.github.rocketraman.bootable.server.http.ktor
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BuildInfo
-import com.github.rocketraman.bootable.boot.Health
+import com.github.rocketraman.bootable.boot.HealthLifecycleController
 import com.github.rocketraman.bootable.boot.ReadinessConfig
 import com.github.rocketraman.bootable.boot.bootableModule
 import com.github.rocketraman.bootable.config.ConfigBinder
@@ -40,23 +40,23 @@ object HealthConfigBindings {
 @DependencyGraph(HealthTestScope::class, additionalScopes = [BootScope::class], bindingContainers = [HealthConfigBindings::class])
 interface HealthGraph : BootableGraph {
   val ktorHealth: KtorHealth
-  val health: Health
+  val health: HealthLifecycleController
 }
 
 val KtorHealthWiringTest by testSuite {
-  test("KtorHealth serves the application's Health and BuildInfo, with its config, in kodein") {
+  test("KtorHealth serves the application's HealthLifecycleController and BuildInfo, with its config, in kodein") {
     val di = DI {
       import(bootableModule)
       import(ktorHealthModule)
       bindSingleton<ConfigBinder> { HealthConfigBinder }
     }.direct
     val ktorHealth = di.instance<KtorHealth>()
-    assert(ktorHealth.health === di.instance<Health>())
+    assert(ktorHealth.health === di.instance<HealthLifecycleController>())
     assert(ktorHealth.config.readyPath == "/ready")
     assert(ktorHealth.buildInfo == BuildInfo(version = "1.4.2"))
   }
 
-  test("KtorHealth serves the application's Health and BuildInfo, with its config, in metro") {
+  test("KtorHealth serves the application's HealthLifecycleController and BuildInfo, with its config, in metro") {
     val graph = createGraph<HealthGraph>()
     assert(graph.ktorHealth.health === graph.health)
     assert(graph.ktorHealth.config.readyPath == "/ready")

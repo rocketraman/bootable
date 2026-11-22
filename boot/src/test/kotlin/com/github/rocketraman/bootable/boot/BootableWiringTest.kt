@@ -97,7 +97,7 @@ val BootableWiringTest by testSuite {
   }
 
   testSuite("health") {
-    fun Set<LifecycleController>.health() = filterIsInstance<Health>().single()
+    fun Set<LifecycleController>.health() = filterIsInstance<HealthLifecycleController>().single()
     val check = HealthCheck("wired") { HealthStatus.Healthy }
 
     test("is a lifecycle controller, with the bound checks and config, in kodein") {
@@ -107,7 +107,7 @@ val BootableWiringTest by testSuite {
         inBindSet<HealthCheck> { add { singleton { check } } }
       }.direct
       val health = di.instance<Set<LifecycleController>>().health()
-      assert(health === di.instance<Health>())
+      assert(health === di.instance<HealthLifecycleController>())
       assert(health.config.drainDelay == 3.seconds)
       assert(di.instance<Set<HealthCheck>>() == setOf(check))
     }

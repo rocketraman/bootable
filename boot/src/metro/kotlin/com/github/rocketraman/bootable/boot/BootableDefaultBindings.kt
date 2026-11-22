@@ -10,7 +10,7 @@ import kotlin.reflect.KClass
 
 /**
  * Provides the [Bootable] runtime and the default lifecycle controllers
- * ([AppStartStopLifecycleController], [StopSignalHandlerLifecycleController]).
+ * ([AppStartStopLifecycleController], [StopSignalHandlerLifecycleController], [HealthLifecycleController]).
  *
  * Contributed to [BootScope], so a magic-mode graph (`additionalScopes = [BootScope::class]`) picks it up with
  * no boilerplate. To run a custom lifecycle, don't include this container — provide your own
@@ -21,9 +21,9 @@ import kotlin.reflect.KClass
  * [ServiceOrderConfig]) if the graph has a [ConfigBinder], or else [StartOrder.Tiebreaker.ByName]. All three are
  * optional bindings, so a graph needs none of them.
  *
- * It provides the application's [Health], and adds it to the lifecycle controllers, with the checks of the
- * graph's `Set<HealthCheck>`, and the [ReadinessConfig] of the `health.readiness` config section if the graph has a
- * [ConfigBinder]. Add a readiness check with `@Provides @IntoSet fun myCheck(): HealthCheck = MyCheck()`.
+ * It provides the application's [HealthLifecycleController], and adds it to the lifecycle controllers, with the checks
+ * of the graph's `Set<HealthCheck>`, and the [ReadinessConfig] of the `health.readiness` config section if the graph
+ * has a [ConfigBinder]. Add a readiness check with `@Provides @IntoSet fun myCheck(): HealthCheck = MyCheck()`.
  *
  * It provides the application's [BuildInfo], from the `build` config section if the graph has a [ConfigBinder].
  */
@@ -32,13 +32,16 @@ import kotlin.reflect.KClass
 object BootableDefaultBindings {
   @Provides @IntoSet fun appStartStop(): LifecycleController = AppStartStopLifecycleController()
   @Provides @IntoSet fun stopSignalHandler(): LifecycleController = StopSignalHandlerLifecycleController()
-  @Provides @IntoSet fun healthController(health: Health): LifecycleController = health
+  @Provides @IntoSet fun healthController(health: HealthLifecycleController): LifecycleController = health
 
   @Provides @SingleIn(BootScope::class)
   fun health(
     checks: Set<HealthCheck>,
     configBinder: ConfigBinder = NoConfigBinder,
-  ): Health = Health(checks, if (configBinder === NoConfigBinder) ReadinessConfig() else readinessConfig(configBinder))
+  ): HealthLifecycleController = HealthLifecycleController(
+    checks,
+    if (configBinder === NoConfigBinder) ReadinessConfig() else readinessConfig(configBinder),
+  )
 
   @Provides @SingleIn(BootScope::class)
   // not named buildInfo, which would shadow the top-level function it calls

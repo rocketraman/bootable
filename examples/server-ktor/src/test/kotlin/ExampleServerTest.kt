@@ -1,4 +1,5 @@
 import com.github.rocketraman.bootable.boot.AppStartStopLifecycleController
+import com.github.rocketraman.bootable.boot.HealthLifecycleController
 import com.github.rocketraman.bootable.boot.StopSignalHandlerLifecycleController
 import com.github.rocketraman.bootable.boot.defaultLifecycleControllers
 import com.github.rocketraman.bootable.config.ConfigBinder
@@ -70,9 +71,10 @@ val EnvironmentTest by testSuite {
 }
 
 val LifecycleTest by testSuite {
-  test("defaultLifecycleControllers are the two built-ins") {
+  test("defaultLifecycleControllers are the three built-ins") {
     val controllers = defaultLifecycleControllers()
     assert(controllers.any { it is AppStartStopLifecycleController })
     assert(controllers.any { it is StopSignalHandlerLifecycleController })
+    assert(controllers.any { it is HealthLifecycleController })
   }
 }

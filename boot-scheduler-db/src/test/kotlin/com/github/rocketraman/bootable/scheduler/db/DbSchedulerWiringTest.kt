@@ -5,7 +5,7 @@ import com.github.kagkarlsson.scheduler.SchedulerClient
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
-import com.github.rocketraman.bootable.boot.Health
+import com.github.rocketraman.bootable.boot.HealthLifecycleController
 import com.github.rocketraman.bootable.boot.StartOrder
 import com.github.rocketraman.bootable.boot.bootableModule
 import com.github.rocketraman.bootable.boot.startPlan
@@ -49,7 +49,7 @@ sealed interface TestScope
 interface TestGraph : BootableGraph {
   val record: TaskRecord
   val schedulerClient: SchedulerClient
-  val health: Health
+  val health: HealthLifecycleController
 }
 
 @BindingContainer
@@ -117,7 +117,7 @@ val DbSchedulerWiringTest by testSuite {
       }.direct
 
       assert(di.instance<Scheduler>() === di.instance<DbSchedulerService>().scheduler)
-      assert(di.instance<Health>().checks.single() is DbSchedulerHealthCheck)
+      assert(di.instance<HealthLifecycleController>().checks.single() is DbSchedulerHealthCheck)
       di.instance<Set<AppService>>().startAndRun(di.instance(), di.instance())
     }
 

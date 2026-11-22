@@ -20,6 +20,7 @@ See link:docs/service-ordering.adoc[Service ordering].
 * `startPlan(services, startOrder, tiebreaker)` exposes the computed order for tests.
 * `boot-db-jdbc` adds the milestones `DbMilestones.DataSourceReady` and `SchemaMigrated`.
 * `LifecycleController` gains `aroundAppStart` and `aroundServiceStart` hooks.
+* `LifecycleController` gains `appRunning`, called once the whole start has completed.
 * `StartupTimeline` records when the boot began and its stages before services start.
 
 ==== Breaking changes
@@ -71,7 +72,8 @@ See the Client HTTP section of the README.
 
 See the Health section of the README.
 
-* `Health` answers liveness and readiness from the lifecycle state and ``HealthCheck``s.
+* `HealthLifecycleController` answers liveness and readiness from the lifecycle state and ``HealthCheck``s.
+* `defaultLifecycleControllers()` includes one; `withHealthLifecycleController(health)` replaces it, to give it checks and serve it.
 * `health.readiness.drainDelay` holds readiness down for a while before services stop.
 * `boot-db-jdbc` adds an opt-in `JdbcHealthCheck`.
 * `KtorHealth` serves `/health/live` and `/health/ready`, on the app server or its own listener.

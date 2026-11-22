@@ -3,7 +3,7 @@ package com.github.rocketraman.bootable.server.http.ktor
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
-import com.github.rocketraman.bootable.boot.Health
+import com.github.rocketraman.bootable.boot.HealthLifecycleController
 import com.github.rocketraman.bootable.boot.bootableModule
 import com.github.rocketraman.bootable.boot.startPlan
 import com.github.rocketraman.bootable.config.common.HostPort
@@ -84,7 +84,7 @@ private class AppServer(private val telemetry: KtorTelemetry) : CioKtorService("
     installTelemetry(telemetry)
     routing {
       get("/hello") { call.respondText("hello") }
-      healthRoutes(Health())
+      healthRoutes(HealthLifecycleController())
       get("/orders/{id}") {
         val tracer = telemetry.openTelemetry.getTracer("orders")
         val order = tracer.withSpan("orders.find") { call.parameters["id"] }

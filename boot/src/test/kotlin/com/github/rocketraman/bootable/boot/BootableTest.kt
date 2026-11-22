@@ -34,8 +34,8 @@ private class Veto(private val name: String) : LifecycleController {
 }
 
 /**
- * Records its code around the application's start, as `name{` and `}name`, and around each service's start, as `name(`
- * and `)name`.
+ * Records its code around the application's start, as `name{` and `}name`, around each service's start, as `name(`
+ * and `)name`, and its [appRunning], as `name!`.
  */
 private class Around(
   private val name: String,
@@ -61,6 +61,26 @@ private class Around(
       events += ")$name"
     }
   }
+
+  override fun appRunning() {
+    events += "$name!"
+  }
+}
+
+/** Stops the application once it is running, as `stopping`, with the lowest priority, so after the others' [appRunning]. */
+private class StopsWhenRunning(private val events: MutableList<String>) : LifecycleController {
+  private lateinit var stop: (Int) -> Unit
+
+  override fun appStart(serviceContext: ServiceContext, normalStop: (exitCode: Int) -> Unit) {
+    stop = normalStop
+  }
+
+  override fun appRunning() {
+    events += "stopping"
+    stop(0)
+  }
+
+  override fun priority() = Int.MIN_VALUE
 }
 
 /** Stops the application as it starts, before Bootable waits for a stop, as a signal during the start would. */
@@ -110,6 +130,38 @@ val BootableTest by testSuite {
     )
   }
 
+  test("once the whole start has completed, the controllers are told the application is running, highest first") {
+    val events = mutableListOf<String>()
+    val bootable = Bootable(
+      setOf(RecordingService("pool", Infrastructure, events)),
+      setOf(AppStartStopLifecycleController(), Around("inner", 1, events), Around("outer", 2, events), StopsWhenRunning(events)),
+    )
+
+    assert(bootable.run(maxShutdownTime = 1_000_000) == 0)
+    assert(
+      events == listOf(
+        "outer{", "inner{", "outer(", "inner(", "start pool", ")inner", ")outer", "}inner", "}outer",
+        "outer!", "inner!", "stopping",
+        "stop pool",
+      )
+    )
+  }
+
+  test("a controller that fails when the application is running fails the start, and the controllers after it aren't told") {
+    val events = mutableListOf<String>()
+    val failing = object : LifecycleController {
+      override fun appRunning() = error("not running after all")
+      override fun priority() = 2
+    }
+    val bootable = Bootable(
+      setOf(RecordingService("pool", Infrastructure, events)),
+      setOf(AppStartStopLifecycleController(), failing, Around("lower", 1, events)),
+    )
+
+    assert(bootable.run(maxShutdownTime = 1_000_000) == -1)
+    assert(events == listOf("lower{", "lower(", "start pool", ")lower", "}lower", "stop pool"))
+  }
+
   test("the controllers get the timeline of the boot, with the planning and initialization added to its stages") {
     var captured: StartupTimeline? = null
     val capture = object : LifecycleController {
@@ -142,7 +194,8 @@ val BootableTest by testSuite {
     val events = mutableListOf<String>()
     val bootable = Bootable(
       setOf(RecordingService("pool", Infrastructure, events)),
-      setOf(AppStartStopLifecycleController(), StopsAtStart()),
+      // the stop during the start means the application is never running, so its appRunning isn't called
+      setOf(AppStartStopLifecycleController(), StopsAtStart(), Around("around", 0, events)),
     )
 
     // the stop is asked for on the thread that runs the application, which a hand-off to that thread would block forever
@@ -151,6 +204,19 @@ val BootableTest by testSuite {
     runner.join(10_000)
     assert(!runner.isAlive)
     assert(exitCode == 5)
-    assert(events == listOf("start pool", "stop pool"))
+    assert(events == listOf("around{", "around(", "start pool", ")around", "}around", "stop pool"))
+  }
+
+  test("the default lifecycle controllers include a health controller, which another replaces") {
+    val defaults = defaultLifecycleControllers()
+    assert(defaults.filterIsInstance<HealthLifecycleController>().size == 1)
+
+    val health = HealthLifecycleController()
+    val controllers = defaults.withHealthLifecycleController(health)
+    assert(controllers.filterIsInstance<HealthLifecycleController>() == listOf(health))
+    // the others are kept
+    assert(controllers - health == defaults.filterNot { it is HealthLifecycleController }.toSet())
+    // and a set without one gains it
+    assert(emptySet<LifecycleController>().withHealthLifecycleController(health) == setOf(health))
   }
 }
