@@ -76,6 +76,17 @@ body,
 }
 
 /* ---------------------------------------------------------------------------------------------------------------
+ * The layout: the sidebar, and the page, aligned with a docs page's
+ * ------------------------------------------------------------------------------------------------------------- */
+
+/* A docs page centers its sidebar and contents, at most --page-width wide. Dokka's page scrolls inside #main, so
+   rather than center #container, which would put #main's scrollbar mid-window, the sidebar moves in from the left by
+   as much, and #main still reaches the window's right edge. */
+#container {
+  padding-left: max(0px, calc((100vw - var(--page-width)) / 2));
+}
+
+/* ---------------------------------------------------------------------------------------------------------------
  * The package tree, in the sidebar's API reference group (extensions/dokka.js)
  * ------------------------------------------------------------------------------------------------------------- */
 
@@ -128,6 +139,8 @@ body,
 
 .main-content {
   max-width: 1000px;
+  /* next to the sidebar, as a docs page's contents are, rather than centered in #main */
+  margin-left: 0;
   padding: 32px 48px 64px;
   color: var(--text-body);
   font-size: 15px;
