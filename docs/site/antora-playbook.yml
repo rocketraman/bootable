@@ -65,6 +65,9 @@ ui:
     contents: ./supplemental-ui/css/tokens.css
   - path: css/header.css
     contents: ./supplemental-ui/css/header.css
+  # the sidebar, on the docs pages and the API reference's
+  - path: css/nav.css
+    contents: ./supplemental-ui/css/nav.css
   - path: css/bootable.css
     contents: ./supplemental-ui/css/bootable.css
   # the search results, in place of the Lunr extension's own stylesheet, which its script loads

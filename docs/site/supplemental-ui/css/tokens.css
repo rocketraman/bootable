@@ -73,6 +73,8 @@
   --hl-variable: #e45649;
 
   --header-height: 60px;
+  /* the widest the header's and the page's contents get; wider, they're centered */
+  --page-width: 1440px;
   --nav-width: 272px;
   --toc-width: 220px;
   --content-width: 780px;
