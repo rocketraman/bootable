@@ -192,7 +192,7 @@ class HealthLifecycleController(
     if (state == LifecycleState.Starting) state = LifecycleState.Running
   }
 
-  override fun appShutdown(serviceContext: ServiceContext, maxShutdownTime: Long, exitProcess: (exitCode: Int) -> Unit) {
+  override fun appShutdown(serviceContext: ServiceContext, maxShutdownTime: Duration, exitProcess: (exitCode: Int) -> Unit) {
     val wasRunning = state == LifecycleState.Running
     state = LifecycleState.Stopping
     if (wasRunning && config.drainDelay.isPositive()) {
