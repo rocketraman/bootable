@@ -152,12 +152,12 @@ data class HealthReadyReport(
  * When shutdown begins, readiness goes down, and then, if the application was running, HealthLifecycleController waits
  * for the [ReadinessConfig.drainDelay] before the services stop, so that load balancers stop routing to it first.
  *
- * Add it to the application's lifecycle controllers, and serve it, e.g. with `KtorHealth` from
- * `boot-server-http-ktor`:
+ * One with no checks is among the [defaultLifecycleControllers]; replace it with [withHealthLifecycleController] to
+ * give it checks, and serve it, e.g. with `KtorHealth` from `boot-server-http-ktor`:
  *
  * ```
  * val health = HealthLifecycleController(setOf(JdbcHealthCheck(dataSource)), readinessConfig(binder))
- * Bootable(services, defaultLifecycleControllers() + health)
+ * Bootable(services, defaultLifecycleControllers().withHealthLifecycleController(health))
  * ```
  *
  * Kodein's `bootableModule` and Metro's `BootableDefaultBindings` add it for you, with the checks of the
@@ -224,3 +224,10 @@ class HealthLifecycleController(
     private val log = logger()
   }
 }
+
+/**
+ * These lifecycle controllers, with [health] in place of any [HealthLifecycleController] among them, such as the one of
+ * the [defaultLifecycleControllers]: an application has one.
+ */
+fun Set<LifecycleController>.withHealthLifecycleController(health: HealthLifecycleController): Set<LifecycleController> =
+  filterNot { it is HealthLifecycleController }.toSet() + health

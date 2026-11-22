@@ -231,7 +231,14 @@ class Bootable(
 
 /**
  * Bootable's default lifecycle controllers: [AppStartStopLifecycleController] (start services on boot, stop them
- * on shutdown) and [StopSignalHandlerLifecycleController] (clean shutdown on HUP/INT/TERM).
+ * on shutdown), [StopSignalHandlerLifecycleController] (clean shutdown on HUP/INT/TERM), and a
+ * [HealthLifecycleController] with no checks (the application's liveness and readiness). Replace it with
+ * [withHealthLifecycleController] to give it readiness checks or a drain delay, and to serve it:
+ *
+ * ```
+ * val health = HealthLifecycleController(setOf(JdbcHealthCheck(dataSource)), readinessConfig(binder))
+ * Bootable(services, defaultLifecycleControllers().withHealthLifecycleController(health))
+ * ```
  *
  * Pass a different set to the [Bootable] you build in [boot] to run a custom lifecycle — for example
  * starting/stopping services on command from an RPC or web request rather than at boot.
@@ -239,6 +246,7 @@ class Bootable(
 fun defaultLifecycleControllers(): Set<LifecycleController> = setOf(
   AppStartStopLifecycleController(),
   StopSignalHandlerLifecycleController(),
+  HealthLifecycleController(),
 )
 
 /**

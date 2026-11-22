@@ -174,12 +174,12 @@ A check runs on the thread asking for readiness, so it must bound its own wait.
 `boot-db-jdbc` provides `JdbcHealthCheck`, which takes a connection from the pool and checks it is valid.
 It is opt-in: readiness that depends on a shared database takes every instance out of rotation at once when the database is down, turning failing requests into refused ones, which is what you want only when the application can do nothing useful without it.
 
-With vanilla wiring, construct `HealthLifecycleController` and add it to the lifecycle controllers:
+With vanilla wiring, `defaultLifecycleControllers()` includes a `HealthLifecycleController` with no checks; to give it checks or a drain delay, and to serve it, construct one and put it in that one's place with `withHealthLifecycleController`:
 
 [source,kotlin]
 ----
 val health = HealthLifecycleController(setOf(JdbcHealthCheck(database.dataSource)), readinessConfig(binder))
-Bootable(services, defaultLifecycleControllers() + health)
+Bootable(services, defaultLifecycleControllers().withHealthLifecycleController(health))
 ----
 
 With Kodein, `bootableModule` binds `HealthLifecycleController`, adds it to the lifecycle controllers, and opens a `Set<HealthCheck>`; import `jdbcHealthCheckModule` for the JDBC check.
@@ -904,7 +904,7 @@ The essentials, regardless of wiring:
 
 * Application components that have a lifecycle implement `AppService` or `AdvancedAppService`.
 * You assemble a `Set<AppService>` and a `Set<LifecycleController>`, and hand them to the `boot` function, which runs them. With vanilla wiring that is just `boot { Bootable(setOf(MyService(...))) }` — `lifecycleControllers` defaults to `defaultLifecycleControllers()`.
-* `defaultLifecycleControllers()` provides the built-in start/stop and signal-handling controllers. To run a custom lifecycle — e.g. starting/stopping services on command from an RPC or web request rather than at boot — pass your own controllers instead.
+* `defaultLifecycleControllers()` provides the built-in start/stop, signal-handling, and health controllers. To run a custom lifecycle — e.g. starting/stopping services on command from an RPC or web request rather than at boot — pass your own controllers instead.
 
 To use a DI framework, depend on the `-kodein` or `-metro` artifact of each module you use (e.g. `boot-kodein`, `boot-config-hoplite-kodein`, `boot-env-kodein`, or the `-metro` equivalents) and let it assemble the sets:
 

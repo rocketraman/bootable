@@ -206,4 +206,17 @@ val BootableTest by testSuite {
     assert(exitCode == 5)
     assert(events == listOf("around{", "around(", "start pool", ")around", "}around", "stop pool"))
   }
+
+  test("the default lifecycle controllers include a health controller, which another replaces") {
+    val defaults = defaultLifecycleControllers()
+    assert(defaults.filterIsInstance<HealthLifecycleController>().size == 1)
+
+    val health = HealthLifecycleController()
+    val controllers = defaults.withHealthLifecycleController(health)
+    assert(controllers.filterIsInstance<HealthLifecycleController>() == listOf(health))
+    // the others are kept
+    assert(controllers - health == defaults.filterNot { it is HealthLifecycleController }.toSet())
+    // and a set without one gains it
+    assert(emptySet<LifecycleController>().withHealthLifecycleController(health) == setOf(health))
+  }
 }

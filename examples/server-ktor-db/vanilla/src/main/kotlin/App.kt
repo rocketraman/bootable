@@ -6,6 +6,7 @@ import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.boot.defaultLifecycleControllers
 import com.github.rocketraman.bootable.boot.buildInfo
 import com.github.rocketraman.bootable.boot.readinessConfig
+import com.github.rocketraman.bootable.boot.withHealthLifecycleController
 import com.github.rocketraman.bootable.client.http.ktor.CioClientEngine
 import com.github.rocketraman.bootable.client.http.ktor.HttpClientTelemetry
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientService
@@ -139,7 +140,8 @@ class EntriesApp(binder: ConfigBinder) {
     )
     // the start is one trace, with a span for each service's start, and the queries of the migrations and the sample
     // entries within those, rather than a trace each
-    lifecycleControllers = defaultLifecycleControllers() + ServiceStartTracing(telemetry.openTelemetry) + health
+    lifecycleControllers =
+      defaultLifecycleControllers().withHealthLifecycleController(health) + ServiceStartTracing(telemetry.openTelemetry)
   }
 }
 

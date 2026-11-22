@@ -10,7 +10,7 @@ import kotlin.reflect.KClass
 
 /**
  * Provides the [Bootable] runtime and the default lifecycle controllers
- * ([AppStartStopLifecycleController], [StopSignalHandlerLifecycleController]).
+ * ([AppStartStopLifecycleController], [StopSignalHandlerLifecycleController], [HealthLifecycleController]).
  *
  * Contributed to [BootScope], so a magic-mode graph (`additionalScopes = [BootScope::class]`) picks it up with
  * no boilerplate. To run a custom lifecycle, don't include this container — provide your own
