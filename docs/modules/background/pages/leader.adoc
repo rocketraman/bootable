@@ -113,7 +113,7 @@ http.client.named.kubernetes {
 ----
 <1> Trusts another CA's certificates in place of the service account's `ca.crt`, such as for an API server outside the cluster.
 
-The Kodein, Metro, and Inara flavours contribute the default; with vanilla wiring, pass `kubernetesClientDefaults(config)` to `KtorClientService`, as <<wire>> shows.
+The Kodein, Koin, Metro, and Inara flavours contribute the default; with vanilla wiring, pass `kubernetesClientDefaults(config)` to `KtorClientService`, as <<wire>> shows.
 
 The election is in the same phase as the clients, after their `HttpClientMilestones.ClientsReady` milestone, so it stops, releasing the Lease, before they close.
 
@@ -213,6 +213,15 @@ Import `kubernetesLeaderElectionModule`, which binds the `LeaderElection` and ad
 [source,kotlin]
 ----
 include::ROOT:example$kodein/background/Leader.kt[tag=wire]
+----
+
+Koin::
++
+Include `kubernetesLeaderElectionModule()`, which defines the `LeaderElection` and adds the election to the app services, with `ktorClientModule()` and an engine:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/background/Leader.kt[tag=wire]
 ----
 
 Metro::

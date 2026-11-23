@@ -13,10 +13,11 @@ class Bootable(
 )
 ----
 
-*How you assemble those two sets is entirely your choice.* This document covers the three wiring styles Bootable
-documents and ships helpers for — plain Kotlin, Kodein-DI, and Metro — but nothing stops you using any other
-mechanism (a service loader, Guice, Koin, …) or none at all. There is one runnable example project per style
-under `examples/` (`wiring-vanilla`, `wiring-kodein`, `wiring-metro`); copy the one that matches your choice.
+*How you assemble those two sets is entirely your choice.* This document covers the four wiring styles Bootable
+documents and ships helpers for — plain Kotlin, Kodein-DI, Koin, and Metro — but nothing stops you using any other
+mechanism (a service loader, Guice, …) or none at all. There is one runnable example project per style under
+`examples/` (`wiring-vanilla`, `wiring-kodein`, `wiring-koin`, `wiring-metro`); copy the one that matches your
+choice.
 Experimental helpers for a fourth, Inara, are described in <<inara-experimental>>, with its example in `wiring-inara`.
 
 The entry point is the same in every style:
@@ -36,9 +37,9 @@ It calls `Bootable.run()`, a suspending function, which starts the services, wai
 Services start and stop in suspending functions, and a service with background work launches it in the `CoroutineScope` its `start(scope)` gets, a child of the application's, so nothing a service starts outlives the application (see link:coroutine-lifecycle.adoc[A coroutine lifecycle]).
 
 `startOrder` and `tiebreaker` decide the order the services start in (see link:service-ordering.adoc[Service
-ordering]), and are optional too. With Kodein, `bootableModule` uses a `StartOrder` or `StartOrder.Tiebreaker`
-binding if there is one; with Metro, `BootableDefaultBindings` does the same, as optional bindings. Without a
-`StartOrder.Tiebreaker` binding, both read it from the `boot.service.order` config section (`ServiceOrderConfig`) if
+ordering]), and are optional too. With Kodein or Koin, `bootableModule` (Koin: `bootableModule()`) uses a `StartOrder` or
+`StartOrder.Tiebreaker` binding if there is one; with Metro, `BootableDefaultBindings` does the same, as optional
+bindings. Without a `StartOrder.Tiebreaker` binding, each reads it from the `boot.service.order` config section (`ServiceOrderConfig`) if
 there is a `ConfigBinder`; with vanilla wiring, pass `tiebreaker = serviceOrderConfig(binder).tiebreaker`.
 
 == Choosing a wiring style
@@ -51,9 +52,13 @@ there is a `ConfigBinder`; with vanilla wiring, pass `tiebreaker = serviceOrderC
 | Small or single-module apps, or anyone who dislikes DI frameworks. You list your services explicitly. No extra
   dependencies, no annotations, no compiler plugin; works on any Kotlin version Bootable supports.
 
-| *Kodein-DI* (runtime)
+| *Kodein-DI* (runtime, deprecated)
 | You want multibinding aggregation across modules without a compiler plugin. Kodein is an ordinary jar; wiring
-  is runtime code.
+  is runtime code. Deprecated: its authors are sunsetting it (see <<kodein-di>>).
+
+| *Koin* (runtime)
+| You want a runtime DSL like Kodein's, from a maintained library. Koin is an ordinary jar; wiring is runtime
+  code. Koin has no set multibindings, so Bootable collects every definition of a type instead.
 
 | *Metro* (compile-time)
 | You want the wiring validated by the compiler (missing/duplicate bindings are build errors) with no runtime
@@ -65,7 +70,7 @@ there is a `ConfigBinder`; with vanilla wiring, pass `tiebreaker = serviceOrderC
 |===
 
 Vanilla needs nothing special — the plain `boot` artifact carries no DI framework. For a DI style, depend on a
-module's `-kodein` or `-metro` *artifact* instead of its plain coordinate. Each DI artifact bundles that
+module's `-kodein`, `-koin`, or `-metro` *artifact* instead of its plain coordinate. Each DI artifact bundles that
 module's bindings, pulls in the DI framework, and depends on the plain artifact — so one ordinary dependency per
 module gives you everything, with no attribute, capability, or Gradle plugin to configure, and it resolves
 identically from Gradle and Maven:
@@ -77,6 +82,10 @@ dependencies {
   implementation("com.github.rocketraman.bootable:boot-kodein:$v")
   implementation("com.github.rocketraman.bootable:boot-config-hoplite-kodein:$v")
 
+  // ...or Koin style — the -koin coordinate of each module:
+  implementation("com.github.rocketraman.bootable:boot-koin:$v")
+  implementation("com.github.rocketraman.bootable:boot-config-hoplite-koin:$v")
+
   // ...or Metro style — the -metro coordinate of each module (also apply Metro's Gradle plugin + Kotlin 2.3+):
   implementation("com.github.rocketraman.bootable:boot-metro:$v")
   implementation("com.github.rocketraman.bootable:boot-config-hoplite-metro:$v")
@@ -86,7 +95,7 @@ dependencies {
 }
 ----
 
-A module ships a `-metro`/`-kodein` artifact only when it has bindings for that framework; otherwise depend on
+A module ships a `-kodein`/`-koin`/`-metro` artifact only when it has bindings for that framework; otherwise depend on
 its plain coordinate. Modules you don't wire through DI (e.g. `boot-logging-log4j2`) are always the plain
 coordinate.
 
@@ -108,7 +117,12 @@ fun main() = boot {
 Tests need no DI at all — construct services directly. The trade-off is that in a multi-module app the
 composition root lists every service by hand; if you want that list assembled for you, use a DI style below.
 
+[#kodein-di]
 == Kodein-DI
+
+WARNING: Kodein is deprecated: its authors are https://kodein-koders.com/en/blog/inara-inject-your-dependencies-at-compile-time/[sunsetting it].
+Bootable's Kodein bindings are deprecated too, with a compiler warning where you use one.
+Consider <<inara-experimental,Inara>>, its compile-time successor, or, to stick with a style more like Kodein's, <<koin>>.
 
 Import Bootable's Kodein modules, contribute your services with Kodein's multibindings, and hand the resolved
 `Bootable` to `boot`:
@@ -129,6 +143,58 @@ fun main() = boot {
 `bootableModule`, `hopliteConfigModule`, `environmentModule` and the `bindAppService` / `bindLifecycleController`
 helpers come from the modules' `-kodein` artifacts (`boot-kodein`, `boot-config-hoplite-kodein`,
 `boot-env-kodein`).
+
+[#koin]
+== Koin
+
+https://insert-koin.io/[Koin] is a runtime DI with a DSL much like Kodein's.
+Include Bootable's Koin modules in your Koin application, define your services, and hand the resolved `Bootable` to `boot`:
+
+[source,kotlin]
+----
+fun main() = boot {
+  koinApplication {
+    modules(
+      bootableModule(),      // Bootable + default controllers, over every AppService and LifecycleController
+      hopliteConfigModule(), // defines ConfigBinder (boot-config-hoplite:koin)
+      module {
+        single { get<ConfigBinder>().config<ServerConfig>("server") }
+        single<AppService>(named<ExampleServer>()) { ExampleServer(get(), get()) }
+      },
+    )
+  }.koin.get<Bootable>()
+}
+----
+
+Each Bootable module's `-koin` artifact has a Koin module named as its Kodein module is, such as `bootableModule()`, `jdbcDataSourceModule()`, `openTelemetryModule()`, or `ktorClientModule()`, in the module's package plus `.koin`, such as `com.github.rocketraman.bootable.boot.koin.bootableModule()`.
+Each is a function, as Koin keeps a module's single instances in the module itself: each call is a new module, so each Koin application gets instances of its own.
+The application uses its own Koin application, from `koinApplication`, rather than Koin's global one.
+
+=== Sets, without multibindings
+
+Koin has no set multibindings.
+Where Kodein opens a `Set<AppService>` for other modules to add to, `bootableModule()` collects every `AppService` definition with Koin's `getAll`, and likewise every `LifecycleController` and `HealthCheck`.
+The other modules' sets work the same way: `jdbcDataSourceModule()` collects every `DataSourceWrapper`, `openTelemetryModule()` every `OpenTelemetryCustomizer`, `exposedDatabaseModule()` every `Table`, and so on.
+
+A definition is identified by its type and its qualifier, so a second unqualified `single<AppService>` overrides the first.
+Give each definition that adds to a type a qualifier of its own, so it adds rather than overrides:
+
+[source,kotlin]
+----
+single<AppService>(named("greeting")) { GreetingService() }
+single<Table>(named<EntryTable>()) { EntryTable }
+----
+
+Bootable's own Koin modules do the same, with a qualifier for each of their contributions.
+Since `getAll` finds every definition when the graph is resolved, the order of the modules in `modules(...)` doesn't matter, unlike Kodein's `inBindSet`, which needs the set opened first.
+
+=== Optional definitions
+
+Where Kodein uses a binding only if there is one, the Koin module uses `getOrNull`: a `kotlin.time.Clock`, a `StartOrder`, a `LeaderElection`, an `OpenTelemetry`, or tracing options, if the application defines one.
+
+=== Testing with Koin
+
+Each `koinApplication { ... }` is a graph of its own, with instances of its own from Bootable's module functions, so a test builds the application's modules, with a definition of its own in place of one, such as `single<Clock> { TestClock() }`, and resolves what it checks, such as `koin.getAll<AppService>()`, without starting anything.
 
 == Metro
 
@@ -234,7 +300,7 @@ substituted, still at compile time. See ``examples/server-ktor``'s tests.
 == Inara (experimental)
 
 https://kosi-libs.org/inara/[Inara] is the compile-time successor to Kodein-DI, from the same authors, who are https://kodein-koders.com/en/blog/inara-inject-your-dependencies-at-compile-time/[sunsetting Kodein] in its favour.
-Bootable's Inara support is experimental, as is Inara itself (0.3.0 at the time of writing): its shape may change, and if it settles, the Kodein bindings will be deprecated in its favour.
+Bootable's Inara support is experimental, as is Inara itself (0.3.0 at the time of writing): its shape may change.
 
 An Inara module is an interface whose members are its dependencies.
 Inara's KSP processor generates a builder for each interface annotated `@DIModule`, taking one `Binding` per member, and a member without a default needs one, so a missing binding is a compile error.

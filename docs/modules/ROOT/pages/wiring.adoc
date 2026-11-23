@@ -1,7 +1,7 @@
 = Choosing a wiring style
 
 Bootable's core embeds no DI framework.
-Each module ships its plain artifact, and, where it has bindings for them, `-kodein`, `-metro`, and `-inara` artifacts too.
+Each module ships its plain artifact, and, where it has bindings for them, `-kodein`, `-koin`, `-metro`, and `-inara` artifacts too.
 Depend on the flavour you wire with.
 
 [#vanilla.wiring-style]
@@ -13,12 +13,22 @@ No extra dependencies, no annotations, no compiler plugin.
 --
 
 [#kodein.wiring-style]
-.Kodein-DI (runtime)
+.Kodein-DI (runtime, deprecated)
 --
 You want multibinding aggregation across modules without a compiler plugin.
 Kodein is an ordinary jar; wiring is runtime code.
-Kodein is deprecated upstream, replaced by Inara.
-For a similar runtime solution to Kodein with a clean DSL, consider Koin (not currently supported upstream by Bootable).
+
+WARNING: Kodein is deprecated: its authors are sunsetting it.
+Consider Inara, its compile-time successor, or, to stick with a style more like Kodein's, Koin.
+Bootable's Kodein bindings are deprecated too.
+--
+
+[#koin.wiring-style]
+.Koin (runtime)
+--
+You want a runtime DSL like Kodein's, from an actively maintained library.
+Koin is an ordinary jar; wiring is runtime code.
+Koin has no set multibindings: Bootable collects every definition of a type, such as each `AppService`, and you give each of yours a qualifier of its own.
 --
 
 [#metro.wiring-style]

@@ -63,6 +63,15 @@ Import `environmentModule`, which binds the `EnvironmentConfig` and adds the ini
 include::ROOT:example$kodein/environment/Wiring.kt[tag=wire]
 ----
 
+Koin::
++
+Include `environmentModule()`, which defines the `EnvironmentConfig` and adds the initializer to the lifecycle controllers:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/environment/Wiring.kt[tag=wire]
+----
+
 Metro::
 +
 `boot-env-metro` contributes the `EnvironmentConfig` and the initializer on their own: a graph that discovers Bootable's bindings, with `additionalScopes = [BootScope::class]`, needs nothing more.

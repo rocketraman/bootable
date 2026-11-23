@@ -24,7 +24,7 @@ xref:scheduler.adoc[`boot-scheduler-db`] runs them with https://github.com/kagka
 Each tool is optional, and its own dependency.
 `boot-leader-common`, the `LeaderElection` API, comes with `boot-periodic` and `boot-leader-k8s`.
 
-Every module but `boot-leader-common` comes in a `-kodein` and a `-metro` flavour too, for those wiring styles.
+Every module but `boot-leader-common` comes in `-kodein`, `-koin`, and `-metro` flavours too, for those wiring styles.
 
 modules::background[]
 
@@ -39,7 +39,7 @@ install::[boot-periodic, boot-leader-k8s, boot-client-http-ktor-cio, boot-schedu
 === With telemetry
 
 Turn on the *Telemetry* switch, at the end of the tabs above, for the install with telemetry: it adds `boot-telemetry-otel`, the application's OpenTelemetry SDK.
-With Kodein, Metro, or Inara, the loops and the scheduler then trace each run and each execution on their own, through its `OpenTelemetry`; with vanilla wiring, you pass them the tracing.
+With Kodein, Koin, Metro, or Inara, the loops and the scheduler then trace each run and each execution on their own, through its `OpenTelemetry`; with vanilla wiring, you pass them the tracing.
 It turns on the other modules' telemetry too: the pool's metrics, a span for each statement, and the HTTP client's calls to the Kubernetes API server.
 
 xref:periodic.adoc#telemetry[Periodic work] and xref:scheduler.adoc#telemetry[Scheduled tasks] show how to wire the tracing, and how to change or turn it off.
@@ -48,7 +48,7 @@ xref:periodic.adoc#telemetry[Periodic work] and xref:scheduler.adoc#telemetry[Sc
 
 `examples/server-ktor-db` has a loop that logs the number of entries, on the leader only, and a recurring db-scheduler task that logs a digest of them, each traced.
 Its config skips the election, with `leader.kubernetes.assumeLeader`, so it leads when run locally.
-It is wired each of the four ways; from the repository root, run yours:
+It is wired each of the five ways; from the repository root, run yours:
 
 [tabs,sync-group-id=di]
 ======
@@ -64,6 +64,13 @@ Kodein::
 [source,shell]
 ----
 ./gradlew :examples:server-ktor-db:kodein:run
+----
+
+Koin::
++
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:koin:run
 ----
 
 Metro::

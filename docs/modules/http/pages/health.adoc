@@ -68,6 +68,7 @@ That is what you want only when the application can do nothing useful without it
 
 * With vanilla wiring, add `JdbcHealthCheck(dataSource)` to the checks, as <<wire,below>>.
 * With Kodein, import `jdbcHealthCheckModule`, alongside `jdbcDataSourceModule`.
+* With Koin, include `jdbcHealthCheckModule()`, alongside `jdbcDataSourceModule()`.
 * With Metro, name `JdbcHealthCheckBindings` in the graph's `bindingContainers`: `@DependencyGraph(AppScope::class, additionalScopes = [BootScope::class], bindingContainers = [JdbcHealthCheckBindings::class])`.
 
 See xref:database:index.adoc[] for the pool.
@@ -160,7 +161,7 @@ The others are the routes' paths, `livePath`, `readyPath`, and `infoPath`, by de
 
 With `hostPort` set, `installHealth` adds no routes to the application's server.
 They are served instead by a listener of their own, a `HealthKtorService`, on a port that only the platform's probes reach.
-With Kodein, `ktorHealthModule` adds it to the application's services, with Metro, `boot-server-http-ktor-metro` does, and with Inara, `ktorHealthModule()` does, on the application's `KtorServerEngine`, which an engine module's flavor provides; see xref:server.adoc#listener-engine[the engine of the listeners].
+With Kodein or Koin, `ktorHealthModule` adds it to the application's services, with Metro, `boot-server-http-ktor-metro` does, and with Inara, `ktorHealthModule()` does, on the application's `KtorServerEngine`, which an engine module's flavor provides; see xref:server.adoc#listener-engine[the engine of the listeners].
 With vanilla wiring, add `KtorHealth.listener(engine)` to the application's services yourself, such as `ktorHealth.listener(CIO)`.
 Without `hostPort`, the listener is a service that does nothing, and needs no engine, so it can be added either way.
 
@@ -233,6 +234,17 @@ Add checks to the set; `ktorHealthModule` provides `KtorHealth`, over both, as o
 include::ROOT:example$kodein/http/Health.kt[tag=wire,indent=0]
 ----
 
+Koin::
++
+`bootableModule()` defines `HealthLifecycleController`, with every `HealthCheck` definition as its checks, and `health.readiness` when there is a `ConfigBinder`, and adds it to the lifecycle controllers.
+It defines `BuildInfo` too, from `build` when there is a `ConfigBinder`.
+Define each check with a qualifier of its own; `ktorHealthModule()` provides `KtorHealth`, over both, as on xref:server.adoc[the server page]:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/http/Health.kt[tag=wire,indent=0]
+----
+
 Metro::
 +
 `BootableDefaultBindings`, from `boot-metro`, provides `HealthLifecycleController`, with the checks of the graph's `Set<HealthCheck>`, and `health.readiness` when the graph has a `ConfigBinder`, and adds it to the lifecycle controllers.
@@ -256,7 +268,7 @@ include::ROOT:example$inara/http/Health.kt[tag=wire,indent=0]
 
 == Example
 
-`examples/server-ktor-db` serves both probes, with readiness down while its database doesn't answer, and the build info, in each of the four wiring styles; see xref:examples:server-ktor-db.adoc[].
+`examples/server-ktor-db` serves both probes, with readiness down while its database doesn't answer, and the build info, in each of the five wiring styles; see xref:examples:server-ktor-db.adoc[].
 Its config shows `drainDelay`, and `health.ktor.hostPort` for a listener of their own.
 
 == Reference

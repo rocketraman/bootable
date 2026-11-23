@@ -4,6 +4,6 @@
 Every module Bootable publishes, by function.
 Within a function, each group's heading says how to pick from it: choose one, or optional, both of which are dependencies you add, or comes with another module, which you don't add yourself.
 A module marked `(-otel)` has an `-otel` variant: the same module, with its telemetry added, which you use in its place.
-A module with `-kodein`, `-metro`, or `-inara` flavours is installed in the flavour of your wiring style; see xref:wiring.adoc[].
+A module with `-kodein`, `-koin`, `-metro`, or `-inara` flavours is installed in the flavour of your wiring style; see xref:wiring.adoc[].
 
 modules::all[]

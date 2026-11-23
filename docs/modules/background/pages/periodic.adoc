@@ -119,6 +119,18 @@ include::ROOT:example$kodein/background/Periodic.kt[tag=wire]
 Its gate is `PeriodicGate.leader` of the `LeaderElection` binding, if there is one, such as ``kubernetesLeaderElectionModule``'s; otherwise every instance runs the loops.
 Its clock is the `kotlin.time.Clock` binding, if there is one, and its interceptors are those of the `Set<PeriodicRunInterceptor>` it opens.
 
+Koin::
++
+Include `periodicModule()`, which defines `PeriodicServices`, and add each loop to the app services, with a qualifier of its own:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/background/Periodic.kt[tag=wire]
+----
++
+Its gate is `PeriodicGate.leader` of the `LeaderElection` definition, if there is one, such as ``kubernetesLeaderElectionModule()``'s; otherwise every instance runs the loops.
+Its clock is the `kotlin.time.Clock` definition, if there is one, and its interceptors are every `PeriodicRunInterceptor` definition.
+
 Metro::
 +
 `boot-periodic-metro` contributes `PeriodicServices`; contribute each loop to the app-service set:
@@ -174,6 +186,17 @@ include::ROOT:example$kodein/background/Tracing.kt[tag=periodic]
 +
 The tracing is the outermost interceptor, around those of the `Set<PeriodicRunInterceptor>`.
 
+Koin::
++
+`periodicModule()` traces each run whenever there is an `OpenTelemetry` definition, such as ``openTelemetryModule()``'s, and not at all when there is none:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/background/Tracing.kt[tag=periodic,indent=0]
+----
++
+The tracing is the outermost interceptor, around those of the `PeriodicRunInterceptor` definitions.
+
 Metro::
 +
 `boot-periodic-metro` traces each run whenever the graph has an `OpenTelemetry`, such as ``boot-telemetry-otel-metro``'s, and not at all when it has none: there is nothing to wire.
@@ -193,7 +216,7 @@ include::ROOT:example$inara/background/Tracing.kt[tag=periodic]
 
 Each run's trace is sampled as the SDK's sampler decides, such as at the configured `sampleRatio`.
 For a loop that runs rarely enough that every run's trace is worth keeping, sample them all with `Sample.Always`.
-With Kodein or Metro, a `PeriodicTracingOptions` binding sets that, and with Inara, ``periodicModule``'s `tracingOptions`; with `enabled = false`, it turns the tracing off:
+With Kodein or Metro, a `PeriodicTracingOptions` binding sets that, with Koin, a `PeriodicTracingOptions` definition, and with Inara, ``periodicModule``'s `tracingOptions`; with `enabled = false`, it turns the tracing off:
 
 [tabs,sync-group-id=di]
 ======
@@ -209,6 +232,13 @@ Kodein::
 [source,kotlin]
 ----
 include::ROOT:example$kodein/background/Tracing.kt[tag=periodic-options]
+----
+
+Koin::
++
+[source,kotlin]
+----
+include::ROOT:example$koin/background/Tracing.kt[tag=periodic-options,indent=0]
 ----
 
 Metro::
@@ -230,7 +260,7 @@ include::ROOT:example$inara/background/Tracing.kt[tag=periodic-options]
 ----
 ======
 
-The setting applies to every loop that shares the interceptor: with Kodein, Metro, or Inara, every loop created from `PeriodicServices`.
+The setting applies to every loop that shares the interceptor: with Kodein, Koin, Metro, or Inara, every loop created from `PeriodicServices`.
 
 == Reference
 

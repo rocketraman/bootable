@@ -28,6 +28,15 @@ Kodein::
 include::ROOT:example$kodein/concepts/Lifecycle.kt[tag=wire]
 ----
 
+Koin::
++
+`bootableModule()` defines `Bootable`, over every `AppService` and `LifecycleController` definition; give each of yours a qualifier of its own:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/concepts/Lifecycle.kt[tag=wire]
+----
+
 Metro::
 +
 A service contributed into the `Set<AppService>` is in the application; scope it with `@SingleIn`, so the instance that runs is the only one:

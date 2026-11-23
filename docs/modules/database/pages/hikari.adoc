@@ -26,7 +26,7 @@ db.pool {
 
 The others include `minimumIdle`, `idleTimeout`, `maxLifetime`, `keepaliveTime`, `validationTimeout`, `connectionInitSql`, `transactionIsolation`, and `registerMbeans`: see kdoc:boot-db-pool-hikari:com.github.rocketraman.bootable.db.jdbc.HikariPoolConfig[all the settings].
 
-For a HikariCP setting `HikariPoolConfig` doesn't cover, add a `HikariConfigCustomizer` to its set binding (Kodein `inBindSet`, Metro `@IntoSet`), or, with vanilla wiring, pass one to `HikariConnectionPoolFactory`.
+For a HikariCP setting `HikariPoolConfig` doesn't cover, add a `HikariConfigCustomizer` to its set binding (Kodein `inBindSet`, Koin a definition with a qualifier of its own, Metro `@IntoSet`), or, with vanilla wiring, pass one to `HikariConnectionPoolFactory`.
 It runs after the typed settings are applied.
 
 [#metrics]

@@ -6,7 +6,7 @@ It handles starting, stopping, lifecycle management, logging, configuration, and
 
 Bootable's core is plain Kotlin and embeds *no* dependency-injection framework.
 Its runtime takes two sets, your application services and your lifecycle controllers, and runs them.
-How you assemble those sets is your choice: wire them by hand, use Bootable's optional Kodein, Metro, or Inara bindings, or bring your own DI.
+How you assemble those sets is your choice: wire them by hand, use Bootable's optional Kodein, Koin, Metro, or Inara bindings, or bring your own DI.
 
 Coming from Spring Boot? See xref:comparison:spring-boot.adoc[] for how the two differ, and when each fits.
 
@@ -17,7 +17,8 @@ Every page on this site shows its code in the style you pick, and remembers it.
 
 [.cards]
 * xref:wiring.adoc[Vanilla] Plain Kotlin, no DI framework.
-* xref:wiring.adoc[Kodein] A runtime DI with a clean DSL.
+* xref:wiring.adoc[Kodein] A runtime DI with a clean DSL; deprecated: consider Inara or Koin.
+* xref:wiring.adoc[Koin] A runtime DI with a DSL like Kodein's.
 * xref:wiring.adoc[Metro] A compile-time DI that checks the graph as it builds.
 * xref:wiring.adoc[Inara] Kodein's compile-time successor, checked by KSP; experimental.
 

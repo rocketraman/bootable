@@ -9,7 +9,7 @@
 //   install::[<module>, ...]   the dependencies to add, in a tab for each wiring style
 //   install::<configuration>[<module>, ...]   the same, in another configuration, such as testImplementation
 //
-// A module's -kodein, -metro, and -inara flavours are those the build publishes: the build gives a module a flavour
+// A module's -kodein, -koin, -metro, and -inara flavours are those the build publishes: the build gives a module a flavour
 // when it has that flavour's sources, such as src/kodein/kotlin, so this checks the same. A module without a
 // flavour is added under its own name in that wiring style's tab.
 //
@@ -23,6 +23,7 @@ const yaml = require('js-yaml')
 const STYLES = [
   { tab: 'Vanilla' },
   { tab: 'Kodein', flavour: 'kodein' },
+  { tab: 'Koin', flavour: 'koin' },
   { tab: 'Metro', flavour: 'metro', plugin: 'plugins {\n  id("dev.zacsweers.metro") version "{metro-version}"\n}\n\n' },
   {
     tab: 'Inara',

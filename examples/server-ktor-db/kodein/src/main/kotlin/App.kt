@@ -1,3 +1,7 @@
+@file:Suppress("DEPRECATION")
+
+// Kodein is deprecated: see the inara app, or the koin app for a DSL like Kodein's.
+
 import com.github.rocketraman.bootable.boot.Bootable
 import com.github.rocketraman.bootable.boot.bindAppService
 import com.github.rocketraman.bootable.boot.boot

@@ -1,3 +1,7 @@
+@file:Suppress("DEPRECATION")
+
+// Kodein is deprecated: see the wiring-inara example, or the wiring-koin example for a DSL like Kodein's.
+
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.Bootable
 import com.github.rocketraman.bootable.boot.bindAppService

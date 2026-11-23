@@ -167,6 +167,15 @@ Import `ktorClientModule`, which binds the service, adds it to the app services,
 include::ROOT:example$kodein/http/Client.kt[tag=wire,indent=0]
 ----
 
+Koin::
++
+Include `ktorClientModule()`, which defines the service, adds it to the app services, and defines the default `HttpClient`, and define the engine:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/http/Client.kt[tag=wire,indent=0]
+----
+
 Metro::
 +
 `boot-client-http-ktor-metro` contributes the service, adds it to the app services, and provides the default `HttpClient`; provide the engine.
@@ -229,6 +238,15 @@ Add them to the sets `ktorClientModule` opens:
 include::ROOT:example$kodein/http/Client.kt[tag=options,indent=0]
 ----
 
+Koin::
++
+Define them, each with a qualifier of its own, for `ktorClientModule()` to collect:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/http/Client.kt[tag=options,indent=0]
+----
+
 Metro::
 +
 Contribute them into their sets:
@@ -272,7 +290,7 @@ telemetry.httpClient {
 <1> Records these request headers on each request's span, as `http.request.header.<name>`, so a trace can be found by a value the application sends.
 <2> Records these response headers, as `http.response.header.<name>`, such as the id a server gives a request, to match the span with the server's own logs.
 
-For an instrumentation setting the config doesn't cover, such as a span's name or extra attributes, add an `HttpClientTelemetryCustomizer` to its set binding (Kodein `inBindSet`, Metro `@IntoSet`), or, with vanilla wiring, pass one to `HttpClientTelemetry`.
+For an instrumentation setting the config doesn't cover, such as a span's name or extra attributes, add an `HttpClientTelemetryCustomizer` to its set binding (Kodein `inBindSet`, Koin a definition with a qualifier of its own, Metro `@IntoSet`), or, with vanilla wiring, pass one to `HttpClientTelemetry`.
 
 [tabs,sync-group-id=di]
 ======
@@ -292,6 +310,15 @@ Import `httpClientTelemetryModule` after `openTelemetryModule` and `ktorClientMo
 [source,kotlin]
 ----
 include::ROOT:example$kodein/http/Telemetry.kt[tag=client,indent=0]
+----
+
+Koin::
++
+Include `httpClientTelemetryModule()` with `openTelemetryModule()` and `ktorClientModule()`:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/http/Telemetry.kt[tag=client,indent=0]
 ----
 
 Metro::

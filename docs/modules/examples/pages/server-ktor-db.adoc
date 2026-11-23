@@ -1,11 +1,11 @@
 = Server with a database
-:description: A key/value store over HTTP, with a database, telemetry, an HTTP client, health probes, and background work, wired four ways.
+:description: A key/value store over HTTP, with a database, telemetry, an HTTP client, health probes, and background work, wired five ways.
 
 `server-ktor-db` is a Ktor server that stores named entries in a SQLite database, and traces and measures itself with OpenTelemetry.
 Its `+GET /relay/{name}+` calls the server back through a lifecycle-managed Ktor `HttpClient`, as a call to another service would be made.
 In the background, a periodic loop logs the entry count, on the leader only, and a db-scheduler task logs a digest of the entries.
 
-It is the example that puts most of Bootable's functions together, and it is wired each of the four ways: the server, repository, table, migrations, and config are shared, in `common`, and `vanilla`, `kodein`, `metro`, and `inara` are each a runnable application.
+It is the example that puts most of Bootable's functions together, and it is wired each of the five ways: the server, repository, table, migrations, and config are shared, in `common`, and `vanilla`, `kodein`, `koin`, `metro`, and `inara` are each a runnable application.
 `jib` builds the vanilla application into a container image, with its JVM AOT cache in it.
 
 == What it uses
@@ -62,6 +62,33 @@ fun appDI() = DI {
 
 fun main() = boot {
   appDI().direct.instance<Bootable>()
+}
+----
+
+Koin::
++
+`appKoin()`, in `koin/src/main/kotlin/App.kt`, includes each module's Koin module, and `entriesModule`, the application's own definitions, each with a qualifier of its own where it adds to the app services or the tables:
++
+[source,kotlin]
+----
+fun appKoin(): KoinApplication = koinApplication {
+  modules(
+    bootableModule(),
+    hopliteConfigModule(),
+    openTelemetryModule(),
+    // ... telemetry, server, health, and client modules
+    jdbcDataSourceModule(),
+    sqliteConfigModule(),
+    hikariPoolModule(),
+    flywayMigrationModule(),
+    exposedDatabaseModule(),
+    // ... leader election, periodic, and db-scheduler modules
+    entriesModule,
+  )
+}
+
+fun main() = boot {
+  appKoin().koin.get<Bootable>()
 }
 ----
 
@@ -138,6 +165,13 @@ Kodein::
 [source,shell]
 ----
 ./gradlew :examples:server-ktor-db:kodein:run
+----
+
+Koin::
++
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:koin:run
 ----
 
 Metro::
@@ -265,7 +299,7 @@ See xref:ROOT:aot-cache.adoc[] for how the cache is trained, and what it gains.
 
 [source,shell]
 ----
-./gradlew :examples:server-ktor-db:common:test :examples:server-ktor-db:vanilla:test :examples:server-ktor-db:kodein:test :examples:server-ktor-db:metro:test
+./gradlew :examples:server-ktor-db:common:test :examples:server-ktor-db:vanilla:test :examples:server-ktor-db:kodein:test :examples:server-ktor-db:koin:test :examples:server-ktor-db:metro:test
 ----
 
 `common` tests the routes against a real SQLite database, and each application tests its own wiring.
