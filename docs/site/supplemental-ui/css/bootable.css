@@ -163,6 +163,16 @@ article.doc {
   color: var(--text);
 }
 
+.edit-this-page a + a {
+  margin-left: 16px;
+}
+
+/* the page as Markdown: a document icon, in place of the pencil */
+.edit-this-page a.page-markdown::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z'/%3E%3Cpath d='M14 2v6h6'/%3E%3Cpath d='M8 13h8M8 17h5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z'/%3E%3Cpath d='M14 2v6h6'/%3E%3Cpath d='M8 13h8M8 17h5'/%3E%3C/svg%3E");
+}
+
 /* ---------------------------------------------------------------------------------------------------------------
  * Table of contents: "On this page"
  * ------------------------------------------------------------------------------------------------------------- */
@@ -1179,6 +1189,11 @@ aside.toc.sidebar {
   }
 
   .doc .anchor {
+    display: none;
+  }
+
+  /* the page as Markdown is for tools more than readers: leave the breadcrumbs the room */
+  .edit-this-page a.page-markdown {
     display: none;
   }
 

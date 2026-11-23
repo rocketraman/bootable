@@ -37,3 +37,8 @@ Every page on this site shows its code in the style you pick, and remembers it.
 == Examples
 
 Runnable applications that put these functions together; see xref:examples:index.adoc[].
+
+== For LLMs
+
+Each page is also published as Markdown, at its URL with `.md` appended, and link:llms.txt[llms.txt] indexes them, as https://llmstxt.org/[llmstxt.org] describes.
+link:llms-full.txt[llms-full.txt] has every page in one file.

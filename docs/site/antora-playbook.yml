@@ -1,5 +1,7 @@
 site:
   title: Bootable
+  # where GitHub Pages serves the site; llms.txt's links are absolute, from it (extensions/llms.js)
+  url: https://rocketraman.github.io/bootable
   start_page: bootable::index.adoc
 content:
   sources:
@@ -31,6 +33,13 @@ antora:
   - require: ./extensions/dokka.js
   # the module tables and install snippets, from docs/modules.yml
   - require: ./extensions/modules.js
+  # each page as Markdown, and llms.txt and llms-full.txt, for LLMs (https://llmstxt.org/)
+  - require: ./extensions/llms.js
+    changelog: https://github.com/rocketraman/bootable/blob/master/CHANGELOG.adoc
+    # after llms.txt's summary: how the pages show their code, so a reader knows what the labels mean
+    details: |
+      Each page's code is shown in each wiring style, each under its label: Vanilla (plain Kotlin, no DI framework), Kodein (deprecated), Koin, Metro, and Inara.
+      Each install snippet lists the dependencies for each wiring style, and, where a module has a telemetry variant, both the dependencies without telemetry and those with OpenTelemetry.
 asciidoc:
   extensions:
   - '@asciidoctor/tabs'
