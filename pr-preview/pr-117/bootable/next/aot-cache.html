@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Faster start: the JVM AOT cache :: Bootable</title>
+    <meta name="description" content="Start a Bootable application faster from a JVM AOT cache, trained by a Gradle task, in a Jib image, or in a Dagger pipeline.">
+    <meta name="generator" content="Antora 3.2.2">
+    <link rel="stylesheet" href="../../_/css/tokens.css">
+    <link rel="stylesheet" href="../../_/css/header.css">
+    <link rel="stylesheet" href="../../_/css/nav.css">
+    <link rel="stylesheet" href="../../_/css/bootable.css">
+<script>
+  (function () {
+    try { var theme = localStorage.getItem('bootable-theme') } catch (e) {}
+    if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme
+    // and whether install blocks show their telemetry variant (bootable.js), so the right one shows from the start
+    try { if (localStorage.getItem('bootable-install-telemetry') === 'on') document.documentElement.dataset.installTelemetry = 'on' } catch (e) {}
+  })()
+</script>
+<script defer src="../../_/js/vendor/tabs.js" data-sync-storage-key="bootable-tabs"></script>
+<script defer src="../../_/js/bootable.js"></script>
+<link rel="alternate" type="text/markdown" href="aot-cache.html.md">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <a class="brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><rect width="24" height="24" rx="6" fill="currentColor"/><path d="M12 5.5v6.2M8 8.1a5.6 5.6 0 1 0 8 0" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </span>
+      <span class="brand-name">Bootable</span>
+      <span class="brand-docs">Docs</span>
+    </a>
+    <div class="navbar-sections">
+      <a class="section-link is-current" href="index.html">Get started</a>
+      <a class="section-link" href="configuration/index.html">Functions</a>
+      <a class="section-link" href="examples/index.html">Examples</a>
+      <a class="section-link section-link-api" href="api/index.html">API reference</a>
+    </div>
+    <div class="navbar-search" id="search-field">
+      <svg class="navbar-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="search-input" type="text" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off">
+      <kbd class="navbar-search-key" title="Press / to search">/</kbd>
+    </div>
+    <div class="navbar-tools">
+      <label class="di-switch" title="The wiring style the code is shown in">
+        <span class="di-switch-label">Wiring</span>
+        <select id="di-switch">
+          <option>Vanilla</option>
+          <option>Kodein</option>
+          <option>Koin</option>
+          <option>Metro</option>
+          <option>Inara</option>
+        </select>
+      </label>
+      <button class="icon-button theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+        <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+      <a class="icon-button" href="https://github.com/rocketraman/bootable" aria-label="Bootable on GitHub" title="GitHub">
+        <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      </a>
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="bootable" data-version="next">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="index.html">Bootable</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Get started</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="index.html">Overview</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="wiring.html">Choosing a wiring style</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="modules.html">All modules</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="1">
+    <a class="nav-link" href="aot-cache.html">Faster start: AOT cache</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Concepts</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="concepts/index.html">Overview</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="concepts/philosophy.html">No magic</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="concepts/lifecycle.html">Lifecycle and services</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="concepts/start-order.html">Start order</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Functions</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="configuration/index.html">Configuration</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="environment/index.html">Environment</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="logging/index.html">Logging (Log4j2)</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <a class="nav-link" href="database/index.html">Database</a>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="database/drivers.html">Drivers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="database/hikari.html">Connection pool (HikariCP)</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="database/flyway.html">Migrations (Flyway)</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="database/exposed.html">ORM (Exposed)</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <a class="nav-link" href="http/index.html">Web / HTTP</a>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="http/server.html">Server (Ktor)</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="http/client.html">Client (Ktor)</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="http/health.html">Health</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <a class="nav-link" href="background/index.html">Background work</a>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="background/periodic.html">Periodic work</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="background/leader.html">Leader election</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="background/scheduler.html">Scheduled tasks (db-scheduler)</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <a class="nav-link" href="telemetry/index.html">Telemetry (OpenTelemetry)</a>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="telemetry/exporters.html">Exporters and integrations</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="testing/index.html">Testing</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Examples</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="examples/index.html">Overview</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="examples/wiring.html">Wiring styles</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="examples/server-ktor.html">Ktor server</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="examples/server-ktor-db.html">Server with a database</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="examples/start-order.html">Custom start order</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="examples/compose-html.html">Web app with Compose HTML</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="examples/htmx.html">Web app with htmx</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="examples/kilua.html">Web app with Kilua</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">API reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/index.html">All modules</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot/index.html">boot</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-client-http-ktor/index.html">boot-client-http-ktor</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-client-http-ktor-cio/index.html">boot-client-http-ktor-cio</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-client-http-ktor-java/index.html">boot-client-http-ktor-java</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-client-http-ktor-otel/index.html">boot-client-http-ktor-otel</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-common/index.html">boot-common</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-config-common/index.html">boot-config-common</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-config-hoplite/index.html">boot-config-hoplite</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-db-exposed/index.html">boot-db-exposed</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-db-flyway/index.html">boot-db-flyway</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-db-jdbc/index.html">boot-db-jdbc</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-db-jdbc-mysql/index.html">boot-db-jdbc-mysql</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-db-jdbc-otel/index.html">boot-db-jdbc-otel</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-db-jdbc-postgresql/index.html">boot-db-jdbc-postgresql</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-db-jdbc-sqlite/index.html">boot-db-jdbc-sqlite</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-db-pool-hikari/index.html">boot-db-pool-hikari</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-db-pool-hikari-otel/index.html">boot-db-pool-hikari-otel</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-env/index.html">boot-env</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-leader-common/index.html">boot-leader-common</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-leader-k8s/index.html">boot-leader-k8s</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-logging/index.html">boot-logging</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-logging-log4j2/index.html">boot-logging-log4j2</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-periodic/index.html">boot-periodic</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-scheduler-db/index.html">boot-scheduler-db</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-server-http-ktor/index.html">boot-server-http-ktor</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-server-http-ktor-cio/index.html">boot-server-http-ktor-cio</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-server-http-ktor-netty/index.html">boot-server-http-ktor-netty</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-server-http-ktor-otel/index.html">boot-server-http-ktor-otel</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-telemetry-otel/index.html">boot-telemetry-otel</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-telemetry-otel-common/index.html">boot-telemetry-otel-common</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-telemetry-otel-gcp/index.html">boot-telemetry-otel-gcp</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-telemetry-otel-micrometer-bridge/index.html">boot-telemetry-otel-micrometer-bridge</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-telemetry-otel-prometheus/index.html">boot-telemetry-otel-prometheus</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-telemetry-otel-signoz/index.html">boot-telemetry-otel-signoz</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-test/index.html">boot-test</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="api/boot-test-otel/index.html">boot-test-otel</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Comparison</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="comparison/spring-boot.html">Spring Boot</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+  <a href="index.html" class="home-link"></a>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="index.html">Bootable</a></li>
+    <li>Get started</li>
+    <li><a href="aot-cache.html">Faster start: AOT cache</a></li>
+  </ul>
+</nav>
+<div class="edit-this-page">
+<a href="https://github.com/rocketraman/bootable/edit/master/docs/modules/ROOT/pages/aot-cache.adoc">Edit this page</a>
+<a class="page-markdown" href="aot-cache.html.md" type="text/markdown">View as Markdown</a>
+</div>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="On this page" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article class="doc">
+<h1 class="page">Faster start: the JVM AOT cache</h1>
+<p class="page-lead is-before-toc">Start a Bootable application faster from a JVM AOT cache, trained by a Gradle task, in a Jib image, or in a Dagger pipeline.</p>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>On JDK 24 and later, an AOT cache (<a href="https://openjdk.org/jeps/483">JEP 483</a>, with the one-step training of <a href="https://openjdk.org/jeps/514">JEP 514</a> in JDK 25) holds the classes an application loaded and linked during a training run, so the next start reads them from the cache instead of loading, verifying and linking them again.
+A Bootable application&#8217;s start loads thousands of classes, from Log4j, Hoplite, the database and telemetry libraries, and Ktor, so it gains a lot from one.
+See Spring&#8217;s <a href="https://docs.spring.io/spring-framework/reference/integration/aot-cache.html">guide to the AOT cache</a> for more on how it works.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_producing_the_cache"><a class="anchor" href="#_producing_the_cache"></a>Producing the cache</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The training run starts the application with <code>-XX:AOTCacheOutput=&lt;file&gt;</code>, and the JVM writes the cache when the application exits.
+The <code>bootable.aot-cache</code> plugin in <a href="https://github.com/rocketraman/bootable/tree/master/build-logic">build-logic</a> adds an <code>aotCache</code> task to an application, which does that with the installed distribution (<code>installDist</code>), by its start script, on the project&#8217;s Java toolchain:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>it starts the application, and waits for Bootable&#8217;s <code>=&gt; Running</code> line, which it logs once every service has started;</p>
+</li>
+<li>
+<p>it sends the application the requests given to it, if any, so the cache also covers the request path, not just the start;</p>
+</li>
+<li>
+<p>it stops the application with SIGTERM, so it shuts down as it would in production, and the JVM writes the cache as it exits.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">plugins {
+  application
+  id("bootable.aot-cache")
+}
+
+tasks.aotCache {
+  environment.put("SERVER_HOSTPORT", "127.0.0.1:18001")
+  request("PUT", "http://127.0.0.1:18001/entries/trained", "by the AOT training run")
+  request("GET", "http://127.0.0.1:18001/entries/trained")
+  rounds = 20
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Train with the configuration the application runs with in production, as the cache only holds the classes the training loaded.
+Telemetry is the usual difference: with an OTLP endpoint, the OpenTelemetry SDK builds its OTLP exporters, and loads about 760 classes that a training run without one leaves out of the cache.
+So the examples' training runs set <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> to an address nothing listens on: the training exports nothing, and logs a failed export as it stops.
+The Jib image below, started with an endpoint, loaded 914 classes from outside a cache trained without one, and 144 from outside one trained with one, as many as it does without an endpoint.</p>
+</div>
+<div class="paragraph">
+<p>The plugin is one file, <code>AotCache.kt</code>, with no dependencies but Gradle&#8217;s own, so an application outside this repository can copy it into its own <code>buildSrc</code> or build logic.
+The task type, <code>AotCacheTraining</code>, runs any command that starts the application with <code>-XX:AOTCacheOutput</code>, such as a container, as the Jib example below does.
+The training needs a JVM that writes the cache as it exits, on SIGTERM, so it runs on Linux and macOS, not Windows.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:vanilla:aotCache</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>writes <code>examples/server-ktor-db/vanilla/build/aot/vanilla.aot</code>, and the application&#8217;s output during the training next to it, in <code>vanilla.aot.log</code>.
+The cache is about 66 MB for that example, or 60 MB for a training run that only starts it.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_running_with_the_cache"><a class="anchor" href="#_running_with_the_cache"></a>Running with the cache</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Run the application with <code>-XX:AOTCache=&lt;file&gt;</code>, on the same JDK, from the same installed directory:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">cd examples/server-ktor-db/vanilla
+JAVA_OPTS=-XX:AOTCache=build/aot/vanilla.aot build/install/vanilla/bin/vanilla</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The JVM only uses the cache with the JDK build that wrote it, and the same class path, of the same jars, which it checks by their sizes and modification times.
+On any difference, it warns, such as <code>The AOT cache was created by a different version or build of HotSpot</code>, or <code>This file is not the one used while building the AOT cache</code>, and runs without the cache.
+So train with the application as it ships, and ship them together:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>the installed directory can move, but a copy of it has to keep the files' modification times, as <code>cp -a</code>, <code>rsync -a</code> or a tar archive of it do; a rerun of <code>installDist</code> writes new ones, so <code>aotCache</code> runs again after it;</p>
+</li>
+<li>
+<p>in a container image, train in a container of the image itself, as the Jib example below does.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p><code>-XX:AOTMode=on</code> makes the JVM fail to start rather than run without the cache, which shows a mismatch at once.
+<code>-Xlog:aot</code> logs whether the JVM opened the cache, and <code>-Xlog:class+load</code> logs each class that came from it with <code>source: shared objects file</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_the_gain"><a class="anchor" href="#_the_gain"></a>The gain</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>On the vanilla <a href="https://github.com/rocketraman/bootable/tree/master/examples/server-ktor-db">examples/server-ktor-db</a> app, on JDK 25, the median of 7 starts:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 25%;">
+<col style="width: 25%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top"></th>
+<th class="tableblock halign-left valign-top">Without the cache</th>
+<th class="tableblock halign-left valign-top">With the cache</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">From launch to <code>=&gt; Running</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">721 ms</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">307 ms</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">From <code>boot</code> to <code>=&gt; Running</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">690 ms</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">229 ms</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">From <code>boot</code> to the services starting</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">485 ms</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">160 ms</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The first <code>PUT /entries/{name}</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">44 ms</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">12 ms</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The cache held 8,217 of the 8,368 classes the application loaded through its start and those first requests.
+A cache from a training run that only starts the application starts it as fast, but leaves the first request at 47 ms: the training&#8217;s requests are what cover the request path.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_in_a_container_image_with_jib"><a class="anchor" href="#_in_a_container_image_with_jib"></a>In a container image, with Jib</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><a href="https://github.com/rocketraman/bootable/tree/master/examples/server-ktor-db/jib">examples/server-ktor-db/jib</a> builds the vanilla app into a container image, with <a href="https://github.com/GoogleContainerTools/jib">Jib</a>, with its AOT cache in it:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p><code>jibBuildTar</code> builds the image without a cache, and the container runtime loads it;</p>
+</li>
+<li>
+<p><code>aotCache</code> runs that image once, in a container, with <code>-XX:AOTCacheOutput</code> in place of the image&#8217;s <code>-XX:AOTCache</code>, and the cache&#8217;s directory mounted from the build, so the training runs on the image&#8217;s own JDK, with its class path, <code>-cp @/app/jib-classpath-file</code>;</p>
+</li>
+<li>
+<p><code>jibDockerBuild</code>, or <code>jib</code> to push to a registry, builds the final image, with the cache as one more layer, at <code>/app/aot/server-ktor-db.aot</code>, and <code>-XX:AOTCache</code> in its JVM flags.</p>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>Jib&#8217;s images are reproducible, with every file&#8217;s modification time fixed, so the final image&#8217;s jars are the same, to the JVM, as those the cache was trained with.
+Two settings make the cache usable at all: <code>containerizingMode = "packaged"</code>, which puts the application&#8217;s own classes in a jar, as the JVM won&#8217;t use a cache with a non-empty directory on the class path, as Jib&#8217;s default <code>/app/classes</code> is; and the training&#8217;s entrypoint, the image&#8217;s own but for the cache&#8217;s flag, as the JVM takes only one of <code>-XX:AOTCache</code> and <code>-XX:AOTCacheOutput</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:jib:jibDockerBuild -PcontainerCli=podman
+podman run --rm -p 8001:8001 bootable-examples/server-ktor-db-jib</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>containerCli</code> is the container runtime&#8217;s command, for loading and running the training image and for <code>jibDockerBuild</code>: <code>docker</code> by default, or <code>podman</code>.
+The cache adds a 68 MB layer to the image, which used 9,406 of the 9,550 classes the application had loaded once it was running, and started from launch to <code>=&gt; Running</code> in a median of 399 ms with the cache, and 896 ms without it, over 7 starts, each in a new container.
+With an OTLP endpoint, it started in 400 ms with the cache, as <code>boot-telemetry-otel</code> creates the exporters' HTTP clients on their first export, after the start.</p>
+</div>
+<div class="paragraph">
+<p>The JVM&#8217;s choice of garbage collector, and so part of what the cache holds, depends on the container&#8217;s memory and CPUs: train with the same limits the application runs with.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_in_a_ci_pipeline_with_dagger"><a class="anchor" href="#_in_a_ci_pipeline_with_dagger"></a>In a CI pipeline, with Dagger</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <code>server-ktor-db</code> <a href="https://dagger.io">Dagger</a> module, in <code>.dagger/modules/server-ktor-db/main.dang</code>, builds the Jib image above with its cache as a CI pipeline, in containers, with nothing on the host but the <code>dagger</code> CLI and a container runtime.
+It is written in <a href="https://docs.dagger.io/reference/sdks/dang">Dang</a>, Dagger&#8217;s own language, and needs the Dagger 1.0 beta.
+It is one file, with no generated code and no package manager.</p>
+</div>
+<div class="paragraph">
+<p>Dagger needs a container runtime: Docker, or Podman with its socket enabled.
+<code>mise install</code> provides the Dagger CLI.
+The module needs the 1.0 beta, which the stable CLI downloads and runs when <code>DAGGER_X_RELEASE</code> names it; <code>mise.toml</code> sets that variable.
+Without mise, install a stable CLI of 0.21.3 or later, and export <code>DAGGER_X_RELEASE=v1.0.0-beta.28</code>.
+Bootable sends no traces to Dagger Cloud unless you provide your own <code>DAGGER_CLOUD_TOKEN</code> or run <code>dagger login</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">dagger check
+dagger api call server-ktor-db image export --path=build/server-ktor-db.tar
+podman load -i build/server-ktor-db.tar</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>dagger check</code> runs every function marked <code>@check</code>, which here is <code>check</code>.
+The other functions are called by name, as <code>dagger api call server-ktor-db &lt;function&gt;</code>.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 75%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Function</th>
+<th class="tableblock halign-left valign-top">What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>check</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The pull request check: builds the image, and runs <code>verify</code>.
+Publishes nothing.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>jib-image</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The Jib image, without a cache, as a tarball, from Gradle&#8217;s <code>jibBuildTar</code>, built in <code>eclipse-temurin:25-jdk</code>, with Gradle&#8217;s user home, and its build cache, and Jib&#8217;s base image cache, in cache volumes.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>runtime</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>jib-image</code>, imported as a container.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>aot-cache</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The cache, from a training run of <code>runtime</code>: the app started as the image&#8217;s entrypoint does, but with <code>-XX:AOTCacheOutput</code> in place of its <code>-XX:AOTCache</code>, then <code>=&gt; Running</code>, the training requests, and SIGTERM.
+<code>--requests</code> and <code>--rounds</code> change the requests.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>image</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>runtime</code>, with the cache where its entrypoint&#8217;s <code>-XX:AOTCache</code> looks for it, at <code>/app/aot/server-ktor-db.aot</code>.
+<code>image export --path=&lt;file&gt;.tar</code> writes it to disk.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>verify</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Starts <code>image</code>, and fails unless at least <code>--min-percent</code>, by default 90, of the classes it loads come from the cache.
+<code>verify stdout</code> says how many.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>env</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The build container before Gradle has run.
+<code>dagger api call server-ktor-db env terminal</code> opens a shell in it.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>dev</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>image</code>, on port 8001, exporting its traces and metrics over OTLP to the module&#8217;s <code>collector</code> setting, which <code>dagger.toml</code> wires to the <code>otel-lgtm</code> module&#8217;s <code>otel-stack</code>.
+<code>--tracing=false</code> exports nothing, and starts no collector.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The <code>otel-lgtm</code> module, in <code>.dagger/modules/otel-lgtm/main.dang</code>, runs Grafana&#8217;s <code>otel-lgtm</code> stack, to demo the traces and metrics: an OpenTelemetry collector, Prometheus, Tempo, Loki and Grafana, in one container.
+It isn&#8217;t part of Bootable, so it is a module of its own, and <code>dagger.toml</code> wires its <code>otel-stack</code> into <code>server-ktor-db</code>'s <code>collector</code> setting, as <code>dag://otel-lgtm/otel-stack</code>.
+<code>mise.toml</code> has a task for each way to run the example, each on port 8001:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 75%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Task</th>
+<th class="tableblock halign-left valign-top">What it runs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mise run demo</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>dagger start server-ktor-db/dev otel-lgtm/otel-stack</code>: the app, exporting to the stack, and the stack, tunneling the app&#8217;s port, 8001, Grafana&#8217;s, 3000, and the collector&#8217;s, 4318, to <code>localhost</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mise run demo-without-tracing</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>dagger api call server-ktor-db dev --tracing=false up</code>: the app alone, exporting nothing.
+<code>dagger start</code> can&#8217;t pass a function&#8217;s arguments, so this calls <code>dev</code> with <code>--tracing=false</code>, and <code>up</code> tunnels its port.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p><code>dagger start</code> doesn&#8217;t show the services' own output, such as the app&#8217;s log: its view shows only the tunnels and the ports' health checks.
+<code>dagger start --progress logs</code> prints it, under the function that defines each service, such as <code>ServerKtorDb.dev</code>, and <code>mise run demo&#8201;&#8212;&#8201;--progress logs</code> passes the flag on.</p>
+</div>
+<div class="paragraph">
+<p>Jib builds the image, without a container runtime, and the module trains the cache in a container of it, then adds the cache to that same container, so the JDK build, and the jars' sizes and modification times, are the training&#8217;s by construction.
+The image is defined once, in the Jib example&#8217;s build, for both Gradle and Dagger: its base image, JVM flags, class path, port and environment.
+The Jib build pins its base image, the JRE, by digest, so the JDK build only changes when the digest does, and the cache is trained again with it; <code>dagger.lock</code> pins the build&#8217;s JDK image.</p>
+</div>
+<div class="paragraph">
+<p>Dagger sets <code>OTEL_*</code> variables in every container, for its own tracing, and forwards what they collect to Dagger Cloud when the CLI is logged in to it.
+The module unsets them before it starts the app, which would otherwise export its own telemetry there, and sets an OTLP endpoint of its own, on the container&#8217;s localhost, where nothing listens, so the cache has the OTLP exporters' classes, as in the Gradle examples.</p>
+</div>
+<div class="paragraph">
+<p>Its image used 9,404 of the 9,561 classes it loaded from its cache, and started from launch to <code>=&gt; Running</code> in a median of 386 ms with the cache, and 900 ms without it, over 7 starts, each in a new container.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_which_to_use"><a class="anchor" href="#_which_to_use"></a>Which to use</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>aotCache</code> task, for an application shipped as its installed distribution, or to try the cache locally: it trains on the build&#8217;s own JDK toolchain, and needs nothing else.</p>
+</li>
+<li>
+<p>Jib, for a container image built by Gradle, without a Dockerfile: the training needs a container runtime, to run the image once.</p>
+</li>
+<li>
+<p>Dagger, for a CI pipeline that runs the same way on a laptop and on any CI service, where the build, the training and the image are each a cached, containerized step: it builds the same Jib image, so the host needs only Dagger and a container runtime, not a JDK, and the training runs on the image&#8217;s own JDK by construction.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Bootable is licensed under the Apache License 2.0. <a href="https://github.com/rocketraman/bootable">Source on GitHub</a>.</p>
+</footer>
+<script id="site-script" src="../../_/js/site.js" data-ui-root-path="../../_"></script>
+<script async src="../../_/js/vendor/highlight.js"></script>
+<script src="../../_/js/vendor/lunr.js"></script>
+<script src="../../_/js/search-ui.js" id="search-ui-script" data-site-root-path="../.." data-snippet-length="100" data-stylesheet="../../_/css/search.css"></script>
+<script async src="../../search-index.js"></script>
+  </body>
+</html>
