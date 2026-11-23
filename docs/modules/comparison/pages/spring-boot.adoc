@@ -37,7 +37,7 @@ Which beans exist, and which one is injected where, is the sum of all of these, 
 
 Bootable runs what your `main` gives it.
 There is no scanning, no auto-configuration, and no annotation that changes behaviour; a module does nothing until you wire it.
-The application is two sets, its services and its lifecycle controllers, which you build by hand, or with a DI container such as Kodein, Metro, or Inara.
+The application is two sets, its services and its lifecycle controllers, which you build by hand, or with a DI container such as Kodein, Koin, Metro, or Inara.
 With Metro, the graph is checked at compile time, so a missing binding is a build error rather than a failed start.
 See xref:concepts:philosophy.adoc[].
 
@@ -121,7 +121,7 @@ For a reader who knows Spring Boot, the nearest equivalent of each of its concep
 | `boot { }`, whose block returns the `Bootable` to run; see xref:concepts:lifecycle.adoc#boot[the application].
 
 | Component scanning, `@Component`, and `@Bean`
-| No scanning: construct the services, or bind them in Kodein, Metro, or Inara; see xref:ROOT:wiring.adoc[].
+| No scanning: construct the services, or bind them in Kodein, Koin, Metro, or Inara; see xref:ROOT:wiring.adoc[].
 
 | Auto-configuration and starters
 | A module per integration, each wired explicitly; see xref:ROOT:modules.adoc[].

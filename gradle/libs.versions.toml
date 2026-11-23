@@ -13,6 +13,7 @@ inara = "0.3.0"
 # 4.0.0 is out, but npm tags it next rather than latest, and Ktor's HTMX attributes follow htmx 2
 htmx = "2.0.11"
 jib = "3.5.4"
+koin = "4.2.2"
 kilua = "0.0.36"
 kotlin = "2.4.21"
 kotlinx-coroutines = "1.11.0"
@@ -73,6 +74,9 @@ hoplite-hocon = { module = "com.sksamuel.hoplite:hoplite-hocon", version.ref = "
 
 inara-processor = { module = "org.kodein.di.inara:inara-processor", version.ref = "inara" }
 inara-runtime = { module = "org.kodein.di.inara:inara-runtime", version.ref = "inara" }
+
+# the JVM artifact, so a Maven consumer of the -koin flavors resolves it too
+koin-core = { module = "io.insert-koin:koin-core-jvm", version.ref = "koin" }
 
 kotlin-bom = { module = "org.jetbrains.kotlin:kotlin-bom", version.ref = "kotlin" }
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }

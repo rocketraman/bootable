@@ -65,6 +65,7 @@ The listeners that modules start on their own, those of the xref:health.adoc#lis
 Each engine module's flavour provides one, for its engine:
 
 * With Kodein, import `ktorServerCioEngineModule`, from `boot-server-http-ktor-cio-kodein`, or `ktorServerNettyEngineModule`, from `boot-server-http-ktor-netty-kodein`.
+* With Koin, include `ktorServerCioEngineModule()`, from `boot-server-http-ktor-cio-koin`, or `ktorServerNettyEngineModule()`, from `boot-server-http-ktor-netty-koin`.
 * With Metro, `boot-server-http-ktor-cio-metro` or `boot-server-http-ktor-netty-metro` contributes it.
 * With Inara, compose `ktorServerCioEngineModule()`, from `boot-server-http-ktor-cio-inara`, or `ktorServerNettyEngineModule()`, from `boot-server-http-ktor-netty-inara`, as the `KtorServerEngineModule`, which the Inara health and telemetry modules require, or `NoKtorServerEngineModule` for none.
 
@@ -104,6 +105,15 @@ Import `ktorHealthModule`, and `ktorServerCioEngineModule` for the engine, bind 
 [source,kotlin]
 ----
 include::ROOT:example$kodein/http/Wiring.kt[tag=wire,indent=0]
+----
+
+Koin::
++
+Include `ktorHealthModule()`, and `ktorServerCioEngineModule()` for the engine, define the server's config, and add the server to the app services:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/http/Wiring.kt[tag=wire,indent=0]
 ----
 
 Metro::
@@ -172,7 +182,7 @@ Unset, the scrape is served on the application's server.
 
 The others are `path`, the scrape's path, `/metrics` by default, and `capturedResponseHeaders`, recorded as `http.response.header.<name>`: see kdoc:boot-server-http-ktor-otel:com.github.rocketraman.bootable.server.http.ktor.KtorTelemetryConfig[all the settings].
 
-For an instrumentation setting the config doesn't cover, such as a span's name or extra attributes, add a `KtorServerTelemetryCustomizer` to its set binding (Kodein `inBindSet`, Metro `@IntoSet`), or, with vanilla wiring, pass one to `KtorTelemetry`.
+For an instrumentation setting the config doesn't cover, such as a span's name or extra attributes, add a `KtorServerTelemetryCustomizer` to its set binding (Kodein `inBindSet`, Koin a definition with a qualifier of its own, Metro `@IntoSet`), or, with vanilla wiring, pass one to `KtorTelemetry`.
 
 [#scrape]
 === The metrics scrape
@@ -182,7 +192,7 @@ With no pulled backend, there is no scrape route.
 
 A public server would serve the metrics to anyone, so to keep them off it, set `telemetry.ktor.hostPort`.
 The scrape is then served on a listener of its own, a `MetricsKtorService`, on a port that only the scraper reaches.
-With Kodein, `ktorTelemetryModule` adds it to the application's services, with Metro, `boot-server-http-ktor-otel-metro` does, and with Inara, `ktorTelemetryModule()` does, on the <<listener-engine,application's engine>>.
+With Kodein or Koin, `ktorTelemetryModule` adds it to the application's services, with Metro, `boot-server-http-ktor-otel-metro` does, and with Inara, `ktorTelemetryModule()` does, on the <<listener-engine,application's engine>>.
 With vanilla wiring, add `KtorTelemetry.listener(engine)` to the application's services yourself, such as `telemetry.listener(CIO)`.
 Without `hostPort`, the listener is a service that does nothing, and needs no engine, so it can be added either way.
 Like any `KtorService`, the listener is in the `Serving` phase, so a scrape in flight at shutdown is still answered; it isn't traced.
@@ -215,6 +225,15 @@ Import `ktorTelemetryModule` after `openTelemetryModule`, and an engine module's
 include::ROOT:example$kodein/http/Telemetry.kt[tag=server,indent=0]
 ----
 
+Koin::
++
+Include `ktorTelemetryModule()` with `openTelemetryModule()`, and an engine module's flavour for the scrape's listener:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/http/Telemetry.kt[tag=server,indent=0]
+----
+
 Metro::
 +
 `boot-server-http-ktor-otel-metro` contributes `KtorTelemetry`, and keeps the scrapes and the probes out of the traces; give it to the server; it adds the scrape's listener too:
@@ -236,7 +255,7 @@ include::ROOT:example$inara/http/Telemetry.kt[tag=server,indent=0]
 
 == Example
 
-`examples/server-ktor-db` is a server on CIO, traced and measured, which serves its probes and the scrape, in each of the four wiring styles; see xref:index.adoc[].
+`examples/server-ktor-db` is a server on CIO, traced and measured, which serves its probes and the scrape, in each of the five wiring styles; see xref:index.adoc[].
 `examples/server-ktor` is a server on Netty, wired by hand.
 
 == Reference

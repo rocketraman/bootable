@@ -1,5 +1,8 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.boot
 
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.test.StaticConfigBinder
 import com.github.rocketraman.bootable.config.ConfigModule
@@ -17,6 +20,9 @@ import org.kodein.di.inara.DIModule
 import org.kodein.di.inBindSet
 import org.kodein.di.singleton
 import org.kodein.di.instance
+import org.koin.core.qualifier.named
+import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 import kotlin.time.Duration.Companion.seconds
 
 sealed interface TestScope
@@ -99,6 +105,45 @@ val BootableWiringTest by testSuite {
       assert(bootable.tiebreaker == StartOrder.Tiebreaker.Shuffled(7))
     }
 
+    test("default, in koin") {
+      val koin = koinApplication { modules(koinBootableModule()) }.koin
+      try {
+        val bootable = koin.get<Bootable>()
+        assert(bootable.startOrder === DefaultStartOrder && bootable.tiebreaker == StartOrder.Tiebreaker.ByName)
+      } finally {
+        koin.close()
+      }
+    }
+
+    test("are bound, in koin") {
+      val koin = koinApplication {
+        modules(
+          koinBootableModule(),
+          module {
+            single<StartOrder> { WiredStartOrder }
+            single<StartOrder.Tiebreaker> { StartOrder.Tiebreaker.Shuffled(42) }
+          },
+        )
+      }.koin
+      try {
+        val bootable = koin.get<Bootable>()
+        assert(bootable.startOrder === WiredStartOrder && bootable.tiebreaker == StartOrder.Tiebreaker.Shuffled(42))
+      } finally {
+        koin.close()
+      }
+    }
+
+    test("from config, in koin") {
+      val koin = koinApplication {
+        modules(koinBootableModule(), module { single<ConfigBinder> { ShufflingConfig } })
+      }.koin
+      try {
+        assert(koin.get<Bootable>().tiebreaker == StartOrder.Tiebreaker.Shuffled(7))
+      } finally {
+        koin.close()
+      }
+    }
+
     test("default, in metro") {
       val bootable = createGraph<DefaultsGraph>().bootable
       assert(bootable.startOrder === DefaultStartOrder && bootable.tiebreaker == StartOrder.Tiebreaker.ByName)
@@ -146,6 +191,26 @@ val BootableWiringTest by testSuite {
       assert(di.instance<Set<HealthCheck>>() == setOf(check))
     }
 
+    test("is a lifecycle controller, with the defined checks and config, in koin") {
+      val koin = koinApplication {
+        modules(
+          koinBootableModule(),
+          module {
+            single<ConfigBinder> { ShufflingConfig }
+            single<HealthCheck>(named("wired")) { check }
+          },
+        )
+      }.koin
+      try {
+        val health = koin.getAll<LifecycleController>().toSet().health()
+        assert(health === koin.get<HealthLifecycleController>())
+        assert(health.config.drainDelay == 3.seconds)
+        assert(health.checks == setOf(check))
+      } finally {
+        koin.close()
+      }
+    }
+
     test("is a lifecycle controller, in metro") {
       val graph = createGraph<ConfiguredGraph>()
       assert(graph.lifecycleControllers.health().config.drainDelay == 3.seconds)
@@ -171,6 +236,26 @@ val BootableWiringTest by testSuite {
 
     test("empty without config, in kodein") {
       assert(DI { import(bootableModule) }.direct.instance<BuildInfo>() == BuildInfo())
+    }
+
+    test("from config, in koin") {
+      val koin = koinApplication {
+        modules(koinBootableModule(), module { single<ConfigBinder> { ShufflingConfig } })
+      }.koin
+      try {
+        assert(koin.get<BuildInfo>() == BuildInfo(version = "1.4.2"))
+      } finally {
+        koin.close()
+      }
+    }
+
+    test("empty without config, in koin") {
+      val koin = koinApplication { modules(koinBootableModule()) }.koin
+      try {
+        assert(koin.get<BuildInfo>() == BuildInfo())
+      } finally {
+        koin.close()
+      }
     }
 
     test("from config, in metro") {

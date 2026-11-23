@@ -14,6 +14,7 @@ import kotlin.time.Clock
  * [openTelemetryModule], which provides the `OpenTelemetry`. Like that module, it uses the `kotlin.time.Clock` binding,
  * if there is one, or else `Clock.System`.
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val serviceStartTracingModule by DI.Module {
   inBindSet<LifecycleController> { add { singleton { ServiceStartTracing(instance(), instanceOrNull<Clock>() ?: Clock.System) } } }
 }

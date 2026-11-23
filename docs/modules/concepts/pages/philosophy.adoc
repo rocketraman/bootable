@@ -37,17 +37,18 @@ The core is plain Kotlin, and `Bootable` takes its two sets through an ordinary 
 == Your wiring, your choice
 
 How you assemble the two sets is up to you.
-Wire them by hand, with Kodein, with Metro, with Inara, or with any other DI, such as a service loader, Koin, or Guice.
+Wire them by hand, with Kodein, with Koin, with Metro, with Inara, or with any other DI, such as a service loader or Guice.
 
-For convenience, each module that has something to wire ships optional bindings, as separate `-kodein`, `-metro`, and experimental `-inara` artifacts.
+For convenience, each module that has something to wire ships optional bindings, as separate `-kodein`, `-koin`, `-metro`, and experimental `-inara` artifacts.
 Each depends on the plain module, so the flavour you depend on is all you choose, module by module.
-Every page on this site shows its code in each of the four styles; xref:ROOT:wiring.adoc[] helps you pick one.
+Every page on this site shows its code in each of the five styles; xref:ROOT:wiring.adoc[] helps you pick one.
 
 A small application can list its services by hand.
 As it grows into modules, each with services that no central code knows about, collecting them into a set is what a DI container's multibindings do well.
 For most teams, the authors of Bootable recommend Metro, though Bootable itself has no opinion, which builds and checks the graph at compile time, so a missing binding is a build error rather than a failed start.
-Kodein has no compile-time checking, and builds the graph at runtime, but its DSL is short and readable.
+Kodein has no compile-time checking, and builds the graph at runtime, but its DSL is short and readable; its authors are sunsetting it, so Bootable's Kodein bindings are deprecated.
 Inara, Kodein's compile-time successor from the same authors, is experimental.
+Koin, like Kodein, builds the graph at runtime, with a DSL much like Kodein's.
 
 [#config]
 == Typed config, no hidden defaults
@@ -70,7 +71,7 @@ It deliberately leaves these out:
 Interchangeable libraries::
 Bootable doesn't make the libraries it builds on, such as Hoplite for configuration, or Exposed and HikariCP for databases, interchangeable with others.
 You use their types and APIs directly, and Bootable exposes them rather than wrapping them.
-The same goes for DI: Bootable provides bindings for Kodein, Metro, and Inara, not an abstraction over them.
+The same goes for DI: Bootable provides bindings for Kodein, Koin, Metro, and Inara, not an abstraction over them.
 Every feature of every library::
 Bootable's modules set up the common case.
 For anything more, you configure the library itself, through the hooks a module provides, such as a `HikariConfigCustomizer`, or skip Bootable's module entirely and bring your own code.

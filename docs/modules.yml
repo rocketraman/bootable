@@ -23,8 +23,8 @@
 # variant, and adds each extends: module whose base is in the install, listed or brought in by a listed module.
 # A module that traces whenever the application has OpenTelemetry, with no variant of its own, says what it records
 # under traced:; an install's telemetry variant adds the SDK for it.
-# A module's DI flavours aren't listed: the build gives a module its -kodein and -metro flavours when it has
-# src/kodein or src/metro sources, and the extension checks for those the same way.
+# A module's DI flavours aren't listed: the build gives a module its -kodein, -koin, -metro, and -inara flavours when
+# it has src/kodein, src/koin, src/metro, or src/inara sources, and the extension checks for those the same way.
 
 functions:
 
@@ -154,7 +154,7 @@ functions:
       page: http:server.adoc#telemetry
   - title: Server
     choice: implied
-    note: comes with the engine; with Kodein or Metro, add it too, for its flavour
+    note: comes with the engine; with Kodein, Koin, or Metro, add it too, for its flavour
     with: Server engine
     modules:
     - name: boot-server-http-ktor
@@ -179,7 +179,7 @@ functions:
       page: http:client.adoc#telemetry
   - title: Client
     choice: implied
-    note: comes with the engine; with Kodein or Metro, add it too, for its flavour
+    note: comes with the engine; with Kodein, Koin, or Metro, add it too, for its flavour
     with: Client engine
     modules:
     - name: boot-client-http-ktor

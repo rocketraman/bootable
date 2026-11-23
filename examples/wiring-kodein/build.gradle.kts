@@ -1,3 +1,5 @@
+// Kodein is deprecated: see the wiring-inara example, or the wiring-koin example for a DSL like Kodein's.
+
 plugins {
   kotlin("jvm")
   application

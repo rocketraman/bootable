@@ -1,6 +1,9 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.server.http.ktor
 
 import com.github.rocketraman.bootable.boot.BootScope
+import com.github.rocketraman.bootable.server.http.ktor.koin.ktorServerCioEngineModule as koinKtorServerCioEngineModule
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.createGraph
@@ -8,6 +11,7 @@ import io.ktor.server.cio.*
 import org.kodein.di.DI
 import org.kodein.di.direct
 import org.kodein.di.instance
+import org.koin.dsl.koinApplication
 
 sealed interface KtorServerCioEngineTestScope
 
@@ -20,6 +24,15 @@ val KtorServerCioEngineWiringTest by testSuite {
   test("ktorServerCioEngineModule provides CIO as the KtorServerEngine, in kodein") {
     val di = DI { import(ktorServerCioEngineModule) }.direct
     assert(di.instance<KtorServerEngine>().factory === CIO)
+  }
+
+  test("ktorServerCioEngineModule provides CIO as the KtorServerEngine, in koin") {
+    val koin = koinApplication { modules(koinKtorServerCioEngineModule()) }.koin
+    try {
+      assert(koin.get<KtorServerEngine>().factory === CIO)
+    } finally {
+      koin.close()
+    }
   }
 
   test("KtorServerCioEngineBindings provides CIO as the KtorServerEngine, in metro") {

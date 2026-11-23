@@ -164,6 +164,15 @@ Import `hopliteConfigModule`, which binds the `ConfigBinder`, and bind each sect
 include::ROOT:example$kodein/configuration/Wiring.kt[tag=wire]
 ----
 
+Koin::
++
+Include `hopliteConfigModule()`, which defines the `ConfigBinder`, and define each section from it:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/configuration/Wiring.kt[tag=wire]
+----
+
 Metro::
 +
 `boot-config-hoplite-metro` contributes the `ConfigBinder` on its own.
@@ -220,6 +229,15 @@ Bind your own `ConfigBinder`, in place of `hopliteConfigModule`:
 include::ROOT:example$kodein/configuration/Wiring.kt[tag=custom]
 ----
 
+Koin::
++
+Define your own `ConfigBinder`, in place of `hopliteConfigModule()`:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/configuration/Wiring.kt[tag=custom]
+----
+
 Metro::
 +
 Provide your own `ConfigBinder`, and name Bootable's binding containers in the graph, rather than discovering them, so ``HopliteConfigBindings``'s default isn't in the graph too:
@@ -243,7 +261,7 @@ include::ROOT:example$inara/configuration/Wiring.kt[tag=custom]
 
 == Example
 
-`examples/wiring-vanilla`, `examples/wiring-kodein`, and `examples/wiring-metro` each bind a `greeting` section from `application.conf`, and log it when the application starts.
+`examples/wiring-vanilla`, `examples/wiring-kodein`, `examples/wiring-koin`, and `examples/wiring-metro` each bind a `greeting` section from `application.conf`, and log it when the application starts.
 From the repository root, run yours:
 
 [tabs,sync-group-id=di]
@@ -260,6 +278,13 @@ Kodein::
 [source,shell]
 ----
 ./gradlew :examples:wiring-kodein:run
+----
+
+Koin::
++
+[source,shell]
+----
+./gradlew :examples:wiring-koin:run
 ----
 
 Metro::

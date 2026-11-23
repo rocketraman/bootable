@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.client.http.ktor
 
 import com.github.rocketraman.bootable.boot.AppService
@@ -5,13 +7,17 @@ import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.boot.startPlan
+import com.github.rocketraman.bootable.client.http.ktor.koin.httpClientTelemetryModule as koinHttpClientTelemetryModule
+import com.github.rocketraman.bootable.client.http.ktor.koin.ktorClientModule as koinKtorClientModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.common.HostPort
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
+import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
 import com.github.rocketraman.bootable.server.http.ktor.CioKtorService
 import com.github.rocketraman.bootable.server.http.ktor.KtorService
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
@@ -22,6 +28,7 @@ import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizers
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
 import com.github.rocketraman.bootable.telemetry.otel.TelemetryConfig
+import com.github.rocketraman.bootable.telemetry.otel.koin.openTelemetryModule as koinOpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.openTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.withRootSpan
 import de.infix.testBalloon.framework.core.testSuite
@@ -59,6 +66,9 @@ import org.kodein.di.instance
 import org.kodein.di.singleton
 import java.net.URI
 import java.util.concurrent.CopyOnWriteArrayList
+import org.koin.core.qualifier.named
+import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 
 /**
  * Collects every span and metric the SDK records, in memory, as a test's window onto it. The spans outlive the SDK's
@@ -291,6 +301,30 @@ val HttpClientTelemetryWiringTest by testSuite {
 
       assert(di.instance<HttpClientTelemetry>().config == expectedConfig)
       checkTraces(di.instance(), di.instance(), inMemory)
+    }
+
+    test("koin") {
+      val inMemory = InMemoryTelemetry()
+      val koin = koinApplication {
+        modules(
+          koinBootableModule(),
+          koinHopliteConfigModule(),
+          koinOpenTelemetryModule(),
+          koinKtorClientModule(),
+          koinHttpClientTelemetryModule(),
+          module {
+            single<KtorClientEngine> { Downstream() }
+            single<OpenTelemetryCustomizer>(named("test")) { inMemory }
+          },
+        )
+      }.koin
+
+      try {
+        assert(koin.get<HttpClientTelemetry>().config == expectedConfig)
+        checkTraces(koin.getAll<AppService>().toSet(), koin.get(), inMemory)
+      } finally {
+        koin.close()
+      }
     }
 
     test("metro") {

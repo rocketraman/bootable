@@ -1,15 +1,21 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.leader.k8s
 
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.StartOrder
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.startPlan
 import com.github.rocketraman.bootable.client.http.ktor.JavaClientEngine
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientDefaults
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientEngine
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientModule
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientService
+import com.github.rocketraman.bootable.client.http.ktor.koin.ktorClientModule as koinKtorClientModule
 import com.github.rocketraman.bootable.client.http.ktor.ktorClientModule
 import com.github.rocketraman.bootable.client.http.ktor.setOfNamedClientDefaults
+import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
+import com.github.rocketraman.bootable.leader.k8s.koin.kubernetesLeaderElectionModule as koinKubernetesLeaderElectionModule
 import dev.zacsweers.metro.BindingContainer
 import dev.zacsweers.metro.Provides
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +39,8 @@ import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import com.github.rocketraman.bootable.boot.AppService
 import kotlin.time.Duration.Companion.seconds
+import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 
 sealed interface TestScope
 
@@ -98,6 +106,32 @@ val KubernetesLeaderElectionWiringTest by testSuite {
       election.start(CoroutineScope(SupervisorJob()))
       assert(election.isLeader())
       election.shutdown()
+    }
+
+    test("koin") {
+      val koin = koinApplication {
+        modules(
+          koinBootableModule(),
+          koinHopliteConfigModule(),
+          koinKtorClientModule(),
+          koinKubernetesLeaderElectionModule(),
+          module { single<KtorClientEngine> { JavaClientEngine() } },
+        )
+      }.koin
+      try {
+        val election = koin.get<LeaderElection>() as KubernetesLeaderElection
+        assert(election.identity == "pod-1")
+        assert(election in koin.getAll<AppService>())
+        assert("kubernetes" in koin.get<KtorClientService>().names)
+        // the election contributes the kubernetes client's defaults: none here, with assumeLeader
+        assert(koin.getAll<KtorClientDefaults>().single().clients().isEmpty())
+        checkOrder(koin.getAll<AppService>().toSet())
+        election.start(CoroutineScope(SupervisorJob()))
+        assert(election.isLeader())
+        election.shutdown()
+      } finally {
+        koin.close()
+      }
     }
 
     test("metro") {

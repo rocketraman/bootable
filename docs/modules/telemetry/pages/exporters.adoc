@@ -66,6 +66,15 @@ Import `prometheusTelemetryModule` and `ktorTelemetryModule` after `openTelemetr
 include::ROOT:example$kodein/telemetry/Exporters.kt[tag=prometheus]
 ----
 
+Koin::
++
+Include `prometheusTelemetryModule()` and `ktorTelemetryModule()` with `openTelemetryModule()`, and an engine module's flavour for the scrape's listener:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/telemetry/Exporters.kt[tag=prometheus,indent=0]
+----
+
 Metro::
 +
 The `-metro` modules contribute the reader, the scrape, `KtorTelemetry`, and the scrape's listener; provide the server:
@@ -144,6 +153,15 @@ Import `sigNozTelemetryModule` after `openTelemetryModule`:
 include::ROOT:example$kodein/telemetry/Exporters.kt[tag=signoz]
 ----
 
+Koin::
++
+Include `sigNozTelemetryModule()` with `openTelemetryModule()`:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/telemetry/Exporters.kt[tag=signoz,indent=0]
+----
+
 Metro::
 +
 `boot-telemetry-otel-signoz-metro` contributes `SigNozTelemetry` to the customizers on its own; there is nothing to wire.
@@ -209,6 +227,15 @@ Import `gcpTelemetryModule` after `openTelemetryModule`:
 include::ROOT:example$kodein/telemetry/Exporters.kt[tag=gcp]
 ----
 
+Koin::
++
+Include `gcpTelemetryModule()` with `openTelemetryModule()`:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/telemetry/Exporters.kt[tag=gcp,indent=0]
+----
+
 Metro::
 +
 `boot-telemetry-otel-gcp-metro` contributes `GcpTelemetry` to the customizers on its own; there is nothing to wire.
@@ -251,6 +278,15 @@ Kodein::
 [source,kotlin]
 ----
 include::ROOT:example$kodein/telemetry/Exporters.kt[tag=micrometer-bridge]
+----
+
+Koin::
++
+`micrometerBridgeModule()` defines the `MeterRegistry`:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/telemetry/Exporters.kt[tag=micrometer-bridge,indent=0]
 ----
 
 Metro::

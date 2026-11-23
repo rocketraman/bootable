@@ -4,12 +4,12 @@
 Each example is a small application in the repository's https://github.com/rocketraman/bootable/tree/master/examples[`examples`] directory, built against the Bootable modules in the same repository.
 Run any of them from the repository root with Gradle; they are services, so they run until you stop them with Ctrl-C.
 
-* xref:wiring.adoc[Wiring styles]: the smallest application, one service that logs a greeting from config, wired four ways (vanilla, Kodein, Metro, and Inara).
+* xref:wiring.adoc[Wiring styles]: the smallest application, one service that logs a greeting from config, wired five ways (vanilla, Kodein, Koin, Metro, and Inara).
 * xref:server-ktor.adoc[Ktor server]: a Ktor server on Netty with typed config, which can also be built as a GraalVM native image; vanilla wiring.
-* xref:server-ktor-db.adoc[Server with a database]: a key/value store over HTTP with the database, telemetry, an HTTP client, health probes, and background work, wired four ways (vanilla, Kodein, Metro, and Inara), with a container image that has a JVM AOT cache.
+* xref:server-ktor-db.adoc[Server with a database]: a key/value store over HTTP with the database, telemetry, an HTTP client, health probes, and background work, wired five ways (vanilla, Kodein, Koin, Metro, and Inara), with a container image that has a JVM AOT cache.
 * xref:start-order.adoc[Custom start order]: a Ktor server and a ready file, with a custom lifecycle phase; vanilla wiring.
 * xref:compose-html.adoc[Web app with Compose HTML]: a todo list with a Compose HTML browser client and a Ktor server, sharing their models; vanilla wiring.
 * xref:htmx.adoc[Web app with htmx]: the same todo list, rendered on the server with kotlinx.html and made interactive with htmx; vanilla wiring.
 * xref:kilua.adoc[Web app with Kilua]: the same todo list with a Kilua client, rendered on the server by a Node.js process that Bootable starts before the Ktor server; vanilla wiring.
 
-`examples/di-bench` is not an example of Bootable: it is a benchmark of how long Kodein and Metro take to build graphs of 25, 100, and 400 services, and doesn't use Bootable.
+`examples/di-bench` is not an example of Bootable: it is a benchmark of how long Kodein, Koin, and Metro take to build graphs of 25, 100, and 400 services, and doesn't use Bootable.

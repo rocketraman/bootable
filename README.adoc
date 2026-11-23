@@ -11,7 +11,8 @@ It handles starting, stopping, lifecycle management, logging, configuration, and
 == Key points
 
 * *No DI framework in the core.*
-Bootable runs two sets, your application's services and its lifecycle controllers, and how you assemble them is your choice: by hand, with Bootable's optional bindings for https://kosi-libs.org/kodein/[Kodein], https://zacsweers.github.io/metro/[Metro], or, experimentally, https://kosi-libs.org/inara/[Inara], or with any other DI.
+Bootable runs two sets, your application's services and its lifecycle controllers, and how you assemble them is your choice: by hand, with Bootable's optional bindings for https://zacsweers.github.io/metro/[Metro], https://insert-koin.io/[Koin], or, experimentally, https://kosi-libs.org/inara/[Inara], or with any other DI.
+Bootable's bindings for https://kosi-libs.org/kodein/[Kodein] are deprecated, as Kodein is.
 * *Explicit, not discovered.*
 No classpath scanning, no auto-configuration, and no annotations that change what code does: a module does nothing until you wire it.
 * *A lifecycle on coroutines.*

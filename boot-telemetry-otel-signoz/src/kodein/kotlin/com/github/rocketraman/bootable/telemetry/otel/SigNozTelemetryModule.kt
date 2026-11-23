@@ -14,6 +14,7 @@ import org.kodein.di.singleton
  * `openTelemetryModule`, which opens that set. Requires a `ConfigBinder` binding (e.g. from boot-config-hoplite's
  * `hopliteConfigModule`).
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val sigNozTelemetryModule by DI.Module {
   bindSingleton<SigNozTelemetryConfig> { instance<ConfigBinder>().config("telemetry.signoz") }
   bindSingleton { SigNozTelemetry(instance()) }

@@ -9,6 +9,7 @@ import org.kodein.di.instance
  * A Kodein module that binds a Micrometer [MeterRegistry] recording into the application's OpenTelemetry (from
  * `openTelemetryModule`), for libraries that report only to Micrometer: see [openTelemetryMeterRegistry].
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val micrometerBridgeModule by DI.Module {
   bindSingleton<MeterRegistry> { openTelemetryMeterRegistry(instance()) }
 }

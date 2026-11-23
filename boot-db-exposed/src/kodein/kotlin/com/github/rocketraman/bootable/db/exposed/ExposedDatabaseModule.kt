@@ -27,6 +27,7 @@ import org.kodein.di.singleton
  *
  * To adjust Exposed beyond [ExposedConfig], add an [ExposedConfigCustomizer] to its set, in the same way.
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val exposedDatabaseModule by DI.Module {
   bindSet<Table>()
   bindSet<ExposedConfigCustomizer>()

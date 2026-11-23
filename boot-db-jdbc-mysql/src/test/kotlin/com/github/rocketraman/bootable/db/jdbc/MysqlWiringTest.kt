@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.db.jdbc
 
 import com.github.rocketraman.bootable.boot.AppService
@@ -5,12 +7,17 @@ import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.Masked
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
+import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
+import com.github.rocketraman.bootable.db.jdbc.koin.hikariPoolModule as koinHikariPoolModule
+import com.github.rocketraman.bootable.db.jdbc.koin.jdbcDataSourceModule as koinJdbcDataSourceModule
+import com.github.rocketraman.bootable.db.jdbc.koin.mysqlConfigModule as koinMysqlConfigModule
 import com.zaxxer.hikari.HikariDataSource
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.DependencyGraph
@@ -21,6 +28,7 @@ import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import javax.sql.DataSource
 import kotlin.time.Duration.Companion.seconds
+import org.koin.dsl.koinApplication
 
 sealed interface TestScope
 
@@ -88,6 +96,28 @@ val MysqlWiringTest by testSuite {
       hikari.assertBuiltFromConfig()
       assert(di.instance<Set<AppService>>().filterIsInstance<JdbcDataSourceService>().single().dataSource === hikari)
       hikari.close()
+    }
+
+    test("koin") {
+      val koin = koinApplication {
+        modules(
+          koinBootableModule(),
+          koinHopliteConfigModule(),
+          koinJdbcDataSourceModule(),
+          koinMysqlConfigModule(),
+          koinHikariPoolModule(),
+        )
+      }.koin
+
+      try {
+        assert(koin.get<JdbcConfig>() == expectedConfig)
+        val hikari = koin.get<DataSource>() as HikariDataSource
+        hikari.assertBuiltFromConfig()
+        assert(koin.getAll<AppService>().filterIsInstance<JdbcDataSourceService>().single().dataSource === hikari)
+        hikari.close()
+      } finally {
+        koin.close()
+      }
     }
 
     test("metro") {

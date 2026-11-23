@@ -162,7 +162,7 @@ So an application that calls `loggingInit` before `boot { }`, to pass a level or
 
 == Example
 
-`examples/wiring-vanilla`, `examples/wiring-kodein`, and `examples/wiring-metro` each have a `log4j2.xml` that sets Bootable's own loggers to `info`, merged over the base.
+`examples/wiring-vanilla`, `examples/wiring-kodein`, `examples/wiring-koin`, and `examples/wiring-metro` each have a `log4j2.xml` that sets Bootable's own loggers to `info`, merged over the base.
 From the repository root, run one with JSON output:
 
 [source,shell]

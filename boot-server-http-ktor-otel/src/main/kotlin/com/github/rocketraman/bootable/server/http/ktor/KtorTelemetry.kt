@@ -59,7 +59,7 @@ data class KtorTelemetryConfig(
 /**
  * An `OpenTelemetryCustomizer` that records no trace for the health probes served on the application's server by
  * `KtorHealth`, which the platform's probes would otherwise fill the traces with. Add it to `OpenTelemetryService`'s
- * customizers; the Kodein and Metro flavors of this module add it for the `health.ktor` config section.
+ * customizers; the DI flavors of this module add it for the `health.ktor` config section.
  */
 fun KtorHealthConfig.excludeHealthFromTraces(): OpenTelemetryCustomizer = excludeUrlPathsFromTraces(applicationServerPaths)
 
@@ -92,7 +92,7 @@ fun interface KtorServerTelemetryCustomizer {
  * children, and log events carry its trace id.
  *
  * The scrape is served on that server, unless [KtorTelemetryConfig.hostPort] puts it on a listener of its own. The
- * Kodein and Metro flavors of this module add that listener to the application's services, on the application's
+ * DI flavors of this module add that listener to the application's services, on the application's
  * [KtorServerEngine]; otherwise, add [listener] to them yourself.
  */
 class KtorTelemetry(

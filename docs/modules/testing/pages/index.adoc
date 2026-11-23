@@ -28,7 +28,7 @@ Add them as test dependencies, in the flavour of your wiring style:
 
 install::testImplementation[boot-test, boot-test-otel]
 
-`boot-test` has no flavours, since nothing in it is wired; `boot-test-otel` has `-kodein`, `-metro`, and `-inara` flavours, for its <<telemetry,module and bindings>>.
+`boot-test` has no flavours, since nothing in it is wired; `boot-test-otel` has `-kodein`, `-koin`, `-metro`, and `-inara` flavours, for its <<telemetry,module and bindings>>.
 
 == Test a class
 
@@ -59,7 +59,7 @@ It starts at `TestClock.DEFAULT_START`, 2026-01-01T00:00:00Z, so a test's times 
 include::ROOT:example$vanilla/testing/Helpers.kt[tag=clock]
 ----
 
-Pass it to whatever takes a `Clock`, such as `OpenTelemetryService`, `ServiceStartTracing`, or `PeriodicAppService`, or, with Kodein or Metro, bind it as the `Clock`, which they then take their time from; with Inara, which has no optional bindings, pass it to each module's builder, such as `openTelemetryModule(clock)`.
+Pass it to whatever takes a `Clock`, such as `OpenTelemetryService`, `ServiceStartTracing`, or `PeriodicAppService`, or, with Kodein, Koin, or Metro, bind it as the `Clock`, which they then take their time from; with Inara, which has no optional bindings, pass it to each module's builder, such as `openTelemetryModule(clock)`.
 For a monotonic `TimeSource`, use the standard library's `kotlin.time.TestTimeSource`.
 
 [#logs]
@@ -136,6 +136,15 @@ A module of the application's own bindings, and a function that builds the `DI`:
 include::ROOT:example$kodein/testing/Wiring.kt[tag=app]
 ----
 
+Koin::
++
+A module of the application's own definitions, and a function that builds the Koin application:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/testing/Wiring.kt[tag=app]
+----
+
 Metro::
 +
 A binding container of the application's own bindings, and the graph:
@@ -171,6 +180,13 @@ Kodein::
 [source,kotlin]
 ----
 include::ROOT:example$kodein/testing/Wiring.kt[tag=check]
+----
+
+Koin::
++
+[source,kotlin]
+----
+include::ROOT:example$koin/testing/Wiring.kt[tag=check]
 ----
 
 Metro::
@@ -245,6 +261,15 @@ Import `inMemoryTelemetryModule` after `openTelemetryModule`, which opens the cu
 include::ROOT:example$kodein/testing/Telemetry.kt[tag=telemetry]
 ----
 
+Koin::
++
+Include `inMemoryTelemetryModule()` with `openTelemetryModule()`, which collects every customizer, and get the `InMemoryTelemetry` from Koin:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/testing/Telemetry.kt[tag=telemetry]
+----
+
 Metro::
 +
 Include `InMemoryTelemetryBindings` through the test graph's factory, which adds its `telemetry` to the customizers, and keep the `InMemoryTelemetry` you pass it:
@@ -264,7 +289,7 @@ include::ROOT:example$inara/testing/Telemetry.kt[tag=telemetry]
 ----
 ======
 
-With Kodein, Metro, and Inara, the SDK's config comes from the test's resources, as in <<wiring>>.
+With Kodein, Koin, Metro, and Inara, the SDK's config comes from the test's resources, as in <<wiring>>.
 
 * `spans`: the spans that have ended so far, in the order they ended, and `spans(name)`, those with a name.
 * `metrics()`: every metric recorded so far, collected now, and `metric(name)`, the one with a name, or null.
@@ -281,7 +306,7 @@ See xref:telemetry:index.adoc#customizers[] for the SDK's customizers.
 
 * `common/src/test/kotlin/EntryServerTest.kt` runs the server's routes in `testApplication`, against a SQLite database in a temporary directory, with the services it needs started by hand, and captures the server's log with `captureLogs`.
 * `vanilla/src/test/kotlin/AppTest.kt` checks the vanilla wiring's services, and its start plan with `checkShuffledStartPlans`: the seed entries after the migrations, and before the server.
-* `kodein/src/test/kotlin/AppTest.kt` and `metro/src/test/kotlin/AppTest.kt` check the services that the Kodein `DI` and the Metro graph build.
+* `kodein/src/test/kotlin/AppTest.kt`, `koin/src/test/kotlin/AppTest.kt`, and `metro/src/test/kotlin/AppTest.kt` check the services that the Kodein `DI`, the Koin application, and the Metro graph build.
 
 From the repository root, run yours:
 
@@ -299,6 +324,13 @@ Kodein::
 [source,shell]
 ----
 ./gradlew :examples:server-ktor-db:common:test :examples:server-ktor-db:kodein:test
+----
+
+Koin::
++
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:common:test :examples:server-ktor-db:koin:test
 ----
 
 Metro::

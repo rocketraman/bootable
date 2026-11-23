@@ -38,13 +38,13 @@ fun periodicTracing(openTelemetry: OpenTelemetry, sample: Sample = Sample.BySamp
 }
 
 /**
- * How the Kodein and Metro flavors of this module trace the runs of the application's periodic services. They trace
+ * How the Koin, Kodein, and Metro flavors of this module trace the runs of the application's periodic services. They trace
  * each run with [periodicTracing] whenever the application has an `OpenTelemetry`, such as boot-telemetry-otel's, and
  * don't trace at all when it has none. Bind one to change that, e.g. to sample every run's trace, or to trace none:
  *
  * ```
- * // Kodein
- * bindSingleton { PeriodicTracingOptions(sample = Sample.Always) }
+ * // Koin
+ * single { PeriodicTracingOptions(sample = Sample.Always) }
  *
  * // Metro
  * @Provides fun periodicTracingOptions(): PeriodicTracingOptions = PeriodicTracingOptions(enabled = false)

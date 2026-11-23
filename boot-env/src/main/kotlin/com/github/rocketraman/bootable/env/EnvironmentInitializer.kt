@@ -13,7 +13,8 @@ import com.github.rocketraman.bootable.config.ConfigBinder
  * side effect now lives inside the framework's documented lifecycle instead of a DI-container callback.
  *
  * A plain class with no DI annotations; it is created by [environmentInitializer], registered by the DI flavors
- * (`EnvironmentBindings` in boot-env-metro, `environmentModule` in boot-env-kodein), and can be constructed
+ * (`EnvironmentBindings` in boot-env-metro, `environmentModule` in boot-env-koin and boot-env-kodein, and
+ * `EnvironmentModule` in boot-env-inara), and can be constructed
  * directly in a unit test.
  */
 class EnvironmentInitializer(

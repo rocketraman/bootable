@@ -3,10 +3,13 @@ package bench
 fun build(fw: String, n: Int): Set<Svc> = when (fw to n) {
   "metro" to 25 -> dev.zacsweers.metro.createGraph<MetroG25>().all
   "kodein" to 25 -> kodein25()
+  "koin" to 25 -> koin25()
   "metro" to 100 -> dev.zacsweers.metro.createGraph<MetroG100>().all
   "kodein" to 100 -> kodein100()
+  "koin" to 100 -> koin100()
   "metro" to 400 -> dev.zacsweers.metro.createGraph<MetroG400>().all
   "kodein" to 400 -> kodein400()
+  "koin" to 400 -> koin400()
   else -> error("unknown $fw $n")
 }
 

@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.db.jdbc
 
 import com.github.rocketraman.bootable.boot.AppService
@@ -5,15 +7,22 @@ import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
+import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
+import com.github.rocketraman.bootable.db.jdbc.koin.hikariPoolMetricsModule as koinHikariPoolMetricsModule
+import com.github.rocketraman.bootable.db.jdbc.koin.hikariPoolModule as koinHikariPoolModule
+import com.github.rocketraman.bootable.db.jdbc.koin.jdbcDataSourceModule as koinJdbcDataSourceModule
+import com.github.rocketraman.bootable.db.jdbc.koin.jdbcGenericConfigModule as koinJdbcGenericConfigModule
 import com.github.rocketraman.bootable.telemetry.otel.MetricsConfig
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizer
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizers
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
 import com.github.rocketraman.bootable.telemetry.otel.TelemetryConfig
+import com.github.rocketraman.bootable.telemetry.otel.koin.openTelemetryModule as koinOpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.openTelemetryModule
 import com.zaxxer.hikari.HikariDataSource
 import com.zaxxer.hikari.metrics.IMetricsTracker
@@ -38,6 +47,9 @@ import org.kodein.di.instance
 import org.kodein.di.singleton
 import java.util.concurrent.atomic.AtomicInteger
 import javax.sql.DataSource
+import org.koin.core.qualifier.named
+import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 
 /** Collects every metric the SDK records, in memory, as a test's window onto it. */
 class InMemoryMetrics : OpenTelemetryCustomizer {
@@ -202,6 +214,41 @@ val HikariPoolMetricsTest by testSuite {
         services.filterIsInstance<JdbcDataSourceService>().single().checkPoolMetrics(metrics, "metrics-wiring-test")
       } finally {
         services.filterIsInstance<OpenTelemetryService>().single().shutdown()
+      }
+    }
+
+    test("koin, alongside the application's own customizer") {
+      val metrics = InMemoryMetrics()
+      val koin = koinApplication {
+        modules(
+          koinBootableModule(),
+          koinHopliteConfigModule(),
+          koinOpenTelemetryModule(),
+          koinJdbcDataSourceModule(),
+          koinJdbcGenericConfigModule(),
+          koinHikariPoolModule(),
+          koinHikariPoolMetricsModule(),
+          module {
+            single<OpenTelemetryCustomizer>(named("test")) { metrics }
+            single<HikariConfigCustomizer>(named("initSql")) {
+              HikariConfigCustomizer { it.connectionInitSql = "SELECT 'koin'" }
+            }
+          },
+        )
+      }.koin
+
+      try {
+        assert(koin.getAll<HikariConfigCustomizer>().size == 2)
+        val hikari = koin.get<DataSource>() as HikariDataSource
+        assert(hikari.connectionInitSql == "SELECT 'koin'")
+        val services = koin.getAll<AppService>()
+        try {
+          services.filterIsInstance<JdbcDataSourceService>().single().checkPoolMetrics(metrics, "metrics-wiring-test")
+        } finally {
+          services.filterIsInstance<OpenTelemetryService>().single().shutdown()
+        }
+      } finally {
+        koin.close()
       }
     }
 

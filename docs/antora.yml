@@ -35,6 +35,9 @@ ext:
       dir: docs/snippets/kodein/src/main/kotlin/snippets
       into: modules/ROOT/examples/kodein
   - scan:
+      dir: docs/snippets/koin/src/main/kotlin/snippets
+      into: modules/ROOT/examples/koin
+  - scan:
       dir: docs/snippets/inara/src/main/kotlin/snippets
       into: modules/ROOT/examples/inara
   - scan:

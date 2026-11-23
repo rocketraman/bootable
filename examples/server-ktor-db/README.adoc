@@ -2,7 +2,8 @@
 
 A Ktor server that stores entries in a SQLite database, through a HikariCP pool, Flyway migrations, and Exposed, and traces and measures itself with OpenTelemetry.
 Its `GET /relay/{name}` calls the server back through a lifecycle-managed Ktor `HttpClient`, as a call to another service would be made.
-It is wired three ways, with the same server and config in `common`: `vanilla`, `kodein`, and `metro`.
+It is wired five ways, with the same server and config in `common`: `vanilla`, `inara`, `koin`, `metro`, and `kodein`.
+The `kodein` app is deprecated, as Kodein is: use `inara`, or `koin` for a DSL like Kodein’s.
 `jib` builds the vanilla app into a container image, with its JVM AOT cache in it, and the repository's `server-ktor-db` https://dagger.io[Dagger] module does the same as a CI pipeline.
 See the Database, Telemetry, and Client HTTP sections of the link:../../README.adoc[README] for the modules it uses.
 

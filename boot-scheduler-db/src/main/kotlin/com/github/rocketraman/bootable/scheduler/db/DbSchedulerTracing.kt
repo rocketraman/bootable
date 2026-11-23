@@ -61,14 +61,14 @@ fun dbSchedulerTracing(openTelemetry: OpenTelemetry, sample: Sample = Sample.ByS
 }
 
 /**
- * How the Kodein and Metro flavors of this module trace the executions of the application's db-scheduler tasks. They
+ * How the Koin, Kodein, and Metro flavors of this module trace the executions of the application's db-scheduler tasks. They
  * trace each execution with [dbSchedulerTracing] whenever the application has an `OpenTelemetry`, such as
  * boot-telemetry-otel's, and don't trace at all when it has none. Bind one to change that, e.g. to sample every
  * execution's trace, or to trace none:
  *
  * ```
- * // Kodein
- * bindSingleton { DbSchedulerTracingOptions(sample = Sample.Always) }
+ * // Koin
+ * single { DbSchedulerTracingOptions(sample = Sample.Always) }
  *
  * // Metro
  * @Provides fun dbSchedulerTracingOptions(): DbSchedulerTracingOptions = DbSchedulerTracingOptions(enabled = false)

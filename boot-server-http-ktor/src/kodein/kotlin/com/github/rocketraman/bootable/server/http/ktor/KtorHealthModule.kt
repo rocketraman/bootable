@@ -18,6 +18,7 @@ import org.kodein.di.singleton
  * is set, and then runs on the application's [KtorServerEngine], such as `ktorServerCioEngineModule`'s, from
  * boot-server-http-ktor-cio-kodein.
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val ktorHealthModule by DI.Module {
   bindSingleton { ktorHealthConfig(instance()) }
   bindSingleton { KtorHealth(instance(), instance(), instance()) }

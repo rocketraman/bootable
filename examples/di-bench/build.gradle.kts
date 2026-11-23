@@ -10,6 +10,7 @@ kotlin {
 
 dependencies {
   implementation("org.kodein.di:kodein-di:7.25.0")
+  implementation(libs.koin.core)
 }
 
 application { mainClass.set("bench.MainKt") }

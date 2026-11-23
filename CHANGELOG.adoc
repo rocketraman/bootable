@@ -219,6 +219,17 @@ The other modules are partial modules, which require the modules they use, and h
 `boot-server-http-ktor-inara` adds `KtorServerEngineModule`, which the Ktor health and telemetry modules require for their listeners of their own: `ktorServerCioEngineModule()` or `ktorServerNettyEngineModule()`, from the engine modules' `-inara` flavors, or `NoKtorServerEngineModule`.
 See link:docs/wiring.adoc#inara-experimental[Wiring Bootable].
 
+=== Koin bindings, and Kodein deprecated
+
+Each module with Kodein bindings also has https://insert-koin.io/[Koin] bindings, as a `-koin` artifact (`boot-koin`, `boot-db-jdbc-koin`, …), for applications that want a DSL like Kodein's.
+Each Koin module is a function named as its Kodein counterpart is, in the module's package plus `.koin`, such as `com.github.rocketraman.bootable.boot.koin.bootableModule()`.
+Koin keeps a module's single instances in the module itself, so each call returns a new module, and each Koin application gets instances of its own.
+Koin has no set multibindings, so where Kodein opens a `Set<AppService>`, `Set<HealthCheck>`, `Set<OpenTelemetryCustomizer>`, and so on, the Koin modules collect every definition of that type with `getAll`.
+Contribute one with a qualifier of its own, so it adds to the others rather than overriding them: `single<AppService>(named("greeting")) { GreetingService() }`.
+See link:docs/wiring.adoc[Wiring Bootable].
+
+The Kodein bindings are deprecated, as Kodein is: use the `-inara` bindings, Kodein's compile-time successor, or the `-koin` bindings, to keep a style like Kodein's.
+
 === Fixes
 
 * A stop requested during the start no longer deadlocks; it takes effect once running.

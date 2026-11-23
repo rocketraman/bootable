@@ -35,6 +35,7 @@ import org.kodein.di.singleton
  * A module can contribute a named client's default settings, which the application's `http.client` overrides, by
  * adding a [KtorClientDefaults] to the set this module opens.
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val ktorClientModule by DI.Module {
   bindSet<KtorClientCustomizer>()
   bindSet<KtorClientDefaults>()

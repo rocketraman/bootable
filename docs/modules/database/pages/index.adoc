@@ -15,7 +15,7 @@ Migrations, the ORM, and statement tracing are optional.
 Each of these is a dependency you add; the core, last, comes with the driver.
 
 A module marked `(-otel)` has an `-otel` variant: the same module, with its telemetry added, which you use in its place.
-Every module comes in a `-kodein` and a `-metro` flavour too, for those wiring styles.
+Every module comes in `-kodein`, `-koin`, and `-metro` flavours too, for those wiring styles.
 
 modules::database[]
 
@@ -74,6 +74,15 @@ Import the pool's module, a driver config module, and a pool module, plus Flyway
 include::ROOT:example$kodein/database/Wiring.kt[tag=wire]
 ----
 
+Koin::
++
+Include the pool's module, a driver config module, and a pool module, plus Flyway's and Exposed's, and define each of your tables as a `Table`, with a qualifier of its own:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/database/Wiring.kt[tag=wire]
+----
+
 Metro::
 +
 The `-metro` modules contribute the database's bindings on their own; contribute your tables into the `Set<Table>`.
@@ -117,6 +126,13 @@ Kodein::
 include::ROOT:example$kodein/database/Tracing.kt[tag=tracing]
 ----
 
+Koin::
++
+[source,kotlin]
+----
+include::ROOT:example$koin/database/Tracing.kt[tag=tracing,indent=0]
+----
+
 Metro::
 +
 The `-metro` modules contribute the tracing wrapper and the pool's metrics on their own.
@@ -142,7 +158,7 @@ The pool's metrics are on xref:hikari.adoc#metrics[the HikariCP page].
 == Example
 
 `examples/server-ktor-db` is a small Ktor server that keeps entries in SQLite through a HikariCP pool, migrated by Flyway and queried with Exposed, and traces and measures itself with OpenTelemetry.
-It is wired each of the four ways; from the repository root, run yours:
+It is wired each of the five ways; from the repository root, run yours:
 
 [tabs,sync-group-id=di]
 ======
@@ -158,6 +174,13 @@ Kodein::
 [source,shell]
 ----
 ./gradlew :examples:server-ktor-db:kodein:run
+----
+
+Koin::
++
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:koin:run
 ----
 
 Metro::

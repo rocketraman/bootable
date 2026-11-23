@@ -6,8 +6,8 @@ import kotlinx.coroutines.CoroutineScope
 /**
  * An application service, with a lifecycle.
  *
- * Passing implementations of AppService to [Bootable] (directly, or via a DI multibinding such as Kodein's
- * `bindAppService`) registers them with the boot system, which starts them up and shuts them down in the order of
+ * Passing implementations of AppService to [Bootable] (directly, or via a DI multibinding such as Metro's `@IntoSet`)
+ * registers them with the boot system, which starts them up and shuts them down in the order of
  * their [ordering].
  *
  * Its start and [shutdown] suspend, and run on the lifecycle's own thread, one service at a time. Wrap blocking calls in

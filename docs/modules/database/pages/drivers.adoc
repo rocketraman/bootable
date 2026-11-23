@@ -108,6 +108,7 @@ Swap the driver module for another, in the same flavour, and its config:
 ======
 Vanilla:: Read `PostgresqlConfig`, `MysqlConfig`, or `JdbcGenericConfig` from `db.jdbc`, in place of `SqliteConfig`.
 Kodein:: Import `postgresqlConfigModule`, `mysqlConfigModule`, or `jdbcGenericConfigModule`, in place of `sqliteConfigModule`.
+Koin:: Include `postgresqlConfigModule()`, `mysqlConfigModule()`, or `jdbcGenericConfigModule()`, in place of `sqliteConfigModule()`.
 Metro:: A driver module's `-metro` artifact contributes its config, so there is nothing to change; for `JdbcGenericConfig`, add `JdbcGenericConfigBindings` to the graph's `bindingContainers`.
 Inara:: Pass `PostgresqlConfigSource`, `MysqlConfigSource`, or `JdbcGenericConfigSource` to `jdbcDataSourceModule(...)`, in place of `SqliteConfigSource`.
 ======

@@ -12,7 +12,8 @@ import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
 /**
  * Collects every span and metric an OpenTelemetry SDK records, in memory, for a test to assert on: an
  * [OpenTelemetryCustomizer], so pass it to the `OpenTelemetryService` the code under test records through, or add it
- * to the SDK's customizers with `inMemoryTelemetryModule` (Kodein) or `InMemoryTelemetryBindings` (Metro).
+ * to the SDK's customizers with `inMemoryTelemetryModule` (Koin, Kodein), `InMemoryTelemetryBindings` (Metro), or
+ * `InMemoryTelemetryModule` (Inara).
  *
  * Spans are exported as each ends, to [spanExporter], OpenTelemetry's own in-memory exporter, and metrics are read on
  * demand by [metricReader], its in-memory reader. The SDK's other exporters, such as OTLP, still get them too.

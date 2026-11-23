@@ -1,3 +1,5 @@
+// Kodein is deprecated: see the inara app, or the koin app for a DSL like Kodein's.
+
 plugins {
   kotlin("jvm")
   application

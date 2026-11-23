@@ -7,7 +7,7 @@ They stop in exactly the reverse order.
 
 Each service says where it starts with its `ordering()`, an `Ordering` of its phase and its milestones.
 Bootable computes the order, the _start plan_, from the set of services it is given, before anything starts, and logs it.
-The order is the same whether the services were wired by hand, by Kodein, or by Metro, since it comes from the services themselves.
+The order is the same whether the services were wired by hand, by Kodein, by Koin, or by Metro, since it comes from the services themselves.
 
 [#phases]
 == Phases
@@ -127,7 +127,7 @@ boot.service.order {
 <2> Optional: replays a logged shuffle; `BOOT_SERVICE_ORDER_TIEBREAKER_SEED=42` as an environment variable.
 
 A good approach is to shuffle in `application-local.conf`, for development, and in the tests' config, where a surprise is cheap, and to keep the default in production, so it starts in the same order on every run.
-Kodein's `bootableModule` and Metro's `BootableDefaultBindings` read the section when there is a `ConfigBinder`; wired by hand, pass `tiebreaker = serviceOrderConfig(binder).tiebreaker` to `Bootable`, as <<custom>> shows.
+Kodein's `bootableModule`, Koin's `bootableModule()`, and Metro's `BootableDefaultBindings` read the section when there is a `ConfigBinder`; wired by hand, pass `tiebreaker = serviceOrderConfig(binder).tiebreaker` to `Bootable`, as <<custom>> shows.
 A test can check the start plan under many shuffles, without starting anything; see xref:testing:index.adoc#start-plans[the start plan].
 
 [#shutdown]
@@ -217,6 +217,15 @@ Kodein::
 [source,kotlin]
 ----
 include::ROOT:example$kodein/concepts/StartOrder.kt[tag=wire]
+----
+
+Koin::
++
+`bootableModule()` passes a `StartOrder` definition, if there is one, to `Bootable`:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/concepts/StartOrder.kt[tag=wire,indent=0]
 ----
 
 Metro::

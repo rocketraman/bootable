@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.server.http.ktor
 
 import com.github.rocketraman.bootable.boot.AppService
@@ -8,9 +10,11 @@ import com.github.rocketraman.bootable.boot.BuildInfo
 import com.github.rocketraman.bootable.boot.HealthLifecycleController
 import com.github.rocketraman.bootable.boot.ReadinessConfig
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.server.http.ktor.koin.ktorHealthModule as koinKtorHealthModule
 import com.github.rocketraman.bootable.test.StaticConfigBinder
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
@@ -24,6 +28,8 @@ import org.kodein.di.direct
 import org.kodein.di.inara.Binding
 import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
+import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 
 /**
  * Config with a `health.ktor` section that moves readiness to `/ready`, and puts the routes on a listener of their own
@@ -95,6 +101,20 @@ val KtorHealthWiringTest by testSuite {
     assert(ktorHealth.buildInfo == BuildInfo(version = "1.4.2"))
   }
 
+  test("KtorHealth serves the application's HealthLifecycleController and BuildInfo, with its config, in koin") {
+    val koin = koinApplication {
+      modules(koinBootableModule(), koinKtorHealthModule(), module { single<ConfigBinder> { healthConfigBinder() } })
+    }.koin
+    try {
+      val ktorHealth = koin.get<KtorHealth>()
+      assert(ktorHealth.health === koin.get<HealthLifecycleController>())
+      assert(ktorHealth.config.readyPath == "/ready")
+      assert(ktorHealth.buildInfo == BuildInfo(version = "1.4.2"))
+    } finally {
+      koin.close()
+    }
+  }
+
   test("KtorHealth serves the application's HealthLifecycleController and BuildInfo, with its config, in metro") {
     val graph = createGraph<HealthGraph>()
     assert(graph.ktorHealth.health === graph.health)
@@ -120,6 +140,24 @@ val KtorHealthWiringTest by testSuite {
       assert(di.instance<Set<AppService>>().healthListener() is HealthKtorService<*, *>)
     }
 
+    test("on the application's KtorServerEngine, in koin") {
+      val koin = koinApplication {
+        modules(
+          koinBootableModule(),
+          koinKtorHealthModule(),
+          module {
+            single<ConfigBinder> { healthConfigBinder(hostPort = "127.0.0.1:0") }
+            single { KtorServerEngine(CIO) }
+          },
+        )
+      }.koin
+      try {
+        assert(koin.getAll<AppService>().toSet().healthListener() is HealthKtorService<*, *>)
+      } finally {
+        koin.close()
+      }
+    }
+
     test("on the graph's KtorServerEngine, in metro") {
       assert(createGraph<HealthListenerGraph>().appServices.healthListener() is HealthKtorService<*, *>)
     }
@@ -131,6 +169,17 @@ val KtorHealthWiringTest by testSuite {
         bindSingleton<ConfigBinder> { healthConfigBinder() }
       }.direct
       assert(di.instance<Set<AppService>>().healthListener().name() == "HealthKtorService (none)")
+    }
+
+    test("that does nothing, with no engine needed, when no hostPort is set, in koin") {
+      val koin = koinApplication {
+        modules(koinBootableModule(), koinKtorHealthModule(), module { single<ConfigBinder> { healthConfigBinder() } })
+      }.koin
+      try {
+        assert(koin.getAll<AppService>().toSet().healthListener().name() == "HealthKtorService (none)")
+      } finally {
+        koin.close()
+      }
     }
 
     test("that does nothing, with no engine needed, when no hostPort is set, in metro") {
@@ -145,6 +194,22 @@ val KtorHealthWiringTest by testSuite {
       }.direct
       val failure = runCatching { di.instance<Set<AppService>>() }.exceptionOrNull()
       assert(generateSequence(failure) { it.cause }.any { it.message?.contains("no KtorServerEngine") == true })
+    }
+
+    test("that fails, naming the missing engine, when hostPort is set but there is no engine, in koin") {
+      val koin = koinApplication {
+        modules(
+          koinBootableModule(),
+          koinKtorHealthModule(),
+          module { single<ConfigBinder> { healthConfigBinder(hostPort = "127.0.0.1:0") } },
+        )
+      }.koin
+      try {
+        val failure = runCatching { koin.getAll<AppService>() }.exceptionOrNull()
+        assert(generateSequence(failure) { it.cause }.any { it.message?.contains("no KtorServerEngine") == true })
+      } finally {
+        koin.close()
+      }
     }
 
     test("on the application's KtorServerEngine, in inara") {

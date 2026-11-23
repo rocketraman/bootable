@@ -15,7 +15,7 @@ The xref:exporters.adoc[exporters and integrations] add Prometheus's scrape, Sig
 == Modules
 
 `boot-telemetry-otel` is the SDK; each exporter or integration depends on it, so an application that uses one needn't list the SDK.
-Every module comes in a `-kodein` and a `-metro` flavour too, for those wiring styles.
+Every module comes in `-kodein`, `-koin`, and `-metro` flavours too, for those wiring styles.
 
 modules::telemetry[]
 
@@ -111,6 +111,15 @@ Kodein::
 include::ROOT:example$kodein/telemetry/Wiring.kt[tag=wire]
 ----
 
+Koin::
++
+`openTelemetryModule()` defines the `OpenTelemetry`, over every customizer and metrics snapshot provider definition, such as those the other telemetry modules define:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/telemetry/Wiring.kt[tag=wire]
+----
+
 Metro::
 +
 `boot-telemetry-otel-metro` contributes the `OpenTelemetry` and the service on its own.
@@ -131,7 +140,7 @@ include::ROOT:example$inara/telemetry/Wiring.kt[tag=wire]
 ----
 ======
 
-A `kotlin.time.Clock`, if one is given to `OpenTelemetryService` and `ServiceStartTracing`, or bound with Kodein or Metro, or given to the Inara modules' builders, is the time of the spans and measurements, such as a fixed clock in a test; otherwise it is `Clock.System`.
+A `kotlin.time.Clock`, if one is given to `OpenTelemetryService` and `ServiceStartTracing`, or bound with Kodein, Koin, or Metro, or given to the Inara modules' builders, is the time of the spans and measurements, such as a fixed clock in a test; otherwise it is `Clock.System`.
 
 When the OpenTelemetry Java agent is attached, it has already built and registered the process's SDK: `openTelemetry` is then the agent's, the config and customizers are ignored, and the agent owns the SDK's lifecycle.
 
@@ -230,6 +239,15 @@ Add them to the `Set<OpenTelemetryCustomizer>`, in a module imported after `open
 include::ROOT:example$kodein/telemetry/Customizers.kt[tag=customizers]
 ----
 
+Koin::
++
+Define each as an `OpenTelemetryCustomizer`, with a qualifier of its own, for `openTelemetryModule()` to collect:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/telemetry/Customizers.kt[tag=customizers,indent=0]
+----
+
 Metro::
 +
 Contribute them into the `Set<OpenTelemetryCustomizer>`:
@@ -257,7 +275,7 @@ Other functions record through the application's OpenTelemetry, with `-otel` mod
 * Database: a span for each JDBC statement, in xref:database:index.adoc#telemetry[Database], and the connection pool's metrics, in xref:database:hikari.adoc#metrics[HikariCP].
 * HTTP server: a span and the standard metrics for each request, and the metrics scrape, in xref:http:server.adoc#telemetry[the server].
 * HTTP client: a client span and the standard metrics for each request, in xref:http:client.adoc#telemetry[the client].
-* Background work: a trace for each run of a periodic loop, in xref:background:periodic.adoc#telemetry[periodic work], and for each db-scheduler execution, in xref:background:scheduler.adoc#telemetry[scheduled tasks], built into `boot-periodic` and `boot-scheduler-db`: with Kodein or Metro, on whenever the application has an `OpenTelemetry`, and with Inara, through the `OpenTelemetryApiModule` the modules require.
+* Background work: a trace for each run of a periodic loop, in xref:background:periodic.adoc#telemetry[periodic work], and for each db-scheduler execution, in xref:background:scheduler.adoc#telemetry[scheduled tasks], built into `boot-periodic` and `boot-scheduler-db`: with Kodein, Koin, or Metro, on whenever the application has an `OpenTelemetry`, and with Inara, through the `OpenTelemetryApiModule` the modules require.
 
 For a library without such a module, hand the application's `openTelemetry` to the library's own OpenTelemetry instrumentation, where you build it.
 For one that reports only to Micrometer, use the xref:exporters.adoc#micrometer-bridge[Micrometer bridge].
@@ -265,7 +283,7 @@ For one that reports only to Micrometer, use the xref:exporters.adoc#micrometer-
 == Example
 
 `examples/server-ktor-db` is a small Ktor server that traces its requests, with a span for each query within them, traces its start, and records its request, pool, and runtime metrics, which it serves for Prometheus at http://localhost:8001/metrics.
-It is wired each of the four ways; from the repository root, run yours:
+It is wired each of the five ways; from the repository root, run yours:
 
 [tabs,sync-group-id=di]
 ======
@@ -281,6 +299,13 @@ Kodein::
 [source,shell]
 ----
 ./gradlew :examples:server-ktor-db:kodein:run
+----
+
+Koin::
++
+[source,shell]
+----
+./gradlew :examples:server-ktor-db:koin:run
 ----
 
 Metro::
