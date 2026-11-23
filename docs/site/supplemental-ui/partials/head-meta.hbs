@@ -11,3 +11,7 @@
 {{!-- data-sync-storage-key: the reader's choice in a synced tab set, such as their DI, is kept in localStorage --}}
 <script defer src="{{{uiRootPath}}}/js/vendor/tabs.js" data-sync-storage-key="bootable-tabs"></script>
 <script defer src="{{{uiRootPath}}}/js/bootable.js"></script>
+{{!-- the page as Markdown, for LLMs and other tools (extensions/llms.js); the site's index of them is /llms.txt --}}
+{{#with page.attributes.markdown}}
+<link rel="alternate" type="text/markdown" href="{{this}}">
+{{/with}}

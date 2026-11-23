@@ -7,6 +7,7 @@ A simple, *unopinionated* framework for booting Kotlin applications.
 It handles starting, stopping, lifecycle management, logging, configuration, and other basic reusable components, and then gets out of your way.
 
 *Documentation: https://rocketraman.github.io/bootable/*
+For LLMs and other tools, the documentation is also published as Markdown, indexed by https://rocketraman.github.io/bootable/llms.txt[llms.txt].
 
 == Key points
 
