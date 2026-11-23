@@ -52,6 +52,7 @@ module:boot-scheduler-db
 com.github.rocketraman.bootable.scheduler.db
 module:boot-server-grpc
 com.github.rocketraman.bootable.server.grpc
+com.github.rocketraman.bootable.server.grpc.interim
 module:boot-server-grpc-otel
 com.github.rocketraman.bootable.server.grpc
 module:boot-server-http-ktor
