@@ -269,6 +269,47 @@
     setTelemetry(root.dataset.installTelemetry === 'on')
   }
 
+  // The sidebar on an API page (extensions/dokka.js), where the docs UI's site.js, which opens and closes it on a docs
+  // page, isn't loaded: a group's toggle opens its pages, and, on a phone, the header's toggle shows the sidebar.
+  var apiNav = document.querySelector('.nav-container[data-api]')
+  if (apiNav) {
+    // the current page is in the API reference group, below the docs' groups: scroll the sidebar to it, once Dokka's
+    // navigation-loader.js has filled in its tree and marked it, or, on All modules, at once and again once the tree is
+    // in; and each time a phone's sidebar opens, since a hidden one can't scroll
+    var panel = apiNav.querySelector('.nav-panel-menu')
+    var currentRow = apiNav.querySelector('.nav-item.is-current-page')
+    var reveal = function () {
+      if (!panel || !currentRow) return
+      panel.scrollTop += currentRow.getBoundingClientRect().top - panel.getBoundingClientRect().top - panel.clientHeight / 3
+    }
+    var sideMenu = document.getElementById('sideMenu')
+    reveal()
+    if (sideMenu) {
+      // the tree, below All modules, lets the sidebar scroll further once it is in
+      new MutationObserver(function (records, observer) {
+        var active = sideMenu.querySelector('.toc--part[data-active] > .toc--row')
+        if (active) currentRow = active
+        else if (!currentRow) return
+        observer.disconnect()
+        reveal()
+      }).observe(sideMenu, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-active'] })
+    }
+    var navToggle = document.querySelector('.header .nav-toggle')
+    if (navToggle) {
+      navToggle.addEventListener('click', function (e) {
+        e.stopPropagation()
+        if (apiNav.classList.toggle('is-active')) reveal()
+      })
+      document.addEventListener('click', function (e) {
+        if (!apiNav.contains(e.target)) apiNav.classList.remove('is-active')
+      })
+    }
+    apiNav.addEventListener('click', function (e) {
+      var itemToggle = e.target.closest && e.target.closest('.nav-item-toggle')
+      if (itemToggle) itemToggle.parentElement.classList.toggle('is-active')
+    })
+  }
+
   // The docs version: the header's switch goes to the chosen version of this page, or to its start page where this
   // page isn't in it (header-content.hbs).
   var versionSwitch = document.getElementById('version-switch')
