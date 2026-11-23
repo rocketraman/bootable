@@ -28,6 +28,7 @@ import kotlin.time.Clock
  *
  * `periodicModule` (from boot-periodic-kodein) gates the application's periodic services on it.
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val kubernetesLeaderElectionModule by DI.Module {
   bindSingleton<KubernetesLeaderElectionConfig> { instance<ConfigBinder>().config("leader.kubernetes") }
   bindSingleton {

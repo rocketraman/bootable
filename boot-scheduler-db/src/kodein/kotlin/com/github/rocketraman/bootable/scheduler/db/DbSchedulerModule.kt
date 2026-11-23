@@ -38,6 +38,7 @@ import kotlin.time.Clock
  * inBindSet<DbSchedulerCustomizer> { add { singleton { DbSchedulerCustomizer { it.addSchedulerListener(listener) } } } }
  * ```
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val dbSchedulerModule by DI.Module {
   bindSet<DbSchedulerTaskProvider>()
   bindSet<DbSchedulerCustomizer>()
@@ -65,6 +66,7 @@ val dbSchedulerModule by DI.Module {
  * A Kodein module that adds a [DbSchedulerHealthCheck] to the readiness checks of `bootableModule` (from boot-kodein).
  * Import it alongside [dbSchedulerModule]. See [DbSchedulerHealthCheck] for when readiness should depend on it.
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val dbSchedulerHealthCheckModule by DI.Module {
   inBindSet<HealthCheck> { add { singleton { DbSchedulerHealthCheck(instance()) } } }
 }

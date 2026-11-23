@@ -16,6 +16,7 @@ import org.kodein.di.singleton
  * `import(jdbcTracingModule { setDataSourceInstrumenterEnabled(true) })` for a span for each connection taken from the
  * pool.
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 fun jdbcTracingModule(configure: JdbcTelemetryBuilder.() -> Unit = {}): DI.Module = DI.Module("jdbcTracingModule") {
   inBindSet<DataSourceWrapper> { add { singleton { jdbcTracing(instance(), configure) } } }
 }

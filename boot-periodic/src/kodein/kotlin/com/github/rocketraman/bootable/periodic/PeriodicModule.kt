@@ -27,6 +27,7 @@ import kotlin.time.Clock
  * bindAppService { singleton { instance<PeriodicServices>().create("notifications", instance<NotificationsConfig>().loop) { instance<Notifications>().sendPending() } } }
  * ```
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val periodicModule by DI.Module {
   bindSet<PeriodicRunInterceptor>()
   bindSingleton {

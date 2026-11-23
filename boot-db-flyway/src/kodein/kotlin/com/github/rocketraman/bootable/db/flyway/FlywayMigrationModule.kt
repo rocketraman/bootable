@@ -22,6 +22,7 @@ import org.kodein.di.singleton
  * inBindSet<FlywayConfigurationCustomizer> { add { singleton { FlywayConfigurationCustomizer { it.callbacks(audit) } } } }
  * ```
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val flywayMigrationModule by DI.Module {
   bindSet<FlywayConfigurationCustomizer>()
   bindSingleton<FlywayConfig> { instance<ConfigBinder>().config("db.flyway") }

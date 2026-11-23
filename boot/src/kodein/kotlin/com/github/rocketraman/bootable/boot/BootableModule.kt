@@ -23,6 +23,7 @@ import org.kodein.di.singleton
  *
  * It binds the application's [BuildInfo], from the `build` config section if there is a [ConfigBinder] binding.
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val bootableModule by DI.Module {
   bindSet<AppService>()
   bindSet<LifecycleController>()
@@ -46,5 +47,6 @@ val bootableModule by DI.Module {
 }
 
 /** Contribute an [AppService] into the boot set: `bindAppService { singleton { MyService() } }`. */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 fun DI.Builder.bindAppService(createBinding: () -> org.kodein.di.bindings.DIBinding<*, *, out AppService>) =
   inBindSet<AppService> { add(createBinding) }

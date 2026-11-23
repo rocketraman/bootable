@@ -15,6 +15,7 @@ import org.kodein.di.singleton
  * `openTelemetryModule`, which opens those sets. Requires a `ConfigBinder` binding (e.g. from boot-config-hoplite's
  * `hopliteConfigModule`).
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val prometheusTelemetryModule by DI.Module {
   bindSingleton<PrometheusTelemetryConfig> { instance<ConfigBinder>().config("telemetry.prometheus") }
   bindSingleton { PrometheusTelemetry(instance()) }

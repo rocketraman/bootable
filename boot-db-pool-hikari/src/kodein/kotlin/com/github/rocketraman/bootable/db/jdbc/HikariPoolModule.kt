@@ -18,6 +18,7 @@ import org.kodein.di.instance
  * inBindSet<HikariConfigCustomizer> { add { singleton { HikariConfigCustomizer { it.metricRegistry = registry } } } }
  * ```
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val hikariPoolModule by DI.Module {
   bindSet<HikariConfigCustomizer>()
   bindSingleton<HikariPoolConfig> { instance<ConfigBinder>().config("db.pool") }

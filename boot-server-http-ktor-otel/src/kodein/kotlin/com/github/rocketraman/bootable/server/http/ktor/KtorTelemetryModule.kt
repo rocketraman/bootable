@@ -29,6 +29,7 @@ import org.kodein.di.singleton
  * To adjust the Ktor instrumentation beyond [KtorTelemetryConfig], add a [KtorServerTelemetryCustomizer] to the set
  * this module opens.
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val ktorTelemetryModule by DI.Module {
   bindSet<KtorServerTelemetryCustomizer>()
   bindSingleton<KtorTelemetryConfig> { instance<ConfigBinder>().config("telemetry.ktor") }

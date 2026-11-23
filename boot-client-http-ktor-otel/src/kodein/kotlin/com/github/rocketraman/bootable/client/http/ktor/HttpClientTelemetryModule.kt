@@ -19,6 +19,7 @@ import org.kodein.di.singleton
  * To adjust the Ktor client instrumentation beyond [HttpClientTelemetryConfig], add an
  * [HttpClientTelemetryCustomizer] to the set this module opens.
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val httpClientTelemetryModule by DI.Module {
   bindSet<HttpClientTelemetryCustomizer>()
   bindSingleton<HttpClientTelemetryConfig> { instance<ConfigBinder>().config("telemetry.httpClient") }

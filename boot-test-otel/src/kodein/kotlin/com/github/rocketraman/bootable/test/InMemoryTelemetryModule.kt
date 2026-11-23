@@ -21,6 +21,7 @@ import org.kodein.di.singleton
  * val telemetry = di.direct.instance<InMemoryTelemetry>()
  * ```
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val inMemoryTelemetryModule by DI.Module {
   bindSingleton { InMemoryTelemetry() }
   inBindSet<OpenTelemetryCustomizer> { add { singleton { instance<InMemoryTelemetry>() } } }

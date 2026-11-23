@@ -11,6 +11,7 @@ import org.kodein.di.instance
  * Import it alongside `jdbcDataSourceModule`, which builds the pool from it, and a pool module. Requires a `ConfigBinder` binding
  * (e.g. from boot-config-hoplite's `hopliteConfigModule`).
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val sqliteConfigModule by DI.Module {
   bindSingleton<JdbcConfig> { instance<ConfigBinder>().config<SqliteConfig>("db.jdbc") }
 }

@@ -28,6 +28,7 @@ import kotlin.time.Clock
  *   ```
  * - `Set<MetricsSnapshotProvider>`: the scrape endpoints of pulled metrics backends, for an HTTP integration to serve.
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val openTelemetryModule by DI.Module {
   bindSet<OpenTelemetryCustomizer>()
   bindSet<MetricsSnapshotProvider>()

@@ -11,6 +11,7 @@ import org.kodein.di.singleton
  * Import it after `hikariPoolModule`, which opens that set, alongside `openTelemetryModule` (from
  * boot-telemetry-otel-kodein), which provides the `OpenTelemetry`.
  */
+@Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val hikariPoolMetricsModule by DI.Module {
   inBindSet<HikariConfigCustomizer> { add { singleton { hikariPoolMetrics(instance()) } } }
 }
