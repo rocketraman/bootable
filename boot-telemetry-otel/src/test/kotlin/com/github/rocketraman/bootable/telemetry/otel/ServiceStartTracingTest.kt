@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.telemetry.otel
 
 import com.github.rocketraman.bootable.boot.AppService
@@ -11,9 +13,13 @@ import com.github.rocketraman.bootable.boot.ServiceContext
 import com.github.rocketraman.bootable.boot.StartupStage
 import com.github.rocketraman.bootable.boot.StartupTimeline
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfLifecycleControllers
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
+import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
+import com.github.rocketraman.bootable.telemetry.otel.koin.openTelemetryModule as koinOpenTelemetryModule
+import com.github.rocketraman.bootable.telemetry.otel.koin.serviceStartTracingModule as koinServiceStartTracingModule
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
 import dev.zacsweers.metro.DependencyGraph
@@ -37,6 +43,9 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Clock
 import kotlin.time.Instant as KotlinInstant
 import kotlin.time.TimeSource
+import org.koin.core.qualifier.named
+import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 
 @DependencyGraph(
   TestScope::class,
@@ -283,6 +292,41 @@ val ServiceStartTracingTest by testSuite {
         assertTimedBy(clock, traceStart(tracing, telemetry))
       } finally {
         di.instance<OpenTelemetryService>().shutdown()
+      }
+    }
+
+    test("koin") {
+      val koin = koinApplication {
+        modules(koinBootableModule(), koinHopliteConfigModule(), koinOpenTelemetryModule(), koinServiceStartTracingModule())
+      }.koin
+      try {
+        assert(koin.getAll<LifecycleController>().filterIsInstance<ServiceStartTracing>().size == 1)
+      } finally {
+        koin.close()
+      }
+    }
+
+    test("koin, with a clock") {
+      val clock = FixedClock()
+      val telemetry = InMemoryTelemetry()
+      val koin = koinApplication {
+        modules(
+          koinBootableModule(),
+          koinHopliteConfigModule(),
+          koinOpenTelemetryModule(),
+          koinServiceStartTracingModule(),
+          module {
+            single<Clock> { clock }
+            single<OpenTelemetryCustomizer>(named("test")) { telemetry }
+          },
+        )
+      }.koin
+      val tracing = koin.getAll<LifecycleController>().filterIsInstance<ServiceStartTracing>().single()
+      try {
+        assertTimedBy(clock, traceStart(tracing, telemetry))
+      } finally {
+        koin.get<OpenTelemetryService>().shutdown()
+        koin.close()
       }
     }
 

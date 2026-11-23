@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.scheduler.db
 
 import com.github.kagkarlsson.scheduler.SchedulerClient
@@ -8,14 +10,17 @@ import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.boot.startPlan
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
+import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
 import com.github.rocketraman.bootable.db.flyway.FlywayConfig
 import com.github.rocketraman.bootable.db.flyway.FlywayMigrationModule
 import com.github.rocketraman.bootable.db.flyway.FlywayMigrationService
 import com.github.rocketraman.bootable.db.flyway.flywayMigrationModule
+import com.github.rocketraman.bootable.db.flyway.koin.flywayMigrationModule as koinFlywayMigrationModule
 import com.github.rocketraman.bootable.db.jdbc.HikariConnectionPoolFactory
 import com.github.rocketraman.bootable.db.jdbc.HikariPoolModule
 import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceModule
@@ -25,7 +30,11 @@ import com.github.rocketraman.bootable.db.jdbc.SqliteConfigSource
 import com.github.rocketraman.bootable.db.jdbc.hikariPoolModule
 import com.github.rocketraman.bootable.db.jdbc.jdbcDataSourceModule
 import com.github.rocketraman.bootable.db.jdbc.jdbcTracing
+import com.github.rocketraman.bootable.db.jdbc.koin.hikariPoolModule as koinHikariPoolModule
+import com.github.rocketraman.bootable.db.jdbc.koin.jdbcDataSourceModule as koinJdbcDataSourceModule
+import com.github.rocketraman.bootable.db.jdbc.koin.sqliteConfigModule as koinSqliteConfigModule
 import com.github.rocketraman.bootable.db.jdbc.sqliteConfigModule
+import com.github.rocketraman.bootable.scheduler.db.koin.dbSchedulerModule as koinDbSchedulerModule
 import com.github.rocketraman.bootable.telemetry.otel.ALWAYS_SAMPLE
 import com.github.rocketraman.bootable.telemetry.otel.MetricsConfig
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizer
@@ -34,6 +43,7 @@ import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
 import com.github.rocketraman.bootable.telemetry.otel.Sample
 import com.github.rocketraman.bootable.telemetry.otel.TelemetryConfig
+import com.github.rocketraman.bootable.telemetry.otel.koin.openTelemetryModule as koinOpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.openTelemetryModule
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
@@ -62,6 +72,9 @@ import kotlin.io.path.Path
 import kotlin.io.path.deleteIfExists
 import kotlin.time.Clock
 import kotlin.time.toJavaInstant
+import org.koin.core.qualifier.named
+import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 
 /** Collects every span the SDK ends, in memory, as a test's window onto it. */
 class InMemorySpans : OpenTelemetryCustomizer {
@@ -262,6 +275,32 @@ val DbSchedulerTracingTest by testSuite {
       inBindSet<DbSchedulerTaskProvider> { add { singleton { instance<TestTasks>() } } }
     }.direct
     di.instance<Set<AppService>>().startAndTrace(di.instance(), di.instance(), di.instance())
+  }
+
+  test("koin, through the OpenTelemetry definition") {
+    val koin = koinApplication {
+      modules(
+        koinBootableModule(),
+        koinHopliteConfigModule(),
+        koinOpenTelemetryModule(),
+        koinJdbcDataSourceModule(),
+        koinSqliteConfigModule(),
+        koinHikariPoolModule(),
+        koinFlywayMigrationModule(),
+        koinDbSchedulerModule(),
+        module {
+          single { InMemorySpans() }
+          single<OpenTelemetryCustomizer>(named("test")) { get<InMemorySpans>() }
+          single { TestTasks() }
+          single<DbSchedulerTaskProvider>(named<TestTasks>()) { get<TestTasks>() }
+        },
+      )
+    }.koin
+    try {
+      koin.getAll<AppService>().toSet().startAndTrace(koin.get(), koin.get(), koin.get())
+    } finally {
+      koin.close()
+    }
   }
 
   test("metro, through the graph's OpenTelemetry") {

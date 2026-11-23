@@ -1,11 +1,17 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.telemetry.otel
 
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
+import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
+import com.github.rocketraman.bootable.telemetry.otel.koin.micrometerBridgeModule as koinMicrometerBridgeModule
+import com.github.rocketraman.bootable.telemetry.otel.koin.openTelemetryModule as koinOpenTelemetryModule
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
 import dev.zacsweers.metro.DependencyGraph
@@ -26,6 +32,9 @@ import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import org.kodein.di.singleton
 import java.time.Duration
+import org.koin.core.qualifier.named
+import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 
 /** Reads every metric the SDK records, as a test's window onto it. */
 class InMemoryMetrics : OpenTelemetryCustomizer {
@@ -100,6 +109,25 @@ val MicrometerBridgeTest by testSuite {
       }.direct
 
       checkBridged(di.instance(), metrics)
+    }
+
+    test("koin") {
+      val metrics = InMemoryMetrics()
+      val koin = koinApplication {
+        modules(
+          koinBootableModule(),
+          koinHopliteConfigModule(),
+          koinOpenTelemetryModule(),
+          koinMicrometerBridgeModule(),
+          module { single<OpenTelemetryCustomizer>(named("test")) { metrics } },
+        )
+      }.koin
+
+      try {
+        checkBridged(koin.get(), metrics)
+      } finally {
+        koin.close()
+      }
     }
 
     test("metro") {

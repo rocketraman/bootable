@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.periodic
 
 import com.github.rocketraman.bootable.boot.AppService
@@ -6,15 +8,18 @@ import com.github.rocketraman.bootable.boot.AppServices
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
+import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
 import com.github.rocketraman.bootable.leader.AlwaysLeaderModule
 import com.github.rocketraman.bootable.leader.LeaderElection
 import com.github.rocketraman.bootable.leader.LeaderElectionModule
+import com.github.rocketraman.bootable.periodic.koin.periodicModule as koinPeriodicModule
 import com.github.rocketraman.bootable.telemetry.otel.NoopOpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryApiModule
 import de.infix.testBalloon.framework.core.testSuite
@@ -35,6 +40,9 @@ import org.kodein.di.instance
 import org.kodein.di.singleton
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.milliseconds
+import org.koin.core.qualifier.named
+import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 
 /** A leader election a test controls. */
 class TestLeaderElection(leading: Boolean) : LeaderElection {
@@ -149,6 +157,39 @@ val PeriodicWiringTest by testSuite {
         import(periodicModule)
       }.direct
       assert(di.instance<PeriodicServices>().gate.isOpen())
+    }
+
+    test("koin, gated on the LeaderElection definition") {
+      val koin = koinApplication {
+        modules(
+          koinBootableModule(),
+          koinHopliteConfigModule(),
+          koinPeriodicModule(),
+          module {
+            single { Counter() }
+            single<LeaderElection> { TestLeaderElection(false) }
+            single<AppService>(named("counter")) {
+              get<PeriodicServices>().create("counter", get<ConfigBinder>().config("jobs.counter")) {
+                get<Counter>().runs.incrementAndGet()
+              }
+            }
+          },
+        )
+      }.koin
+      try {
+        checkLeaderGatedLoop(koin.getAll<AppService>().toSet(), koin.get<LeaderElection>() as TestLeaderElection, koin.get())
+      } finally {
+        koin.close()
+      }
+    }
+
+    test("koin, ungated without a LeaderElection definition") {
+      val koin = koinApplication { modules(koinBootableModule(), koinPeriodicModule()) }.koin
+      try {
+        assert(koin.get<PeriodicServices>().gate.isOpen())
+      } finally {
+        koin.close()
+      }
     }
 
     test("metro, gated on the graph's LeaderElection") {

@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.db.jdbc
 
 import com.github.rocketraman.bootable.boot.AppService
@@ -5,17 +7,24 @@ import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
+import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
 import com.github.rocketraman.bootable.db.exposed.ExposedDatabaseService
 import com.github.rocketraman.bootable.db.exposed.withTransaction
+import com.github.rocketraman.bootable.db.jdbc.koin.hikariPoolModule as koinHikariPoolModule
+import com.github.rocketraman.bootable.db.jdbc.koin.jdbcDataSourceModule as koinJdbcDataSourceModule
+import com.github.rocketraman.bootable.db.jdbc.koin.jdbcGenericConfigModule as koinJdbcGenericConfigModule
+import com.github.rocketraman.bootable.db.jdbc.koin.jdbcTracingModule as koinJdbcTracingModule
 import com.github.rocketraman.bootable.telemetry.otel.MetricsConfig
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizer
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizers
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
 import com.github.rocketraman.bootable.telemetry.otel.TelemetryConfig
+import com.github.rocketraman.bootable.telemetry.otel.koin.openTelemetryModule as koinOpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.openTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.withSpan
 import de.infix.testBalloon.framework.core.testSuite
@@ -50,6 +59,9 @@ import java.nio.file.Path
 import javax.sql.DataSource
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.deleteRecursively
+import org.koin.core.qualifier.named
+import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 
 /** Collects every span the SDK ends, in memory, as a test's window onto it. */
 class InMemorySpans : OpenTelemetryCustomizer {
@@ -305,6 +317,63 @@ val JdbcTracingTest by testSuite {
         dataSource.selectSecret()
         // within running: shutting the SDK down clears the exporter
         assert(spans.spans.query("FROM entry WHERE").attributes.get(DB_STATEMENT)!!.contains(SECRET))
+      }
+    }
+
+    test("koin") {
+      val spans = InMemorySpans()
+      val koin = koinApplication {
+        modules(
+          koinBootableModule(),
+          koinHopliteConfigModule(),
+          koinOpenTelemetryModule(),
+          koinJdbcDataSourceModule(),
+          koinJdbcGenericConfigModule(),
+          koinHikariPoolModule(),
+          koinJdbcTracingModule(),
+          module { single<OpenTelemetryCustomizer>(named("test")) { spans } },
+        )
+      }.koin
+
+      try {
+        assert(koin.getAll<DataSourceWrapper>().size == 1)
+        val dataSource = koin.get<DataSource>()
+        koin.getAll<AppService>().toSet().running {
+          dataSource.createEntries()
+          koin.get<OpenTelemetry>().checkQueryUnderSpan(spans) {
+            withContext(Dispatchers.IO) { dataSource.selectSecret() }
+          }
+        }
+      } finally {
+        koin.close()
+      }
+    }
+
+    test("koin, configured") {
+      val spans = InMemorySpans()
+      val koin = koinApplication {
+        modules(
+          koinBootableModule(),
+          koinHopliteConfigModule(),
+          koinOpenTelemetryModule(),
+          koinJdbcDataSourceModule(),
+          koinJdbcGenericConfigModule(),
+          koinHikariPoolModule(),
+          koinJdbcTracingModule { setQuerySanitizationEnabled(false) },
+          module { single<OpenTelemetryCustomizer>(named("test")) { spans } },
+        )
+      }.koin
+
+      try {
+        val dataSource = koin.get<DataSource>()
+        koin.getAll<AppService>().toSet().running {
+          dataSource.createEntries()
+          dataSource.selectSecret()
+          // within running: shutting the SDK down clears the exporter
+          assert(spans.spans.query("FROM entry WHERE").attributes.get(DB_STATEMENT)!!.contains(SECRET))
+        }
+      } finally {
+        koin.close()
       }
     }
 

@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.db.jdbc
 
 import com.github.rocketraman.bootable.boot.AppService
@@ -5,11 +7,16 @@ import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
+import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
+import com.github.rocketraman.bootable.db.jdbc.koin.hikariPoolModule as koinHikariPoolModule
+import com.github.rocketraman.bootable.db.jdbc.koin.jdbcDataSourceModule as koinJdbcDataSourceModule
+import com.github.rocketraman.bootable.db.jdbc.koin.jdbcGenericConfigModule as koinJdbcGenericConfigModule
 import com.zaxxer.hikari.HikariDataSource
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
@@ -26,6 +33,9 @@ import org.kodein.di.instance
 import org.kodein.di.singleton
 import javax.sql.DataSource
 import kotlin.time.Duration.Companion.seconds
+import org.koin.core.qualifier.named
+import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 
 sealed interface TestScope
 
@@ -114,6 +124,34 @@ val HikariWiringTest by testSuite {
       assert(hikari.transactionIsolation == "TRANSACTION_SERIALIZABLE")
       assert(hikari.connectionInitSql == "SELECT 'kodein'")
       di.instance<Set<AppService>>().filterIsInstance<JdbcDataSourceService>().single().startAndStop()
+    }
+
+    test("koin") {
+      val koin = koinApplication {
+        modules(
+          koinBootableModule(),
+          koinHopliteConfigModule(),
+          koinJdbcDataSourceModule(),
+          koinJdbcGenericConfigModule(),
+          koinHikariPoolModule(),
+          module {
+            single<HikariConfigCustomizer>(named("initSql")) {
+              HikariConfigCustomizer { it.connectionInitSql = "SELECT 'koin'" }
+            }
+          },
+        )
+      }.koin
+
+      try {
+        val hikari = koin.get<DataSource>() as HikariDataSource
+        assert(hikari.maximumPoolSize == 3)
+        assert(hikari.poolName == "hikari-wiring-test")
+        assert(hikari.transactionIsolation == "TRANSACTION_SERIALIZABLE")
+        assert(hikari.connectionInitSql == "SELECT 'koin'")
+        koin.getAll<AppService>().filterIsInstance<JdbcDataSourceService>().single().startAndStop()
+      } finally {
+        koin.close()
+      }
     }
 
     test("metro") {

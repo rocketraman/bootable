@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.client.http.ktor
 
 import com.github.rocketraman.bootable.boot.AppService
@@ -5,12 +7,15 @@ import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfAppServices
+import com.github.rocketraman.bootable.client.http.ktor.koin.ktorClientModule as koinKtorClientModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.Masked
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
+import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
 import dev.zacsweers.metro.DependencyGraph
@@ -35,6 +40,9 @@ import org.kodein.di.instance
 import org.kodein.di.singleton
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import org.koin.core.qualifier.named
+import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 
 /** Answers as a server would: 503 the first time `flaky` is asked for, and each request's URL and headers otherwise. */
 private fun mockEngine() = KtorClientEngine {
@@ -146,6 +154,27 @@ val KtorClientWiringTest by testSuite {
       }.direct
 
       checkClients(di.instance(), di.instance(), di.instance())
+    }
+
+    test("koin") {
+      val koin = koinApplication {
+        modules(
+          koinBootableModule(),
+          koinHopliteConfigModule(),
+          koinKtorClientModule(),
+          module {
+            single<KtorClientEngine> { mockEngine() }
+            single<KtorClientCustomizer>(named("test")) { headerCustomizer }
+            single<KtorClientDefaults>(named("test")) { moduleDefaults }
+          },
+        )
+      }.koin
+
+      try {
+        checkClients(koin.getAll<AppService>().toSet(), koin.get(), koin.get())
+      } finally {
+        koin.close()
+      }
     }
 
     test("metro") {

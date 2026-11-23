@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.telemetry.otel
 
 import com.github.rocketraman.bootable.boot.AppService
@@ -5,11 +7,14 @@ import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.Masked
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
+import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
+import com.github.rocketraman.bootable.telemetry.otel.koin.openTelemetryModule as koinOpenTelemetryModule
 import com.github.rocketraman.bootable.test.StaticConfigBinder
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
@@ -27,6 +32,9 @@ import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import org.kodein.di.singleton
 import kotlin.time.Duration.Companion.seconds
+import org.koin.core.qualifier.named
+import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 
 sealed interface TestScope
 
@@ -150,6 +158,28 @@ val TelemetryWiringTest by testSuite {
       val service = di.instance<Set<AppService>>().filterIsInstance<OpenTelemetryService>().single()
       assert(service.openTelemetry === di.instance<OpenTelemetry>())
       assert(di.instance<Set<MetricsSnapshotProvider>>().isEmpty())
+    }
+
+    test("koin") {
+      val telemetry = InMemoryTelemetry()
+      val koin = koinApplication {
+        modules(
+          koinBootableModule(),
+          koinHopliteConfigModule(),
+          koinOpenTelemetryModule(),
+          module { single<OpenTelemetryCustomizer>(named("test")) { telemetry } },
+        )
+      }.koin
+
+      try {
+        assert(koin.get<TelemetryConfig>() == expectedConfig)
+        checkRecords(koin.get(), telemetry)
+        val service = koin.getAll<AppService>().filterIsInstance<OpenTelemetryService>().single()
+        assert(service.openTelemetry === koin.get<OpenTelemetry>())
+        assert(koin.getAll<MetricsSnapshotProvider>().isEmpty())
+      } finally {
+        koin.close()
+      }
     }
 
     test("metro") {

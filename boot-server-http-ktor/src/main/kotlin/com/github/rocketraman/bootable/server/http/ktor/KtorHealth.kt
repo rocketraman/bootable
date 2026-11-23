@@ -102,7 +102,7 @@ fun ktorHealthConfig(binder: ConfigBinder): KtorHealthConfig = binder.config("he
  * ```
  *
  * The routes are served on that server, unless [KtorHealthConfig.hostPort] puts them on a listener of their own. The
- * Kodein and Metro flavors of this module add that listener to the application's services, on the application's
+ * DI flavors of this module add that listener to the application's services, on the application's
  * [KtorServerEngine]; otherwise, add [listener] to them yourself.
  */
 class KtorHealth(

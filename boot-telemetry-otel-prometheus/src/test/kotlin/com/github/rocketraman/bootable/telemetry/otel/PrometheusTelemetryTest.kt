@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.telemetry.otel
 
 import com.github.rocketraman.bootable.boot.AppService
@@ -5,11 +7,15 @@ import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
+import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
+import com.github.rocketraman.bootable.telemetry.otel.koin.openTelemetryModule as koinOpenTelemetryModule
+import com.github.rocketraman.bootable.telemetry.otel.koin.prometheusTelemetryModule as koinPrometheusTelemetryModule
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.createGraph
@@ -27,6 +33,7 @@ import java.util.logging.Handler
 import java.util.logging.Level
 import java.util.logging.LogRecord
 import java.util.logging.Logger
+import org.koin.dsl.koinApplication
 
 sealed interface TestScope
 
@@ -182,6 +189,21 @@ val PrometheusTelemetryTest by testSuite {
       assert(di.instance<Set<OpenTelemetryCustomizer>>() == setOf<OpenTelemetryCustomizer>(prometheus))
       checkScrape(di.instance(), di.instance())
       di.instance<Set<AppService>>().filterIsInstance<OpenTelemetryService>().single().shutdown()
+    }
+
+    test("koin") {
+      val koin = koinApplication {
+        modules(koinBootableModule(), koinHopliteConfigModule(), koinOpenTelemetryModule(), koinPrometheusTelemetryModule())
+      }.koin
+
+      try {
+        val prometheus = koin.get<PrometheusTelemetry>()
+        assert(koin.getAll<OpenTelemetryCustomizer>().toSet() == setOf<OpenTelemetryCustomizer>(prometheus))
+        checkScrape(koin.get(), koin.getAll<MetricsSnapshotProvider>().toSet())
+        koin.getAll<AppService>().filterIsInstance<OpenTelemetryService>().single().shutdown()
+      } finally {
+        koin.close()
+      }
     }
 
     test("metro") {

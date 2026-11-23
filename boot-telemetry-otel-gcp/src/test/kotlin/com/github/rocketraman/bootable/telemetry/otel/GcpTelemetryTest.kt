@@ -1,13 +1,19 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.telemetry.otel
 
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
+import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
+import com.github.rocketraman.bootable.telemetry.otel.koin.gcpTelemetryModule as koinGcpTelemetryModule
+import com.github.rocketraman.bootable.telemetry.otel.koin.openTelemetryModule as koinOpenTelemetryModule
 import com.google.auth.oauth2.AccessToken
 import com.google.auth.oauth2.GoogleCredentials
 import com.sun.net.httpserver.HttpServer
@@ -23,6 +29,7 @@ import org.kodein.di.instance
 import java.net.InetSocketAddress
 import java.util.Date
 import java.util.concurrent.CopyOnWriteArrayList
+import org.koin.dsl.koinApplication
 
 private val cloudRun = Attributes.builder()
   .put("cloud.provider", "gcp")
@@ -160,6 +167,20 @@ val GcpTelemetryWiringTest by testSuite {
       assert(di.instance<GcpTelemetryConfig>() == expectedConfig)
       assert(di.instance<Set<OpenTelemetryCustomizer>>() == setOf<OpenTelemetryCustomizer>(di.instance<GcpTelemetry>()))
       di.instance<OpenTelemetryService>().shutdown()
+    }
+
+    test("koin") {
+      val koin = koinApplication {
+        modules(koinBootableModule(), koinHopliteConfigModule(), koinOpenTelemetryModule(), koinGcpTelemetryModule())
+      }.koin
+
+      try {
+        assert(koin.get<GcpTelemetryConfig>() == expectedConfig)
+        assert(koin.getAll<OpenTelemetryCustomizer>().toSet() == setOf<OpenTelemetryCustomizer>(koin.get<GcpTelemetry>()))
+        koin.get<OpenTelemetryService>().shutdown()
+      } finally {
+        koin.close()
+      }
     }
 
     test("metro") {

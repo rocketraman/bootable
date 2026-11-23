@@ -1,14 +1,20 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.telemetry.otel
 
 import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.Masked
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
+import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
+import com.github.rocketraman.bootable.telemetry.otel.koin.openTelemetryModule as koinOpenTelemetryModule
+import com.github.rocketraman.bootable.telemetry.otel.koin.sigNozTelemetryModule as koinSigNozTelemetryModule
 import com.sun.net.httpserver.HttpServer
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.DependencyGraph
@@ -23,6 +29,7 @@ import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import java.net.InetSocketAddress
 import java.util.concurrent.CopyOnWriteArrayList
+import org.koin.dsl.koinApplication
 
 private fun service(sigNoz: SigNozTelemetry, endpoint: String? = null, environment: String? = "prod") = OpenTelemetryService(
   TelemetryConfig(
@@ -164,6 +171,20 @@ val SigNozTelemetryWiringTest by testSuite {
       assert(di.instance<SigNozTelemetryConfig>() == expectedConfig)
       assert(di.instance<Set<OpenTelemetryCustomizer>>() == setOf<OpenTelemetryCustomizer>(di.instance<SigNozTelemetry>()))
       di.instance<OpenTelemetryService>().shutdown()
+    }
+
+    test("koin") {
+      val koin = koinApplication {
+        modules(koinBootableModule(), koinHopliteConfigModule(), koinOpenTelemetryModule(), koinSigNozTelemetryModule())
+      }.koin
+
+      try {
+        assert(koin.get<SigNozTelemetryConfig>() == expectedConfig)
+        assert(koin.getAll<OpenTelemetryCustomizer>().toSet() == setOf<OpenTelemetryCustomizer>(koin.get<SigNozTelemetry>()))
+        koin.get<OpenTelemetryService>().shutdown()
+      } finally {
+        koin.close()
+      }
     }
 
     test("metro") {

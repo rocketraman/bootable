@@ -481,7 +481,7 @@ fun defaultLifecycleControllers(): Set<LifecycleController> = setOf(
  * exit code once it stops.
  *
  * Bootable embeds no dependency-injection framework — you assemble the application inside the lambda however you
- * like (plain Kotlin, or Kodein/Metro/etc. if you prefer), and return the [Bootable] to run. The lambda runs
+ * like (plain Kotlin, or Metro/Inara/Koin/etc. if you prefer), and return the [Bootable] to run. The lambda runs
  * *after* logging is initialized, so config loading and component construction log correctly:
  *
  * ```

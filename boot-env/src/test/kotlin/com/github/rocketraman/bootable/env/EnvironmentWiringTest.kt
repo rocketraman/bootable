@@ -1,14 +1,19 @@
 package com.github.rocketraman.bootable.env
 
 import com.github.rocketraman.bootable.boot.BootableModule
+import com.github.rocketraman.bootable.boot.LifecycleController
 import com.github.rocketraman.bootable.boot.ReadinessConfig
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfLifecycleControllers
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.env.koin.environmentModule as koinEnvironmentModule
 import de.infix.testBalloon.framework.core.testSuite
 import org.kodein.di.inara.Binding
 import org.kodein.di.inara.DIModule
+import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 import kotlin.reflect.KClass
 
 /** Config with an `env` section for the test environment, and the default readiness that `Health` reads. */
@@ -39,5 +44,19 @@ val EnvironmentWiringTest by testSuite {
     assert(module.environmentInitializer in module.setOfLifecycleControllers())
     module.environmentInitializer.appInit()
     assert(environment == Env.Test)
+  }
+
+  test("the environment config from the env section, and its initializer a lifecycle controller, in koin") {
+    val koin = koinApplication {
+      modules(koinBootableModule(), koinEnvironmentModule(), module { single<ConfigBinder> { EnvConfigBinder } })
+    }.koin
+    try {
+      assert(koin.get<EnvironmentConfig>().environment == "test")
+      val initializer = koin.getAll<LifecycleController>().filterIsInstance<EnvironmentInitializer>().single()
+      initializer.appInit()
+      assert(environment == Env.Test)
+    } finally {
+      koin.close()
+    }
   }
 }

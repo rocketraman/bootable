@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.periodic
 
 import com.github.rocketraman.bootable.boot.AppService
@@ -6,11 +8,14 @@ import com.github.rocketraman.bootable.boot.AppServices
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
+import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
 import com.github.rocketraman.bootable.leader.AlwaysLeaderModule
 import com.github.rocketraman.bootable.leader.LeaderElectionModule
+import com.github.rocketraman.bootable.periodic.koin.periodicModule as koinPeriodicModule
 import com.github.rocketraman.bootable.telemetry.otel.ALWAYS_SAMPLE
 import com.github.rocketraman.bootable.telemetry.otel.MetricsConfig
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizer
@@ -19,6 +24,7 @@ import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryService
 import com.github.rocketraman.bootable.telemetry.otel.Sample
 import com.github.rocketraman.bootable.telemetry.otel.TelemetryConfig
+import com.github.rocketraman.bootable.telemetry.otel.koin.openTelemetryModule as koinOpenTelemetryModule
 import com.github.rocketraman.bootable.telemetry.otel.openTelemetryModule
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.BindingContainer
@@ -46,6 +52,9 @@ import org.kodein.di.instance
 import org.kodein.di.singleton
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.milliseconds
+import org.koin.core.qualifier.named
+import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 
 /** Collects every span the SDK ends, in memory, as a test's window onto it. */
 class InMemorySpans : OpenTelemetryCustomizer {
@@ -185,6 +194,33 @@ val PeriodicTracingTest by testSuite {
     }
   }
 
+  test("koin, through the OpenTelemetry definition") {
+    val runs = AtomicInteger()
+    val koin = koinApplication {
+      modules(
+        koinBootableModule(),
+        koinHopliteConfigModule(),
+        koinOpenTelemetryModule(),
+        koinPeriodicModule(),
+        module {
+          single { InMemorySpans() }
+          single<OpenTelemetryCustomizer>(named("test")) { get<InMemorySpans>() }
+          single<AppService>(named("traced")) {
+            get<PeriodicServices>().create("traced", loopConfig) { runs.incrementAndGet() }
+          }
+        },
+      )
+    }.koin
+    val telemetry = koin.get<OpenTelemetryService>()
+    try {
+      val loop = koin.getAll<AppService>().filterIsInstance<PeriodicAppService>().single()
+      assert(traceRuns(loop, koin.get()).isNotEmpty())
+    } finally {
+      telemetry.shutdown()
+      koin.close()
+    }
+  }
+
   test("metro, through the graph's OpenTelemetry") {
     val graph = createGraph<TracingTestGraph>()
     val telemetry = graph.appServices.filterIsInstance<OpenTelemetryService>().single()
@@ -228,6 +264,34 @@ val PeriodicTracingTest by testSuite {
       assert(di.instance<PeriodicServices>().interceptors.isEmpty())
     } finally {
       telemetry.shutdown()
+    }
+  }
+
+  test("koin, not traced without an OpenTelemetry definition") {
+    val koin = koinApplication { modules(koinBootableModule(), koinPeriodicModule()) }.koin
+    try {
+      assert(koin.get<PeriodicServices>().interceptors.isEmpty())
+    } finally {
+      koin.close()
+    }
+  }
+
+  test("koin, not traced when the options turn it off") {
+    val koin = koinApplication {
+      modules(
+        koinBootableModule(),
+        koinHopliteConfigModule(),
+        koinOpenTelemetryModule(),
+        koinPeriodicModule(),
+        module { single { PeriodicTracingOptions(enabled = false) } },
+      )
+    }.koin
+    val telemetry = koin.get<OpenTelemetryService>()
+    try {
+      assert(koin.get<PeriodicServices>().interceptors.isEmpty())
+    } finally {
+      telemetry.shutdown()
+      koin.close()
     }
   }
 

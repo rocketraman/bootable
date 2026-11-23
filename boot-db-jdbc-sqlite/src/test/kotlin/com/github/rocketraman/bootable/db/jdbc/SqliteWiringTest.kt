@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION") // the deprecated Kodein flavor is still tested
+
 package com.github.rocketraman.bootable.db.jdbc
 
 import com.github.rocketraman.bootable.boot.AppService
@@ -5,11 +7,16 @@ import com.github.rocketraman.bootable.boot.BootScope
 import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
+import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
+import com.github.rocketraman.bootable.db.jdbc.koin.hikariPoolModule as koinHikariPoolModule
+import com.github.rocketraman.bootable.db.jdbc.koin.jdbcDataSourceModule as koinJdbcDataSourceModule
+import com.github.rocketraman.bootable.db.jdbc.koin.sqliteConfigModule as koinSqliteConfigModule
 import com.zaxxer.hikari.HikariDataSource
 import de.infix.testBalloon.framework.core.testSuite
 import dev.zacsweers.metro.DependencyGraph
@@ -20,6 +27,7 @@ import org.kodein.di.inara.DIModule
 import org.kodein.di.instance
 import javax.sql.DataSource
 import kotlin.time.Duration.Companion.seconds
+import org.koin.dsl.koinApplication
 
 sealed interface TestScope
 
@@ -86,6 +94,30 @@ val SqliteWiringTest by testSuite {
       val service = di.instance<Set<AppService>>().filterIsInstance<JdbcDataSourceService>().single()
       assert(service.dataSource === hikari)
       service.startAndStop()
+    }
+
+    test("koin") {
+      val koin = koinApplication {
+        modules(
+          koinBootableModule(),
+          koinHopliteConfigModule(),
+          koinJdbcDataSourceModule(),
+          koinSqliteConfigModule(),
+          koinHikariPoolModule(),
+        )
+      }.koin
+
+      try {
+        assert((koin.get<JdbcConfig>() as SqliteConfig).path == "build/wiring-test.db")
+        val hikari = koin.get<DataSource>() as HikariDataSource
+        assert(hikari.poolName == "wiring-test")
+        assert(hikari.maximumPoolSize == 1)
+        val service = koin.getAll<AppService>().filterIsInstance<JdbcDataSourceService>().single()
+        assert(service.dataSource === hikari)
+        service.startAndStop()
+      } finally {
+        koin.close()
+      }
     }
 
     test("metro") {

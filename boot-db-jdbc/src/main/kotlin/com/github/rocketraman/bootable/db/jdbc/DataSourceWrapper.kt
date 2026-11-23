@@ -22,7 +22,8 @@ fun interface DataSourceWrapper {
 
     /**
      * Applies [wrappers] in their iteration order, so the last one is the outermost, and sees each call first. A
-     * Kodein or Metro set has no defined order, so wrappers taken from a set should not depend on one another's.
+     * DI set, such as Metro's, or Koin's `getAll`, has no defined order, so wrappers taken from one should not depend on
+     * one another's.
      */
     fun of(wrappers: Iterable<DataSourceWrapper>): DataSourceWrapper =
       DataSourceWrapper { dataSource -> wrappers.fold(dataSource) { wrapped, wrapper -> wrapper.wrap(wrapped) } }

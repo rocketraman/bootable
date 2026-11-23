@@ -6,7 +6,7 @@ import kotlin.reflect.cast
 
 /**
  * A [ConfigBinder] that a test gives its config sections to, already decoded, by prefix, so a test that wires the
- * application, with Kodein or Metro, needs no config files or config library:
+ * application, with any of the DI flavors, needs no config files or config library:
  *
  * ```
  * val binder = StaticConfigBinder(

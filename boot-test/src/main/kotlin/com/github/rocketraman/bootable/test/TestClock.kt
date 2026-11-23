@@ -10,7 +10,7 @@ import kotlin.time.Instant
  * move from any thread.
  *
  * Bind it where the application takes a `kotlin.time.Clock`, such as `OpenTelemetryService` and
- * `ServiceStartTracing`, which take their time from the `Clock` binding, with Kodein or Metro, if there is one. For a
+ * `ServiceStartTracing`, which take their time from the `Clock` binding, with Koin, Kodein, or Metro, if there is one. For a
  * monotonic `TimeSource`, use the standard library's `kotlin.time.TestTimeSource`.
  */
 class TestClock(start: Instant = DEFAULT_START) : Clock {
