@@ -9,18 +9,22 @@ It handles starting, stopping, lifecycle management, logging, configuration, and
 *Documentation: https://rocketraman.github.io/bootable/*
 For LLMs and other tools, the documentation is also published as Markdown, indexed by https://rocketraman.github.io/bootable/llms.txt[llms.txt].
 
-== Key points
+== Key Differentiators
 
 * *No DI framework in the core.*
-Bootable runs two sets, your application's services and its lifecycle controllers, and how you assemble them is your choice: by hand, with Bootable's optional bindings for https://zacsweers.github.io/metro/[Metro], https://insert-koin.io/[Koin], or, experimentally, https://kosi-libs.org/inara/[Inara], or with any other DI.
+Bootable accepts two sets: your application's services and optionally its lifecycle controllers, and how you assemble them is your choice: by hand, with Bootable's optional bindings for https://zacsweers.github.io/metro/[Metro], https://insert-koin.io/[Koin], or, experimentally, https://kosi-libs.org/inara/[Inara], or with any other DI.
 Bootable's bindings for https://kosi-libs.org/kodein/[Kodein] are deprecated, as Kodein is.
+
 * *Explicit, not discovered.*
-No classpath scanning, no auto-configuration, and no annotations that change what code does: a module does nothing until you wire it.
+No classpath scanning, no auto-configuration, and no annotations that change what code does: a module does nothing until you wire it explicitly.
+
 * *A lifecycle on coroutines.*
-Services start and stop in suspending functions, in phases and after the milestones they declare, and their background work runs in scopes of their own, so nothing outlives the application.
+Services start and stop in suspending functions, in phases and after the milestones they declare, and their background work runs in scopes of their own, so concurrency is structured.
+
 * *Libraries, used directly.*
 Optional modules set up well-chosen libraries for the common case, and expose their own types rather than wrapping them: Hoplite for configuration, Log4j2 for logging, HikariCP, Flyway, and Exposed for databases, Ktor for HTTP servers and clients, db-scheduler for persistent tasks, and OpenTelemetry for traces and metrics.
-Liveness and readiness probes, periodic work, and leader election through a Kubernetes Lease come with them.
+Liveness and readiness probes based on the registered services, periodic work, and leader election through a Kubernetes Lease are additional mini-libraries Bootable provides.
+
 * *Testing without booting.*
 Helpers for a test clock, captured logs, the start plan, and in-memory telemetry, for fast unit tests with no application booted.
 
@@ -59,10 +63,7 @@ The link:./examples[examples] directory has runnable applications, from the smal
 
 == TODOs
 
-* [ ] Multiple logging implementations for different scenarios, loggingInit via `ServiceLoader`?
 * [ ] Create a boot-server-http-ktor-cohort module using https://github.com/sksamuel/cohort[Cohort]
-* [ ] Update the ktor example to integrate https://github.com/sksamuel/hoplite[Kompendium] — this is outside the scope of Bootable, but it would be a good example of how to integrate Bootable with other libraries
-* [ ] Make multiplatform — some modules are backend only e.g. Hoplite, Log4j2, but others could easily be adapted for multiplatform usage
 * [ ] Integrate more useful modules
 
 == Author
