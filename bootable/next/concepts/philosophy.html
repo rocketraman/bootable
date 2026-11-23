@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -422,19 +423,20 @@ The one place a dependency alone adds to the application is Metro&#8217;s discov
 <div class="sectionbody">
 <div class="paragraph">
 <p>How you assemble the two sets is up to you.
-Wire them by hand, with Kodein, with Metro, with Inara, or with any other DI, such as a service loader, Koin, or Guice.</p>
+Wire them by hand, with Kodein, with Koin, with Metro, with Inara, or with any other DI, such as a service loader or Guice.</p>
 </div>
 <div class="paragraph">
-<p>For convenience, each module that has something to wire ships optional bindings, as separate <code>-kodein</code>, <code>-metro</code>, and experimental <code>-inara</code> artifacts.
+<p>For convenience, each module that has something to wire ships optional bindings, as separate <code>-kodein</code>, <code>-koin</code>, <code>-metro</code>, and experimental <code>-inara</code> artifacts.
 Each depends on the plain module, so the flavour you depend on is all you choose, module by module.
-Every page on this site shows its code in each of the four styles; <a href="../wiring.html" class="xref page">Choosing a wiring style</a> helps you pick one.</p>
+Every page on this site shows its code in each of the five styles; <a href="../wiring.html" class="xref page">Choosing a wiring style</a> helps you pick one.</p>
 </div>
 <div class="paragraph">
 <p>A small application can list its services by hand.
 As it grows into modules, each with services that no central code knows about, collecting them into a set is what a DI container&#8217;s multibindings do well.
 For most teams, the authors of Bootable recommend Metro, though Bootable itself has no opinion, which builds and checks the graph at compile time, so a missing binding is a build error rather than a failed start.
-Kodein has no compile-time checking, and builds the graph at runtime, but its DSL is short and readable.
-Inara, Kodein&#8217;s compile-time successor from the same authors, is experimental.</p>
+Kodein has no compile-time checking, and builds the graph at runtime, but its DSL is short and readable; its authors are sunsetting it, so Bootable&#8217;s Kodein bindings are deprecated.
+Inara, Kodein&#8217;s compile-time successor from the same authors, is experimental.
+Koin, like Kodein, builds the graph at runtime, with a DSL much like Kodein&#8217;s.</p>
 </div>
 </div>
 </div>
@@ -467,7 +469,7 @@ It deliberately leaves these out:</p>
 <dd>
 <p>Bootable doesn&#8217;t make the libraries it builds on, such as Hoplite for configuration, or Exposed and HikariCP for databases, interchangeable with others.
 You use their types and APIs directly, and Bootable exposes them rather than wrapping them.
-The same goes for DI: Bootable provides bindings for Kodein, Metro, and Inara, not an abstraction over them.</p>
+The same goes for DI: Bootable provides bindings for Kodein, Koin, Metro, and Inara, not an abstraction over them.</p>
 </dd>
 <dt class="hdlist1">Every feature of every library</dt>
 <dd>

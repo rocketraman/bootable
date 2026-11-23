@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Server with a database :: Bootable</title>
-    <meta name="description" content="A key/value store over HTTP, with a database, telemetry, an HTTP client, health probes, and background work, wired four ways.">
+    <meta name="description" content="A key/value store over HTTP, with a database, telemetry, an HTTP client, health probes, and background work, wired five ways.">
     <meta name="generator" content="Antora 3.2.2">
     <link rel="stylesheet" href="../../../_/css/tokens.css">
     <link rel="stylesheet" href="../../../_/css/header.css">
@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -363,7 +364,7 @@
 </aside>
 <article class="doc">
 <h1 class="page">Server with a database</h1>
-<p class="page-lead is-before-toc">A key/value store over HTTP, with a database, telemetry, an HTTP client, health probes, and background work, wired four ways.</p>
+<p class="page-lead is-before-toc">A key/value store over HTTP, with a database, telemetry, an HTTP client, health probes, and background work, wired five ways.</p>
 <div id="preamble">
 <div class="sectionbody">
 <div class="paragraph">
@@ -372,7 +373,7 @@ Its <code>GET /relay/{name}</code> calls the server back through a lifecycle-man
 In the background, a periodic loop logs the entry count, on the leader only, and a db-scheduler task logs a digest of the entries.</p>
 </div>
 <div class="paragraph">
-<p>It is the example that puts most of Bootable&#8217;s functions together, and it is wired each of the four ways: the server, repository, table, migrations, and config are shared, in <code>common</code>, and <code>vanilla</code>, <code>kodein</code>, <code>metro</code>, and <code>inara</code> are each a runnable application.
+<p>It is the example that puts most of Bootable&#8217;s functions together, and it is wired each of the five ways: the server, repository, table, migrations, and config are shared, in <code>common</code>, and <code>vanilla</code>, <code>kodein</code>, <code>koin</code>, <code>metro</code>, and <code>inara</code> are each a runnable application.
 <code>jib</code> builds the vanilla application into a container image, with its JVM AOT cache in it.</p>
 </div>
 </div>
@@ -427,6 +428,9 @@ It starts after the <code>DbMilestones.SchemaMigrated</code> milestone, in the <
 <li id="_tabs_1_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_1_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_1_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -473,6 +477,34 @@ It starts after the <code>DbMilestones.SchemaMigrated</code> milestone, in the <
 
 fun main() = boot {
   appDI().direct.instance&lt;Bootable&gt;()
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_1_koin--panel" class="tabpanel" aria-labelledby="_tabs_1_koin">
+<div class="paragraph">
+<p><code>appKoin()</code>, in <code>koin/src/main/kotlin/App.kt</code>, includes each module&#8217;s Koin module, and <code>entriesModule</code>, the application&#8217;s own definitions, each with a qualifier of its own where it adds to the app services or the tables:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">fun appKoin(): KoinApplication = koinApplication {
+  modules(
+    bootableModule(),
+    hopliteConfigModule(),
+    openTelemetryModule(),
+    // ... telemetry, server, health, and client modules
+    jdbcDataSourceModule(),
+    sqliteConfigModule(),
+    hikariPoolModule(),
+    flywayMigrationModule(),
+    exposedDatabaseModule(),
+    // ... leader election, periodic, and db-scheduler modules
+    entriesModule,
+  )
+}
+
+fun main() = boot {
+  appKoin().koin.get&lt;Bootable&gt;()
 }</code></pre>
 </div>
 </div>
@@ -555,6 +587,9 @@ fun main() = boot {
 <li id="_tabs_2_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_2_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_2_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -574,6 +609,13 @@ fun main() = boot {
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:kodein:run</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_koin--panel" class="tabpanel" aria-labelledby="_tabs_2_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:koin:run</code></pre>
 </div>
 </div>
 </div>
@@ -761,7 +803,7 @@ The repository&#8217;s <code>server-ktor-db</code> <a href="https://dagger.io">D
 <div class="sectionbody">
 <div class="listingblock">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:common:test :examples:server-ktor-db:vanilla:test :examples:server-ktor-db:kodein:test :examples:server-ktor-db:metro:test</code></pre>
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:common:test :examples:server-ktor-db:vanilla:test :examples:server-ktor-db:kodein:test :examples:server-ktor-db:koin:test :examples:server-ktor-db:metro:test</code></pre>
 </div>
 </div>
 <div class="paragraph">

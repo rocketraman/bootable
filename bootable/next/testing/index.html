@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -453,6 +454,9 @@ If this style of testing makes sense for your project, it is easy to implement y
 <li id="_tabs_1_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_1_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_1_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -477,6 +481,16 @@ If this style of testing makes sense for your project, it is easy to implement y
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
   testImplementation("com.github.rocketraman.bootable:boot-test:3.1.0-SNAPSHOT")
   testImplementation("com.github.rocketraman.bootable:boot-test-otel-kodein:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_1_koin--panel" class="tabpanel" aria-labelledby="_tabs_1_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  testImplementation("com.github.rocketraman.bootable:boot-test:3.1.0-SNAPSHOT")
+  testImplementation("com.github.rocketraman.bootable:boot-test-otel-koin:3.1.0-SNAPSHOT")
 }</code></pre>
 </div>
 </div>
@@ -512,7 +526,7 @@ dependencies {
 </div>
 </div>
 <div class="paragraph">
-<p><code>boot-test</code> has no flavours, since nothing in it is wired; <code>boot-test-otel</code> has <code>-kodein</code>, <code>-metro</code>, and <code>-inara</code> flavours, for its <a href="#telemetry">module and bindings</a>.</p>
+<p><code>boot-test</code> has no flavours, since nothing in it is wired; <code>boot-test-otel</code> has <code>-kodein</code>, <code>-koin</code>, <code>-metro</code>, and <code>-inara</code> flavours, for its <a href="#telemetry">module and bindings</a>.</p>
 </div>
 </div>
 </div>
@@ -592,7 +606,7 @@ It starts at <code>TestClock.DEFAULT_START</code>, 2026-01-01T00:00:00Z, so a te
 </div>
 </div>
 <div class="paragraph">
-<p>Pass it to whatever takes a <code>Clock</code>, such as <code>OpenTelemetryService</code>, <code>ServiceStartTracing</code>, or <code>PeriodicAppService</code>, or, with Kodein or Metro, bind it as the <code>Clock</code>, which they then take their time from; with Inara, which has no optional bindings, pass it to each module&#8217;s builder, such as <code>openTelemetryModule(clock)</code>.
+<p>Pass it to whatever takes a <code>Clock</code>, such as <code>OpenTelemetryService</code>, <code>ServiceStartTracing</code>, or <code>PeriodicAppService</code>, or, with Kodein, Koin, or Metro, bind it as the <code>Clock</code>, which they then take their time from; with Inara, which has no optional bindings, pass it to each module&#8217;s builder, such as <code>openTelemetryModule(clock)</code>.
 For a monotonic <code>TimeSource</code>, use the standard library&#8217;s <code>kotlin.time.TestTimeSource</code>.</p>
 </div>
 </div>
@@ -701,6 +715,9 @@ The application&#8217;s wiring is written so that <code>main</code> and the test
 <li id="_tabs_2_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_2_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_2_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -750,6 +767,34 @@ fun appDI() = DI {
 
 fun main() = boot {
   appDI().direct.instance&lt;Bootable&gt;()
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_koin--panel" class="tabpanel" aria-labelledby="_tabs_2_koin">
+<div class="paragraph">
+<p>A module of the application&#8217;s own definitions, and a function that builds the Koin application:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">/** The application's own definitions, which `main` and the tests share. */
+val sessionsModule = module {
+  single { Sessions(get(), get()) }
+  single&lt;AppService&gt;(named&lt;SessionReaper&gt;()) { SessionReaper(get()) }
+}
+
+fun appKoin() = koinApplication {
+  modules(
+    bootableModule(),
+    hopliteConfigModule(),
+    openTelemetryModule(),
+    sessionsModule,
+    module { single&lt;Clock&gt; { Clock.System } },
+  )
+}.koin
+
+fun main() = boot {
+  appKoin().get&lt;Bootable&gt;()
 }</code></pre>
 </div>
 </div>
@@ -830,6 +875,9 @@ fun main() = boot {
 <li id="_tabs_3_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_3_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_3_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -859,6 +907,21 @@ fun main() = boot {
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">fun theWiringResolves() {
   // nothing is started: resolving the services is enough
   val services = appDI().direct.instance&lt;Set&lt;AppService&gt;&gt;()
+  assert(services.map { it::class }.toSet() == setOf(OpenTelemetryService::class, SessionReaper::class))
+
+  checkShuffledStartPlans(services) { plan -&gt;
+    assert(plan.indexOfService&lt;OpenTelemetryService&gt;() &lt; plan.indexOfService&lt;SessionReaper&gt;())
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_3_koin--panel" class="tabpanel" aria-labelledby="_tabs_3_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">fun theWiringResolves() {
+  // nothing is started: resolving the services is enough
+  val services = appKoin().getAll&lt;AppService&gt;().toSet()
   assert(services.map { it::class }.toSet() == setOf(OpenTelemetryService::class, SessionReaper::class))
 
   checkShuffledStartPlans(services) { plan -&gt;
@@ -966,6 +1029,9 @@ Put it in the SDK&#8217;s customizers, and keep it to assert on:</p>
 <li id="_tabs_4_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_4_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_4_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -1017,6 +1083,32 @@ Put it in the SDK&#8217;s customizers, and keep it to assert on:</p>
   val telemetry = di.instance&lt;InMemoryTelemetry&gt;()
 
   di.instance&lt;Sessions&gt;().open("ada")
+  assert(telemetry.spans("open session").size == 1)
+  assert(telemetry.metric("sessions.opened")!!.longSumData.points.single().value == 1L)
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_4_koin--panel" class="tabpanel" aria-labelledby="_tabs_4_koin">
+<div class="paragraph">
+<p>Include <code>inMemoryTelemetryModule()</code> with <code>openTelemetryModule()</code>, which collects every customizer, and get the <code>InMemoryTelemetry</code> from Koin:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">fun openingASessionIsTracedAndCounted() {
+  val koin = koinApplication {
+    modules(
+      bootableModule(),
+      hopliteConfigModule(),
+      openTelemetryModule(),
+      inMemoryTelemetryModule(),  // its InMemoryTelemetry, one of openTelemetryModule()'s customizers
+      sessionsModule,
+      module { single&lt;Clock&gt; { TestClock() } },
+    )
+  }.koin
+  val telemetry = koin.get&lt;InMemoryTelemetry&gt;()
+
+  koin.get&lt;Sessions&gt;().open("ada")
   assert(telemetry.spans("open session").size == 1)
   assert(telemetry.metric("sessions.opened")!!.longSumData.points.single().value == 1L)
 }</code></pre>
@@ -1081,7 +1173,7 @@ fun openingASessionIsTracedAndCounted() {
 </div>
 </div>
 <div class="paragraph">
-<p>With Kodein, Metro, and Inara, the SDK&#8217;s config comes from the test&#8217;s resources, as in <a href="#wiring">Test the wiring</a>.</p>
+<p>With Kodein, Koin, Metro, and Inara, the SDK&#8217;s config comes from the test&#8217;s resources, as in <a href="#wiring">Test the wiring</a>.</p>
 </div>
 <div class="ulist">
 <ul>
@@ -1120,7 +1212,7 @@ See <a href="../telemetry/index.html#customizers" class="xref page">telemetry:in
 <p><code>vanilla/src/test/kotlin/AppTest.kt</code> checks the vanilla wiring&#8217;s services, and its start plan with <code>checkShuffledStartPlans</code>: the seed entries after the migrations, and before the server.</p>
 </li>
 <li>
-<p><code>kodein/src/test/kotlin/AppTest.kt</code> and <code>metro/src/test/kotlin/AppTest.kt</code> check the services that the Kodein <code>DI</code> and the Metro graph build.</p>
+<p><code>kodein/src/test/kotlin/AppTest.kt</code>, <code>koin/src/test/kotlin/AppTest.kt</code>, and <code>metro/src/test/kotlin/AppTest.kt</code> check the services that the Kodein <code>DI</code>, the Koin application, and the Metro graph build.</p>
 </li>
 </ul>
 </div>
@@ -1136,6 +1228,9 @@ See <a href="../telemetry/index.html#customizers" class="xref page">telemetry:in
 </li>
 <li id="_tabs_5_kodein" class="tab">
 <p>Kodein</p>
+</li>
+<li id="_tabs_5_koin" class="tab">
+<p>Koin</p>
 </li>
 <li id="_tabs_5_metro" class="tab">
 <p>Metro</p>
@@ -1156,6 +1251,13 @@ See <a href="../telemetry/index.html#customizers" class="xref page">telemetry:in
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:common:test :examples:server-ktor-db:kodein:test</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_5_koin--panel" class="tabpanel" aria-labelledby="_tabs_5_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:common:test :examples:server-ktor-db:koin:test</code></pre>
 </div>
 </div>
 </div>

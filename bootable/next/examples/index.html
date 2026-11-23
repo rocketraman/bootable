@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -371,13 +372,13 @@ Run any of them from the repository root with Gradle; they are services, so they
 <div class="ulist">
 <ul>
 <li>
-<p><a href="wiring.html" class="xref page">Wiring styles</a>: the smallest application, one service that logs a greeting from config, wired four ways (vanilla, Kodein, Metro, and Inara).</p>
+<p><a href="wiring.html" class="xref page">Wiring styles</a>: the smallest application, one service that logs a greeting from config, wired five ways (vanilla, Kodein, Koin, Metro, and Inara).</p>
 </li>
 <li>
 <p><a href="server-ktor.html" class="xref page">Ktor server</a>: a Ktor server on Netty with typed config, which can also be built as a GraalVM native image; vanilla wiring.</p>
 </li>
 <li>
-<p><a href="server-ktor-db.html" class="xref page">Server with a database</a>: a key/value store over HTTP with the database, telemetry, an HTTP client, health probes, and background work, wired four ways (vanilla, Kodein, Metro, and Inara), with a container image that has a JVM AOT cache.</p>
+<p><a href="server-ktor-db.html" class="xref page">Server with a database</a>: a key/value store over HTTP with the database, telemetry, an HTTP client, health probes, and background work, wired five ways (vanilla, Kodein, Koin, Metro, and Inara), with a container image that has a JVM AOT cache.</p>
 </li>
 <li>
 <p><a href="start-order.html" class="xref page">Custom start order</a>: a Ktor server and a ready file, with a custom lifecycle phase; vanilla wiring.</p>
@@ -394,7 +395,7 @@ Run any of them from the repository root with Gradle; they are services, so they
 </ul>
 </div>
 <div class="paragraph">
-<p><code>examples/di-bench</code> is not an example of Bootable: it is a benchmark of how long Kodein and Metro take to build graphs of 25, 100, and 400 services, and doesn&#8217;t use Bootable.</p>
+<p><code>examples/di-bench</code> is not an example of Bootable: it is a benchmark of how long Kodein, Koin, and Metro take to build graphs of 25, 100, and 400 services, and doesn&#8217;t use Bootable.</p>
 </div>
 </article>
   </div>

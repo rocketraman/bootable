@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -400,6 +401,9 @@ With a DI, add <code>boot-client-http-ktor</code> too, for its flavour, which pr
 <li id="_tabs_1_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_1_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_1_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -444,6 +448,26 @@ With a DI, add <code>boot-client-http-ktor</code> too, for its flavour, which pr
   implementation("com.github.rocketraman.bootable:boot-client-http-ktor-cio:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-client-http-ktor-otel-kodein:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-kodein:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_1_koin--panel" class="tabpanel" aria-labelledby="_tabs_1_koin">
+<div class="listingblock install-plain">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-client-http-ktor-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-client-http-ktor-cio:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+<div class="listingblock install-otel">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-client-http-ktor-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-client-http-ktor-cio:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-client-http-ktor-otel-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-koin:3.1.0-SNAPSHOT")
 }</code></pre>
 </div>
 </div>
@@ -736,6 +760,9 @@ The engine is also the seam for tests: one that returns Ktor&#8217;s <code>MockE
 <li id="_tabs_2_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_2_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_2_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -772,6 +799,21 @@ return Bootable(
   import(ktorClientModule)  // KtorClientService, from http.client, and the default HttpClient
   bindSingleton&lt;KtorClientEngine&gt; { CioClientEngine() }  // the engine
   bindSingleton { GitHubRepos(instance&lt;KtorClientService&gt;()["github"]) }  // a named client
+  // ... and the services that use GitHubRepos
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_koin--panel" class="tabpanel" aria-labelledby="_tabs_2_koin">
+<div class="paragraph">
+<p>Include <code>ktorClientModule()</code>, which defines the service, adds it to the app services, and defines the default <code>HttpClient</code>, and define the engine:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">val clientModule = module {
+  includes(ktorClientModule())  // KtorClientService, from http.client, and the default HttpClient
+  single&lt;KtorClientEngine&gt; { CioClientEngine() }  // the engine
+  single { GitHubRepos(get&lt;KtorClientService&gt;()["github"]) }  // a named client
   // ... and the services that use GitHubRepos
 }</code></pre>
 </div>
@@ -862,6 +904,9 @@ Two contributors of the same client fail the boot.</p>
 <li id="_tabs_3_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_3_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_3_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -923,6 +968,28 @@ inBindSet&lt;KtorClientDefaults&gt; {
         )
       }
     }
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_3_koin--panel" class="tabpanel" aria-labelledby="_tabs_3_koin">
+<div class="paragraph">
+<p>Define them, each with a qualifier of its own, for <code>ktorClientModule()</code> to collect:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">single&lt;KtorClientCustomizer&gt;(named("userAgent")) {
+  KtorClientCustomizer { _, config -&gt; config.install(UserAgent) { agent = "greeting/1.0" } }
+}
+single&lt;KtorClientDefaults&gt;(named("platform")) {
+  KtorClientDefaults {
+    mapOf(
+      "platform" to KtorClientConfig(
+        baseUrl = "https://platform.internal/",
+        tls = KtorClientTlsConfig(trustStore = KeyStoreConfig(path = "/var/run/platform/ca.crt", type = "PEM")),
+      ),
+    )
   }
 }</code></pre>
 </div>
@@ -1006,6 +1073,9 @@ A request that <code>retry</code> retries is a span for each attempt.</p>
 <li id="_tabs_4_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_4_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_4_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -1034,6 +1104,18 @@ A request that <code>retry</code> retries is a span for each attempt.</p>
   implementation("com.github.rocketraman.bootable:boot-client-http-ktor-cio:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-client-http-ktor-otel-kodein:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-kodein:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_4_koin--panel" class="tabpanel" aria-labelledby="_tabs_4_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-client-http-ktor-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-client-http-ktor-cio:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-client-http-ktor-otel-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-koin:3.1.0-SNAPSHOT")
 }</code></pre>
 </div>
 </div>
@@ -1097,7 +1179,7 @@ dependencies {
 </table>
 </div>
 <div class="paragraph">
-<p>For an instrumentation setting the config doesn&#8217;t cover, such as a span&#8217;s name or extra attributes, add an <code>HttpClientTelemetryCustomizer</code> to its set binding (Kodein <code>inBindSet</code>, Metro <code>@IntoSet</code>), or, with vanilla wiring, pass one to <code>HttpClientTelemetry</code>.</p>
+<p>For an instrumentation setting the config doesn&#8217;t cover, such as a span&#8217;s name or extra attributes, add an <code>HttpClientTelemetryCustomizer</code> to its set binding (Kodein <code>inBindSet</code>, Koin a definition with a qualifier of its own, Metro <code>@IntoSet</code>), or, with vanilla wiring, pass one to <code>HttpClientTelemetry</code>.</p>
 </div>
 <div id="_tabs_5" class="openblock tabs is-sync data-sync-group-id=di is-loading">
 <div class="content">
@@ -1108,6 +1190,9 @@ dependencies {
 </li>
 <li id="_tabs_5_kodein" class="tab">
 <p>Kodein</p>
+</li>
+<li id="_tabs_5_koin" class="tab">
+<p>Koin</p>
 </li>
 <li id="_tabs_5_metro" class="tab">
 <p>Metro</p>
@@ -1141,6 +1226,18 @@ dependencies {
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import(openTelemetryModule)
 import(clientModule)               // ktorClientModule, and the engine
 import(httpClientTelemetryModule)  // after both: a span for each request, and the HTTP client metrics</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_5_koin--panel" class="tabpanel" aria-labelledby="_tabs_5_koin">
+<div class="paragraph">
+<p>Include <code>httpClientTelemetryModule()</code> with <code>openTelemetryModule()</code> and <code>ktorClientModule()</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">openTelemetryModule(),
+clientModule,               // ktorClientModule(), and the engine
+httpClientTelemetryModule(),  // a span for each request, and the HTTP client metrics</code></pre>
 </div>
 </div>
 </div>

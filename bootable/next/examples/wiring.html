@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Wiring styles :: Bootable</title>
-    <meta name="description" content="The smallest Bootable application, one service that logs a greeting, wired with plain Kotlin, Kodein, Metro, and Inara.">
+    <meta name="description" content="The smallest Bootable application, one service that logs a greeting, wired with plain Kotlin, Kodein, Koin, Metro, and Inara.">
     <meta name="generator" content="Antora 3.2.2">
     <link rel="stylesheet" href="../../../_/css/tokens.css">
     <link rel="stylesheet" href="../../../_/css/header.css">
@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -363,13 +364,25 @@
 </aside>
 <article class="doc">
 <h1 class="page">Wiring styles</h1>
-<p class="page-lead is-before-toc">The smallest Bootable application, one service that logs a greeting, wired with plain Kotlin, Kodein, Metro, and Inara.</p>
+<p class="page-lead is-before-toc">The smallest Bootable application, one service that logs a greeting, wired with plain Kotlin, Kodein, Koin, Metro, and Inara.</p>
 <div id="preamble">
 <div class="sectionbody">
 <div class="paragraph">
-<p>Four examples, <code>wiring-vanilla</code>, <code>wiring-kodein</code>, <code>wiring-metro</code>, and <code>wiring-inara</code>, are the same application, wired each of the four ways Bootable supports.
+<p>Five examples, <code>wiring-vanilla</code>, <code>wiring-kodein</code>, <code>wiring-koin</code>, <code>wiring-metro</code>, and <code>wiring-inara</code>, are the same application, wired each of the five ways Bootable supports.
 The application is one <code>AppService</code>, <code>GreetingService</code>, which logs a message from config as it starts.
 Comparing them shows what each wiring style asks of an application, with nothing else in the way; <a href="../wiring.html" class="xref page">Choosing a wiring style</a> says how to choose between them.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+Kodein is deprecated, as its authors are sunsetting it: for a new application, consider Inara, its compile-time successor, or Koin, for a DSL like Kodein&#8217;s.
+</td>
+</tr>
+</table>
 </div>
 </div>
 </div>
@@ -390,7 +403,7 @@ Comparing them shows what each wiring style asks of an application, with nothing
 </ul>
 </div>
 <div class="paragraph">
-<p>The Kodein, Metro, and Inara examples use the <code>-kodein</code>, <code>-metro</code>, and <code>-inara</code> flavours of <code>boot</code> and <code>boot-config-hoplite</code>; the Inara example applies KSP, with Inara&#8217;s processor.</p>
+<p>The Kodein, Koin, Metro, and Inara examples use the <code>-kodein</code>, <code>-koin</code>, <code>-metro</code>, and <code>-inara</code> flavours of <code>boot</code> and <code>boot-config-hoplite</code>; the Inara example applies KSP, with Inara&#8217;s processor.</p>
 </div>
 <div class="paragraph">
 <p>Each reads the same config, from <code>src/main/resources/application.conf</code>:</p>
@@ -414,6 +427,9 @@ Comparing them shows what each wiring style asks of an application, with nothing
 </li>
 <li id="_tabs_1_kodein" class="tab">
 <p>Kodein</p>
+</li>
+<li id="_tabs_1_koin" class="tab">
+<p>Koin</p>
 </li>
 <li id="_tabs_1_metro" class="tab">
 <p>Metro</p>
@@ -452,6 +468,27 @@ Comparing them shows what each wiring style asks of an application, with nothing
     bindAppService { singleton { GreetingService(instance()) } }
   }
   di.direct.instance&lt;Bootable&gt;()
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_1_koin--panel" class="tabpanel" aria-labelledby="_tabs_1_koin">
+<div class="paragraph">
+<p>Include Bootable&#8217;s and the config binder&#8217;s modules, define the config, and the service with a qualifier of its own, and resolve the <code>Bootable</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">fun main() = boot {
+  koinApplication {
+    modules(
+      bootableModule(),
+      hopliteConfigModule(),
+      module {
+        single { get&lt;ConfigBinder&gt;().config&lt;GreetingConfig&gt;("greeting") }
+        single&lt;AppService&gt;(named("greeting")) { GreetingService(get()) }
+      },
+    )
+  }.koin.get&lt;Bootable&gt;()
 }</code></pre>
 </div>
 </div>
@@ -515,7 +552,7 @@ fun main() = boot {
 </div>
 </div>
 <div class="paragraph">
-<p>In the vanilla and Kodein examples, <code>GreetingService</code> is a plain class, with no annotations.</p>
+<p>In the vanilla, Kodein, and Koin examples, <code>GreetingService</code> is a plain class, with no annotations.</p>
 </div>
 </div>
 </div>
@@ -534,6 +571,9 @@ fun main() = boot {
 </li>
 <li id="_tabs_2_kodein" class="tab">
 <p>Kodein</p>
+</li>
+<li id="_tabs_2_koin" class="tab">
+<p>Koin</p>
 </li>
 <li id="_tabs_2_metro" class="tab">
 <p>Metro</p>
@@ -554,6 +594,13 @@ fun main() = boot {
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:wiring-kodein:run</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_koin--panel" class="tabpanel" aria-labelledby="_tabs_2_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:wiring-koin:run</code></pre>
 </div>
 </div>
 </div>
@@ -598,6 +645,9 @@ Change the message with the environment, as <code>GREETING_MESSAGE=hi ./gradlew 
 </li>
 <li>
 <p><a href="https://github.com/rocketraman/bootable/tree/master/examples/wiring-kodein"><code>examples/wiring-kodein</code></a></p>
+</li>
+<li>
+<p><a href="https://github.com/rocketraman/bootable/tree/master/examples/wiring-koin"><code>examples/wiring-koin</code></a></p>
 </li>
 <li>
 <p><a href="https://github.com/rocketraman/bootable/tree/master/examples/wiring-metro"><code>examples/wiring-metro</code></a></p>

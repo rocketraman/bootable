@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -556,6 +557,9 @@ On shutdown, it starts no further run, and doesn&#8217;t wait for the interval: 
 <li id="_tabs_1_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_1_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_1_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -609,6 +613,35 @@ On shutdown, it starts no further run, and doesn&#8217;t wait for the interval: 
 <div class="paragraph">
 <p>Its gate is <code>PeriodicGate.leader</code> of the <code>LeaderElection</code> binding, if there is one, such as <code>kubernetesLeaderElectionModule</code>'s; otherwise every instance runs the loops.
 Its clock is the <code>kotlin.time.Clock</code> binding, if there is one, and its interceptors are those of the <code>Set&lt;PeriodicRunInterceptor&gt;</code> it opens.</p>
+</div>
+</div>
+<div id="_tabs_1_koin--panel" class="tabpanel" aria-labelledby="_tabs_1_koin">
+<div class="paragraph">
+<p>Include <code>periodicModule()</code>, which defines <code>PeriodicServices</code>, and add each loop to the app services, with a qualifier of its own:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">fun periodicKoin() = koinApplication {
+  modules(
+    bootableModule(),
+    hopliteConfigModule(),
+    periodicModule(),  // PeriodicServices, gated on the LeaderElection definition, if there is one
+    module {
+      single { Notifications() }
+      single&lt;AppService&gt;(named("notifications")) {
+        val notifications = get&lt;Notifications&gt;()
+        get&lt;PeriodicServices&gt;().create("notifications", get&lt;ConfigBinder&gt;().config("notifications.loop")) {
+          notifications.sendPending()
+        }
+      }
+    },
+  )
+}.koin</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Its gate is <code>PeriodicGate.leader</code> of the <code>LeaderElection</code> definition, if there is one, such as <code>kubernetesLeaderElectionModule()</code>'s; otherwise every instance runs the loops.
+Its clock is the <code>kotlin.time.Clock</code> definition, if there is one, and its interceptors are every <code>PeriodicRunInterceptor</code> definition.</p>
 </div>
 </div>
 <div id="_tabs_1_metro--panel" class="tabpanel" aria-labelledby="_tabs_1_metro">
@@ -689,6 +722,9 @@ A run the gate skips isn&#8217;t traced.</p>
 <li id="_tabs_2_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_2_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_2_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -721,6 +757,19 @@ A run the gate skips isn&#8217;t traced.</p>
 </div>
 <div class="paragraph">
 <p>The tracing is the outermost interceptor, around those of the <code>Set&lt;PeriodicRunInterceptor&gt;</code>.</p>
+</div>
+</div>
+<div id="_tabs_2_koin--panel" class="tabpanel" aria-labelledby="_tabs_2_koin">
+<div class="paragraph">
+<p><code>periodicModule()</code> traces each run whenever there is an <code>OpenTelemetry</code> definition, such as <code>openTelemetryModule()</code>'s, and not at all when there is none:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">includes(openTelemetryModule())  // the application's OpenTelemetry, from boot-telemetry-otel: periodicModule() traces each run</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The tracing is the outermost interceptor, around those of the <code>PeriodicRunInterceptor</code> definitions.</p>
 </div>
 </div>
 <div id="_tabs_2_metro--panel" class="tabpanel" aria-labelledby="_tabs_2_metro">
@@ -758,7 +807,7 @@ fun tracedPeriodicAppModule() = TracedPeriodicAppModule(
 <div class="paragraph">
 <p>Each run&#8217;s trace is sampled as the SDK&#8217;s sampler decides, such as at the configured <code>sampleRatio</code>.
 For a loop that runs rarely enough that every run&#8217;s trace is worth keeping, sample them all with <code>Sample.Always</code>.
-With Kodein or Metro, a <code>PeriodicTracingOptions</code> binding sets that, and with Inara, <code>periodicModule</code>'s <code>tracingOptions</code>; with <code>enabled = false</code>, it turns the tracing off:</p>
+With Kodein or Metro, a <code>PeriodicTracingOptions</code> binding sets that, with Koin, a <code>PeriodicTracingOptions</code> definition, and with Inara, <code>periodicModule</code>'s <code>tracingOptions</code>; with <code>enabled = false</code>, it turns the tracing off:</p>
 </div>
 <div id="_tabs_3" class="openblock tabs is-sync data-sync-group-id=di is-loading">
 <div class="content">
@@ -769,6 +818,9 @@ With Kodein or Metro, a <code>PeriodicTracingOptions</code> binding sets that, a
 </li>
 <li id="_tabs_3_kodein" class="tab">
 <p>Kodein</p>
+</li>
+<li id="_tabs_3_koin" class="tab">
+<p>Koin</p>
 </li>
 <li id="_tabs_3_metro" class="tab">
 <p>Metro</p>
@@ -789,6 +841,13 @@ With Kodein or Metro, a <code>PeriodicTracingOptions</code> binding sets that, a
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">  bindSingleton { PeriodicTracingOptions(sample = Sample.Always) }  // or enabled = false, to trace no run</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_3_koin--panel" class="tabpanel" aria-labelledby="_tabs_3_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">single { PeriodicTracingOptions(sample = Sample.Always) }  // or enabled = false, to trace no run</code></pre>
 </div>
 </div>
 </div>
@@ -827,7 +886,7 @@ interface AlwaysSampledPeriodicGraph : BootableGraph</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The setting applies to every loop that shares the interceptor: with Kodein, Metro, or Inara, every loop created from <code>PeriodicServices</code>.</p>
+<p>The setting applies to every loop that shares the interceptor: with Kodein, Koin, Metro, or Inara, every loop created from <code>PeriodicServices</code>.</p>
 </div>
 </div>
 </div>

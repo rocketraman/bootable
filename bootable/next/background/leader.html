@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -561,7 +562,7 @@ The application&#8217;s own config of the client, in <code>http.client.named.kub
 </table>
 </div>
 <div class="paragraph">
-<p>The Kodein, Metro, and Inara flavours contribute the default; with vanilla wiring, pass <code>kubernetesClientDefaults(config)</code> to <code>KtorClientService</code>, as <a href="#wire">Wire</a> shows.</p>
+<p>The Kodein, Koin, Metro, and Inara flavours contribute the default; with vanilla wiring, pass <code>kubernetesClientDefaults(config)</code> to <code>KtorClientService</code>, as <a href="#wire">Wire</a> shows.</p>
 </div>
 <div class="paragraph">
 <p>The election is in the same phase as the clients, after their <code>HttpClientMilestones.ClientsReady</code> milestone, so it stops, releasing the Lease, before they close.</p>
@@ -714,6 +715,9 @@ Choose at-least-once, and pass an idempotency key, such as the row&#8217;s id, f
 <li id="_tabs_1_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_1_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_1_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -762,6 +766,26 @@ Choose at-least-once, and pass an idempotency key, such as the row&#8217;s id, f
   import(periodicModule)                     // its loops gated on that LeaderElection
   // ... and the loops
 }</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_1_koin--panel" class="tabpanel" aria-labelledby="_tabs_1_koin">
+<div class="paragraph">
+<p>Include <code>kubernetesLeaderElectionModule()</code>, which defines the <code>LeaderElection</code> and adds the election to the app services, with <code>ktorClientModule()</code> and an engine:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">fun leaderKoin() = koinApplication {
+  modules(
+    bootableModule(),
+    hopliteConfigModule(),
+    ktorClientModule(),                // the HTTP clients, from http.client
+    module { single&lt;KtorClientEngine&gt; { CioClientEngine() } },
+    kubernetesLeaderElectionModule(),  // the LeaderElection, from leader.kubernetes, over ktorClientModule()'s clients
+    periodicModule(),                  // its loops gated on that LeaderElection
+    // ... and the loops
+  )
+}.koin</code></pre>
 </div>
 </div>
 </div>

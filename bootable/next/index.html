@@ -47,6 +47,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -371,7 +372,7 @@ It handles starting, stopping, lifecycle management, logging, configuration, and
 <div class="paragraph">
 <p>Bootable&#8217;s core is plain Kotlin and embeds <strong>no</strong> dependency-injection framework.
 Its runtime takes two sets, your application services and your lifecycle controllers, and runs them.
-How you assemble those sets is your choice: wire them by hand, use Bootable&#8217;s optional Kodein, Metro, or Inara bindings, or bring your own DI.</p>
+How you assemble those sets is your choice: wire them by hand, use Bootable&#8217;s optional Kodein, Koin, Metro, or Inara bindings, or bring your own DI.</p>
 </div>
 <div class="paragraph">
 <p>Coming from Spring Boot? See <a href="comparison/spring-boot.html" class="xref page">Bootable and Spring Boot</a> for how the two differ, and when each fits.</p>
@@ -391,7 +392,10 @@ Every page on this site shows its code in the style you pick, and remembers it.<
 <p><a href="wiring.html" class="xref page">Vanilla</a> Plain Kotlin, no DI framework.</p>
 </li>
 <li>
-<p><a href="wiring.html" class="xref page">Kodein</a> A runtime DI with a clean DSL.</p>
+<p><a href="wiring.html" class="xref page">Kodein</a> A runtime DI with a clean DSL; deprecated: consider Inara or Koin.</p>
+</li>
+<li>
+<p><a href="wiring.html" class="xref page">Koin</a> A runtime DI with a DSL like Kodein&#8217;s.</p>
 </li>
 <li>
 <p><a href="wiring.html" class="xref page">Metro</a> A compile-time DI that checks the graph as it builds.</p>

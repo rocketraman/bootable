@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -389,6 +390,9 @@ Here, an application with one service, <code>HelloServer</code>, a <a href="../h
 <li id="_tabs_1_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_1_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_1_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -418,6 +422,24 @@ Here, an application with one service, <code>HelloServer</code>, a <a href="../h
     bindAppService { singleton { HelloServer(HostPort(port = 8000)) } }
   }
   di.direct.instance&lt;Bootable&gt;()
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_1_koin--panel" class="tabpanel" aria-labelledby="_tabs_1_koin">
+<div class="paragraph">
+<p><code>bootableModule()</code> defines <code>Bootable</code>, over every <code>AppService</code> and <code>LifecycleController</code> definition; give each of yours a qualifier of its own:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">fun main() = boot {
+  val koin = koinApplication {
+    modules(
+      bootableModule(),  // Bootable, its default controllers, and every AppService and LifecycleController definition
+      module { single&lt;AppService&gt;(named&lt;HelloServer&gt;()) { HelloServer(HostPort(port = 8000)) } },
+    )
+  }.koin
+  koin.get&lt;Bootable&gt;()
 }</code></pre>
 </div>
 </div>

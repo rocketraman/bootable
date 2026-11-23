@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -430,6 +431,9 @@ Add it as a dependency to use its API in your code: <code>LoggingType</code>, <c
 <li id="_tabs_1_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_1_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_1_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -448,6 +452,15 @@ Add it as a dependency to use its API in your code: <code>LoggingType</code>, <c
 </div>
 </div>
 <div id="_tabs_1_kodein--panel" class="tabpanel" aria-labelledby="_tabs_1_kodein">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_1_koin--panel" class="tabpanel" aria-labelledby="_tabs_1_koin">
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
@@ -713,7 +726,7 @@ So an application that calls <code>loggingInit</code> before <code>boot { }</cod
 <h2 id="_example"><a class="anchor" href="#_example"></a>Example</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p><code>examples/wiring-vanilla</code>, <code>examples/wiring-kodein</code>, and <code>examples/wiring-metro</code> each have a <code>log4j2.xml</code> that sets Bootable&#8217;s own loggers to <code>info</code>, merged over the base.
+<p><code>examples/wiring-vanilla</code>, <code>examples/wiring-kodein</code>, <code>examples/wiring-koin</code>, and <code>examples/wiring-metro</code> each have a <code>log4j2.xml</code> that sets Bootable&#8217;s own loggers to <code>info</code>, merged over the base.
 From the repository root, run one with JSON output:</p>
 </div>
 <div class="listingblock">

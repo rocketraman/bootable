@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -387,7 +388,7 @@ The <a href="exporters.html" class="xref page">exporters and integrations</a> ad
 <div class="sectionbody">
 <div class="paragraph">
 <p><code>boot-telemetry-otel</code> is the SDK; each exporter or integration depends on it, so an application that uses one needn&#8217;t list the SDK.
-Every module comes in a <code>-kodein</code> and a <code>-metro</code> flavour too, for those wiring styles.</p>
+Every module comes in <code>-kodein</code>, <code>-koin</code>, and <code>-metro</code> flavours too, for those wiring styles.</p>
 </div>
 <table class="tableblock frame-all grid-all stretch modules">
 <colgroup>
@@ -454,6 +455,9 @@ Every module comes in a <code>-kodein</code> and a <code>-metro</code> flavour t
 <li id="_tabs_1_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_1_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_1_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -476,6 +480,15 @@ Every module comes in a <code>-kodein</code> and a <code>-metro</code> flavour t
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-kodein:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_1_koin--panel" class="tabpanel" aria-labelledby="_tabs_1_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-koin:3.1.0-SNAPSHOT")
 }</code></pre>
 </div>
 </div>
@@ -646,6 +659,9 @@ It also adds <code>ServiceStartTracing</code>, a lifecycle controller that trace
 <li id="_tabs_2_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_2_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_2_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -686,6 +702,28 @@ It also adds <code>ServiceStartTracing</code>, a lifecycle controller that trace
 
 fun main() = boot {
   appDI().direct.instance&lt;Bootable&gt;()
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_koin--panel" class="tabpanel" aria-labelledby="_tabs_2_koin">
+<div class="paragraph">
+<p><code>openTelemetryModule()</code> defines the <code>OpenTelemetry</code>, over every customizer and metrics snapshot provider definition, such as those the other telemetry modules define:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">fun appKoin() = koinApplication {
+  modules(
+    bootableModule(),
+    hopliteConfigModule(),
+    openTelemetryModule(),        // the SDK, from telemetry.sdk, as an OpenTelemetry definition
+    serviceStartTracingModule(),  // the start, as one trace
+    // ... and the services that record telemetry, given get&lt;OpenTelemetry&gt;()
+  )
+}.koin
+
+fun main() = boot {
+  appKoin().get&lt;Bootable&gt;()
 }</code></pre>
 </div>
 </div>
@@ -739,7 +777,7 @@ fun main() = boot {
 </div>
 </div>
 <div class="paragraph">
-<p>A <code>kotlin.time.Clock</code>, if one is given to <code>OpenTelemetryService</code> and <code>ServiceStartTracing</code>, or bound with Kodein or Metro, or given to the Inara modules' builders, is the time of the spans and measurements, such as a fixed clock in a test; otherwise it is <code>Clock.System</code>.</p>
+<p>A <code>kotlin.time.Clock</code>, if one is given to <code>OpenTelemetryService</code> and <code>ServiceStartTracing</code>, or bound with Kodein, Koin, or Metro, or given to the Inara modules' builders, is the time of the spans and measurements, such as a fixed clock in a test; otherwise it is <code>Clock.System</code>.</p>
 </div>
 <div class="paragraph">
 <p>When the OpenTelemetry Java agent is attached, it has already built and registered the process&#8217;s SDK: <code>openTelemetry</code> is then the agent&#8217;s, the config and customizers are ignored, and the agent owns the SDK&#8217;s lifecycle.</p>
@@ -875,6 +913,9 @@ This is how the exporters and integrations plug in, too.</p>
 <li id="_tabs_3_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_3_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_3_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -909,6 +950,17 @@ This is how the exporters and integrations plug in, too.</p>
     add { singleton { RequestDurationBuckets } }
     add { singleton { excludeUrlPathsFromTraces(setOf("/ping")) } }  // no trace for these requests
   }</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_3_koin--panel" class="tabpanel" aria-labelledby="_tabs_3_koin">
+<div class="paragraph">
+<p>Define each as an <code>OpenTelemetryCustomizer</code>, with a qualifier of its own, for <code>openTelemetryModule()</code> to collect:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">single&lt;OpenTelemetryCustomizer&gt;(named&lt;RequestDurationBuckets&gt;()) { RequestDurationBuckets }
+single&lt;OpenTelemetryCustomizer&gt;(named("ping")) { excludeUrlPathsFromTraces(setOf("/ping")) }  // no trace for these requests</code></pre>
 </div>
 </div>
 </div>
@@ -966,7 +1018,7 @@ fun telemetryCustomizersModule() = TelemetryCustomizersModulePart(
 <p>HTTP client: a client span and the standard metrics for each request, in <a href="../http/client.html#telemetry" class="xref page">the client</a>.</p>
 </li>
 <li>
-<p>Background work: a trace for each run of a periodic loop, in <a href="../background/periodic.html#telemetry" class="xref page">periodic work</a>, and for each db-scheduler execution, in <a href="../background/scheduler.html#telemetry" class="xref page">scheduled tasks</a>, built into <code>boot-periodic</code> and <code>boot-scheduler-db</code>: with Kodein or Metro, on whenever the application has an <code>OpenTelemetry</code>, and with Inara, through the <code>OpenTelemetryApiModule</code> the modules require.</p>
+<p>Background work: a trace for each run of a periodic loop, in <a href="../background/periodic.html#telemetry" class="xref page">periodic work</a>, and for each db-scheduler execution, in <a href="../background/scheduler.html#telemetry" class="xref page">scheduled tasks</a>, built into <code>boot-periodic</code> and <code>boot-scheduler-db</code>: with Kodein, Koin, or Metro, on whenever the application has an <code>OpenTelemetry</code>, and with Inara, through the <code>OpenTelemetryApiModule</code> the modules require.</p>
 </li>
 </ul>
 </div>
@@ -981,7 +1033,7 @@ For one that reports only to Micrometer, use the <a href="exporters.html#microme
 <div class="sectionbody">
 <div class="paragraph">
 <p><code>examples/server-ktor-db</code> is a small Ktor server that traces its requests, with a span for each query within them, traces its start, and records its request, pool, and runtime metrics, which it serves for Prometheus at <a href="http://localhost:8001/metrics" class="bare">http://localhost:8001/metrics</a>.
-It is wired each of the four ways; from the repository root, run yours:</p>
+It is wired each of the five ways; from the repository root, run yours:</p>
 </div>
 <div id="_tabs_4" class="openblock tabs is-sync data-sync-group-id=di is-loading">
 <div class="content">
@@ -992,6 +1044,9 @@ It is wired each of the four ways; from the repository root, run yours:</p>
 </li>
 <li id="_tabs_4_kodein" class="tab">
 <p>Kodein</p>
+</li>
+<li id="_tabs_4_koin" class="tab">
+<p>Koin</p>
 </li>
 <li id="_tabs_4_metro" class="tab">
 <p>Metro</p>
@@ -1012,6 +1067,13 @@ It is wired each of the four ways; from the repository root, run yours:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:kodein:run</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_4_koin--panel" class="tabpanel" aria-labelledby="_tabs_4_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:koin:run</code></pre>
 </div>
 </div>
 </div>

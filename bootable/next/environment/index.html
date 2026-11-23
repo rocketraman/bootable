@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -441,6 +442,9 @@ Read <code>environment</code> from a service&#8217;s <code>start</code>, or late
 <li id="_tabs_1_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_1_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_1_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -463,6 +467,15 @@ Read <code>environment</code> from a service&#8217;s <code>start</code>, or late
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
   implementation("com.github.rocketraman.bootable:boot-env-kodein:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_1_koin--panel" class="tabpanel" aria-labelledby="_tabs_1_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-env-koin:3.1.0-SNAPSHOT")
 }</code></pre>
 </div>
 </div>
@@ -538,6 +551,9 @@ The key is required.</td>
 <li id="_tabs_2_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_2_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_2_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -577,6 +593,27 @@ The key is required.</td>
 
 fun main() = boot {
   appDI().direct.instance&lt;Bootable&gt;()
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_koin--panel" class="tabpanel" aria-labelledby="_tabs_2_koin">
+<div class="paragraph">
+<p>Include <code>environmentModule()</code>, which defines the <code>EnvironmentConfig</code> and adds the initializer to the lifecycle controllers:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">fun appKoin() = koinApplication {
+  modules(
+    bootableModule(),
+    hopliteConfigModule(),
+    environmentModule(),  // sets environment from env.environment, before services start
+    // ... the application's services
+  )
+}.koin
+
+fun main() = boot {
+  appKoin().get&lt;Bootable&gt;()
 }</code></pre>
 </div>
 </div>

@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -370,7 +371,7 @@
 <p>Every module Bootable publishes, by function.
 Within a function, each group&#8217;s heading says how to pick from it: choose one, or optional, both of which are dependencies you add, or comes with another module, which you don&#8217;t add yourself.
 A module marked <code>(-otel)</code> has an <code>-otel</code> variant: the same module, with its telemetry added, which you use in its place.
-A module with <code>-kodein</code>, <code>-metro</code>, or <code>-inara</code> flavours is installed in the flavour of your wiring style; see <a href="wiring.html" class="xref page">Choosing a wiring style</a>.</p>
+A module with <code>-kodein</code>, <code>-koin</code>, <code>-metro</code>, or <code>-inara</code> flavours is installed in the flavour of your wiring style; see <a href="wiring.html" class="xref page">Choosing a wiring style</a>.</p>
 </div>
 </div>
 </div>
@@ -609,7 +610,7 @@ A module with <code>-kodein</code>, <code>-metro</code>, or <code>-inara</code> 
 <td class="tableblock halign-left valign-top"><p class="tableblock">Each request traced and measured, and a metrics scrape</p></td>
 </tr>
 <tr>
-<th class="tableblock halign-left valign-top" colspan="2"><p class="tableblock">Server: comes with the engine; with Kodein or Metro, add it too, for its flavour</p></th>
+<th class="tableblock halign-left valign-top" colspan="2"><p class="tableblock">Server: comes with the engine; with Kodein, Koin, or Metro, add it too, for its flavour</p></th>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><a href="http/server.html" class="xref page"><code>boot-server-http-ktor</code></a></p></td>
@@ -634,7 +635,7 @@ A module with <code>-kodein</code>, <code>-metro</code>, or <code>-inara</code> 
 <td class="tableblock halign-left valign-top"><p class="tableblock">Each call traced and measured</p></td>
 </tr>
 <tr>
-<th class="tableblock halign-left valign-top" colspan="2"><p class="tableblock">Client: comes with the engine; with Kodein or Metro, add it too, for its flavour</p></th>
+<th class="tableblock halign-left valign-top" colspan="2"><p class="tableblock">Client: comes with the engine; with Kodein, Koin, or Metro, add it too, for its flavour</p></th>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><a href="http/client.html" class="xref page"><code>boot-client-http-ktor</code></a></p></td>

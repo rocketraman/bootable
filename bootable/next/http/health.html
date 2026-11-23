@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -393,6 +394,9 @@ To serve it, add a <a href="server.html" class="xref page">server</a>:</p>
 <li id="_tabs_1_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_1_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_1_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -437,6 +441,26 @@ To serve it, add a <a href="server.html" class="xref page">server</a>:</p>
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-cio-kodein:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-otel-kodein:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-kodein:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_1_koin--panel" class="tabpanel" aria-labelledby="_tabs_1_koin">
+<div class="listingblock install-plain">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-server-http-ktor-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-server-http-ktor-cio-koin:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+<div class="listingblock install-otel">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-server-http-ktor-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-server-http-ktor-cio-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-server-http-ktor-otel-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-koin:3.1.0-SNAPSHOT")
 }</code></pre>
 </div>
 </div>
@@ -600,6 +624,9 @@ That is what you want only when the application can do nothing useful without it
 <p>With Kodein, import <code>jdbcHealthCheckModule</code>, alongside <code>jdbcDataSourceModule</code>.</p>
 </li>
 <li>
+<p>With Koin, include <code>jdbcHealthCheckModule()</code>, alongside <code>jdbcDataSourceModule()</code>.</p>
+</li>
+<li>
 <p>With Metro, name <code>JdbcHealthCheckBindings</code> in the graph&#8217;s <code>bindingContainers</code>: <code>@DependencyGraph(AppScope::class, additionalScopes = [BootScope::class], bindingContainers = [JdbcHealthCheckBindings::class])</code>.</p>
 </li>
 </ul>
@@ -729,7 +756,7 @@ Unset, they are served on the application&#8217;s server.</td>
 <div class="paragraph">
 <p>With <code>hostPort</code> set, <code>installHealth</code> adds no routes to the application&#8217;s server.
 They are served instead by a listener of their own, a <code>HealthKtorService</code>, on a port that only the platform&#8217;s probes reach.
-With Kodein, <code>ktorHealthModule</code> adds it to the application&#8217;s services, with Metro, <code>boot-server-http-ktor-metro</code> does, and with Inara, <code>ktorHealthModule()</code> does, on the application&#8217;s <code>KtorServerEngine</code>, which an engine module&#8217;s flavor provides; see <a href="server.html#listener-engine" class="xref page">the engine of the listeners</a>.
+With Kodein or Koin, <code>ktorHealthModule</code> adds it to the application&#8217;s services, with Metro, <code>boot-server-http-ktor-metro</code> does, and with Inara, <code>ktorHealthModule()</code> does, on the application&#8217;s <code>KtorServerEngine</code>, which an engine module&#8217;s flavor provides; see <a href="server.html#listener-engine" class="xref page">the engine of the listeners</a>.
 With vanilla wiring, add <code>KtorHealth.listener(engine)</code> to the application&#8217;s services yourself, such as <code>ktorHealth.listener(CIO)</code>.
 Without <code>hostPort</code>, the listener is a service that does nothing, and needs no engine, so it can be added either way.</p>
 </div>
@@ -814,6 +841,9 @@ true</code></pre>
 <li id="_tabs_2_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_2_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_2_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -869,6 +899,26 @@ val healthChecksModule by DI.Module {
     }
   }
   import(jdbcHealthCheckModule)  // readiness down while the database doesn't answer
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_koin--panel" class="tabpanel" aria-labelledby="_tabs_2_koin">
+<div class="paragraph">
+<p><code>bootableModule()</code> defines <code>HealthLifecycleController</code>, with every <code>HealthCheck</code> definition as its checks, and <code>health.readiness</code> when there is a <code>ConfigBinder</code>, and adds it to the lifecycle controllers.
+It defines <code>BuildInfo</code> too, from <code>build</code> when there is a <code>ConfigBinder</code>.
+Define each check with a qualifier of its own; <code>ktorHealthModule()</code> provides <code>KtorHealth</code>, over both, as on <a href="server.html" class="xref page">the server page</a>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">// with serverModule, which serves the probes, and the database's modules, which provide the pool
+val healthChecksModule = module {
+  single&lt;HealthCheck&gt;(named("consumer")) {
+    HealthCheck("consumer") {
+      if (consumerConnected.get()) HealthStatus.Healthy else HealthStatus.Unhealthy("not connected to the queue")
+    }
+  }
+  includes(jdbcHealthCheckModule())  // readiness down while the database doesn't answer
 }</code></pre>
 </div>
 </div>
@@ -939,7 +989,7 @@ fun checkedAppModule() = CheckedAppModule(
 <h2 id="_example"><a class="anchor" href="#_example"></a>Example</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p><code>examples/server-ktor-db</code> serves both probes, with readiness down while its database doesn&#8217;t answer, and the build info, in each of the four wiring styles; see <a href="../examples/server-ktor-db.html" class="xref page">Server with a database</a>.
+<p><code>examples/server-ktor-db</code> serves both probes, with readiness down while its database doesn&#8217;t answer, and the build info, in each of the five wiring styles; see <a href="../examples/server-ktor-db.html" class="xref page">Server with a database</a>.
 Its config shows <code>drainDelay</code>, and <code>health.ktor.hostPort</code> for a listener of their own.</p>
 </div>
 </div>

@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -374,7 +375,7 @@ They stop in exactly the reverse order.</p>
 <div class="paragraph">
 <p>Each service says where it starts with its <code>ordering()</code>, an <code>Ordering</code> of its phase and its milestones.
 Bootable computes the order, the <em>start plan</em>, from the set of services it is given, before anything starts, and logs it.
-The order is the same whether the services were wired by hand, by Kodein, or by Metro, since it comes from the services themselves.</p>
+The order is the same whether the services were wired by hand, by Kodein, by Koin, or by Metro, since it comes from the services themselves.</p>
 </div>
 </div>
 </div>
@@ -586,7 +587,7 @@ There is deliberately no priority number to break ties, since a number would be 
 </div>
 <div class="paragraph">
 <p>A good approach is to shuffle in <code>application-local.conf</code>, for development, and in the tests' config, where a surprise is cheap, and to keep the default in production, so it starts in the same order on every run.
-Kodein&#8217;s <code>bootableModule</code> and Metro&#8217;s <code>BootableDefaultBindings</code> read the section when there is a <code>ConfigBinder</code>; wired by hand, pass <code>tiebreaker = serviceOrderConfig(binder).tiebreaker</code> to <code>Bootable</code>, as <a href="#custom">Custom start orders</a> shows.
+Kodein&#8217;s <code>bootableModule</code>, Koin&#8217;s <code>bootableModule()</code>, and Metro&#8217;s <code>BootableDefaultBindings</code> read the section when there is a <code>ConfigBinder</code>; wired by hand, pass <code>tiebreaker = serviceOrderConfig(binder).tiebreaker</code> to <code>Bootable</code>, as <a href="#custom">Custom start orders</a> shows.
 A test can check the start plan under many shuffles, without starting anything; see <a href="../testing/index.html#start-plans" class="xref page">the start plan</a>.</p>
 </div>
 </div>
@@ -724,6 +725,9 @@ class SecretsLoader : AppService {
 <li id="_tabs_1_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_1_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_1_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -753,6 +757,21 @@ class SecretsLoader : AppService {
   import(hopliteConfigModule)                     // the tiebreaker, from boot.service.order
   bindSingleton&lt;StartOrder&gt; { AppStartOrder }     // passed to Bootable
   bindAppService { singleton { SecretsLoader() } }</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_1_koin--panel" class="tabpanel" aria-labelledby="_tabs_1_koin">
+<div class="paragraph">
+<p><code>bootableModule()</code> passes a <code>StartOrder</code> definition, if there is one, to <code>Bootable</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">bootableModule(),
+hopliteConfigModule(),                    // the tiebreaker, from boot.service.order
+module {
+  single&lt;StartOrder&gt; { AppStartOrder }  // passed to Bootable
+  single&lt;AppService&gt;(named&lt;SecretsLoader&gt;()) { SecretsLoader() }
+},</code></pre>
 </div>
 </div>
 </div>

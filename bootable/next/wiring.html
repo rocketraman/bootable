@@ -47,6 +47,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -364,7 +365,7 @@
 <h1 class="page">Choosing a wiring style</h1>
 <div class="paragraph">
 <p>Bootable&#8217;s core embeds no DI framework.
-Each module ships its plain artifact, and, where it has bindings for them, <code>-kodein</code>, <code>-metro</code>, and <code>-inara</code> artifacts too.
+Each module ships its plain artifact, and, where it has bindings for them, <code>-kodein</code>, <code>-koin</code>, <code>-metro</code>, and <code>-inara</code> artifacts too.
 Depend on the flavour you wire with.</p>
 </div>
 <div id="vanilla" class="openblock wiring-style">
@@ -378,13 +379,35 @@ No extra dependencies, no annotations, no compiler plugin.</p>
 </div>
 </div>
 <div id="kodein" class="openblock wiring-style">
-<div class="title">Kodein-DI (runtime)</div>
+<div class="title">Kodein-DI (runtime, deprecated)</div>
 <div class="content">
 <div class="paragraph">
 <p>You want multibinding aggregation across modules without a compiler plugin.
-Kodein is an ordinary jar; wiring is runtime code.
-Kodein is deprecated upstream, replaced by Inara.
-For a similar runtime solution to Kodein with a clean DSL, consider Koin (not currently supported upstream by Bootable).</p>
+Kodein is an ordinary jar; wiring is runtime code.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+Kodein is deprecated: its authors are sunsetting it.
+Consider Inara, its compile-time successor, or, to stick with a style more like Kodein&#8217;s, Koin.
+Bootable&#8217;s Kodein bindings are deprecated too.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div id="koin" class="openblock wiring-style">
+<div class="title">Koin (runtime)</div>
+<div class="content">
+<div class="paragraph">
+<p>You want a runtime DSL like Kodein&#8217;s, from an actively maintained library.
+Koin is an ordinary jar; wiring is runtime code.
+Koin has no set multibindings: Bootable collects every definition of a type, such as each <code>AppService</code>, and you give each of yours a qualifier of its own.</p>
 </div>
 </div>
 </div>

@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -387,7 +388,7 @@ Each of these is a dependency you add; the core, last, comes with the driver.</p
 </div>
 <div class="paragraph">
 <p>A module marked <code>(-otel)</code> has an <code>-otel</code> variant: the same module, with its telemetry added, which you use in its place.
-Every module comes in a <code>-kodein</code> and a <code>-metro</code> flavour too, for those wiring styles.</p>
+Every module comes in <code>-kodein</code>, <code>-koin</code>, and <code>-metro</code> flavours too, for those wiring styles.</p>
 </div>
 <table class="tableblock frame-all grid-all stretch modules">
 <colgroup>
@@ -474,6 +475,9 @@ Every module comes in a <code>-kodein</code> and a <code>-metro</code> flavour t
 <li id="_tabs_1_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_1_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_1_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -526,6 +530,30 @@ Every module comes in a <code>-kodein</code> and a <code>-metro</code> flavour t
   implementation("com.github.rocketraman.bootable:boot-db-exposed-kodein:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-db-jdbc-otel-kodein:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-kodein:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_1_koin--panel" class="tabpanel" aria-labelledby="_tabs_1_koin">
+<div class="listingblock install-plain">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-db-jdbc-sqlite-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-db-pool-hikari-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-db-flyway-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-db-exposed-koin:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+<div class="listingblock install-otel">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-db-jdbc-sqlite-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-db-pool-hikari-otel-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-db-flyway-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-db-exposed-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-db-jdbc-otel-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-koin:3.1.0-SNAPSHOT")
 }</code></pre>
 </div>
 </div>
@@ -688,6 +716,9 @@ dependencies {
 <li id="_tabs_2_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_2_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_2_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -744,6 +775,35 @@ dependencies {
 
 fun main() = boot {
   appDI().direct.instance&lt;Bootable&gt;()
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_koin--panel" class="tabpanel" aria-labelledby="_tabs_2_koin">
+<div class="paragraph">
+<p>Include the pool&#8217;s module, a driver config module, and a pool module, plus Flyway&#8217;s and Exposed&#8217;s, and define each of your tables as a <code>Table</code>, with a qualifier of its own:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">fun appKoin() = koinApplication {
+  modules(
+    bootableModule(),
+    hopliteConfigModule(),
+    jdbcDataSourceModule(),   // the pool's lifecycle
+    sqliteConfigModule(),     // the driver's config, from db.jdbc
+    hikariPoolModule(),       // the pool, from db.pool
+    flywayMigrationModule(),  // migrations, from db.flyway
+    exposedDatabaseModule(),  // the Exposed Database, from db.exposed
+    module {
+      single&lt;Table&gt;(named&lt;NoteTable&gt;()) { NoteTable }  // verified against the schema
+      single { NoteRepository(get()) }
+      // ... and the services that use NoteRepository
+    },
+  )
+}.koin
+
+fun main() = boot {
+  appKoin().get&lt;Bootable&gt;()
 }</code></pre>
 </div>
 </div>
@@ -829,6 +889,9 @@ fun main() = boot {
 <li id="_tabs_3_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_3_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_3_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -857,6 +920,15 @@ fun main() = boot {
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">  import(openTelemetryModule)      // the application's OpenTelemetry, from boot-telemetry-otel
   import(jdbcTracingModule())      // a span for each statement
   import(hikariPoolMetricsModule)  // the pool's metrics</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_3_koin--panel" class="tabpanel" aria-labelledby="_tabs_3_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">includes(openTelemetryModule())      // the application's OpenTelemetry, from boot-telemetry-otel
+includes(jdbcTracingModule())      // a span for each statement
+includes(hikariPoolMetricsModule())  // the pool's metrics</code></pre>
 </div>
 </div>
 </div>
@@ -907,7 +979,7 @@ The pool&#8217;s metrics are on <a href="hikari.html#metrics" class="xref page">
 <div class="sectionbody">
 <div class="paragraph">
 <p><code>examples/server-ktor-db</code> is a small Ktor server that keeps entries in SQLite through a HikariCP pool, migrated by Flyway and queried with Exposed, and traces and measures itself with OpenTelemetry.
-It is wired each of the four ways; from the repository root, run yours:</p>
+It is wired each of the five ways; from the repository root, run yours:</p>
 </div>
 <div id="_tabs_4" class="openblock tabs is-sync data-sync-group-id=di is-loading">
 <div class="content">
@@ -918,6 +990,9 @@ It is wired each of the four ways; from the repository root, run yours:</p>
 </li>
 <li id="_tabs_4_kodein" class="tab">
 <p>Kodein</p>
+</li>
+<li id="_tabs_4_koin" class="tab">
+<p>Koin</p>
 </li>
 <li id="_tabs_4_metro" class="tab">
 <p>Metro</p>
@@ -938,6 +1013,13 @@ It is wired each of the four ways; from the repository root, run yours:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:kodein:run</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_4_koin--panel" class="tabpanel" aria-labelledby="_tabs_4_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:koin:run</code></pre>
 </div>
 </div>
 </div>

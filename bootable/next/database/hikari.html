@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -415,7 +416,7 @@ Setting it above the hint is allowed, but logs a warning.</p>
 <p>The others include <code>minimumIdle</code>, <code>idleTimeout</code>, <code>maxLifetime</code>, <code>keepaliveTime</code>, <code>validationTimeout</code>, <code>connectionInitSql</code>, <code>transactionIsolation</code>, and <code>registerMbeans</code>: see <a href="../api/boot-db-pool-hikari/com.github.rocketraman.bootable.db.jdbc/-hikari-pool-config/index.html" class="kdoc">all the settings</a>.</p>
 </div>
 <div class="paragraph">
-<p>For a HikariCP setting <code>HikariPoolConfig</code> doesn&#8217;t cover, add a <code>HikariConfigCustomizer</code> to its set binding (Kodein <code>inBindSet</code>, Metro <code>@IntoSet</code>), or, with vanilla wiring, pass one to <code>HikariConnectionPoolFactory</code>.
+<p>For a HikariCP setting <code>HikariPoolConfig</code> doesn&#8217;t cover, add a <code>HikariConfigCustomizer</code> to its set binding (Kodein <code>inBindSet</code>, Koin a definition with a qualifier of its own, Metro <code>@IntoSet</code>), or, with vanilla wiring, pass one to <code>HikariConnectionPoolFactory</code>.
 It runs after the typed settings are applied.</p>
 </div>
 </div>

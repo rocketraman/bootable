@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -417,7 +418,7 @@ Every instance runs it, unless its gate says otherwise.</p>
 <code>boot-leader-common</code>, the <code>LeaderElection</code> API, comes with <code>boot-periodic</code> and <code>boot-leader-k8s</code>.</p>
 </div>
 <div class="paragraph">
-<p>Every module but <code>boot-leader-common</code> comes in a <code>-kodein</code> and a <code>-metro</code> flavour too, for those wiring styles.</p>
+<p>Every module but <code>boot-leader-common</code> comes in <code>-kodein</code>, <code>-koin</code>, and <code>-metro</code> flavours too, for those wiring styles.</p>
 </div>
 <table class="tableblock frame-all grid-all stretch modules">
 <colgroup>
@@ -483,6 +484,9 @@ Leader election calls the Kubernetes API server with one of the application&#821
 </li>
 <li id="_tabs_1_kodein" class="tab">
 <p>Kodein</p>
+</li>
+<li id="_tabs_1_koin" class="tab">
+<p>Koin</p>
 </li>
 <li id="_tabs_1_metro" class="tab">
 <p>Metro</p>
@@ -550,6 +554,37 @@ Leader election calls the Kubernetes API server with one of the application&#821
   implementation("com.github.rocketraman.bootable:boot-db-flyway-kodein:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-db-jdbc-otel-kodein:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-kodein:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_1_koin--panel" class="tabpanel" aria-labelledby="_tabs_1_koin">
+<div class="listingblock install-plain">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-periodic-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-leader-k8s-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-client-http-ktor-cio:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-scheduler-db-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-db-jdbc-sqlite-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-db-pool-hikari-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-db-flyway-koin:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+<div class="listingblock install-otel">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-periodic-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-leader-k8s-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-client-http-ktor-cio:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-client-http-ktor-otel-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-scheduler-db-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-db-jdbc-sqlite-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-db-pool-hikari-otel-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-db-flyway-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-db-jdbc-otel-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-koin:3.1.0-SNAPSHOT")
 }</code></pre>
 </div>
 </div>
@@ -642,7 +677,7 @@ dependencies {
 <h3 id="with-telemetry"><a class="anchor" href="#with-telemetry"></a>With telemetry</h3>
 <div class="paragraph">
 <p>Turn on the <strong>Telemetry</strong> switch, at the end of the tabs above, for the install with telemetry: it adds <code>boot-telemetry-otel</code>, the application&#8217;s OpenTelemetry SDK.
-With Kodein, Metro, or Inara, the loops and the scheduler then trace each run and each execution on their own, through its <code>OpenTelemetry</code>; with vanilla wiring, you pass them the tracing.
+With Kodein, Koin, Metro, or Inara, the loops and the scheduler then trace each run and each execution on their own, through its <code>OpenTelemetry</code>; with vanilla wiring, you pass them the tracing.
 It turns on the other modules' telemetry too: the pool&#8217;s metrics, a span for each statement, and the HTTP client&#8217;s calls to the Kubernetes API server.</p>
 </div>
 <div class="paragraph">
@@ -657,7 +692,7 @@ It turns on the other modules' telemetry too: the pool&#8217;s metrics, a span f
 <div class="paragraph">
 <p><code>examples/server-ktor-db</code> has a loop that logs the number of entries, on the leader only, and a recurring db-scheduler task that logs a digest of them, each traced.
 Its config skips the election, with <code>leader.kubernetes.assumeLeader</code>, so it leads when run locally.
-It is wired each of the four ways; from the repository root, run yours:</p>
+It is wired each of the five ways; from the repository root, run yours:</p>
 </div>
 <div id="_tabs_2" class="openblock tabs is-sync data-sync-group-id=di is-loading">
 <div class="content">
@@ -668,6 +703,9 @@ It is wired each of the four ways; from the repository root, run yours:</p>
 </li>
 <li id="_tabs_2_kodein" class="tab">
 <p>Kodein</p>
+</li>
+<li id="_tabs_2_koin" class="tab">
+<p>Koin</p>
 </li>
 <li id="_tabs_2_metro" class="tab">
 <p>Metro</p>
@@ -688,6 +726,13 @@ It is wired each of the four ways; from the repository root, run yours:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:kodein:run</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_koin--panel" class="tabpanel" aria-labelledby="_tabs_2_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:koin:run</code></pre>
 </div>
 </div>
 </div>

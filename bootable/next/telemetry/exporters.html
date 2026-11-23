@@ -48,6 +48,7 @@
         <select id="di-switch">
           <option>Vanilla</option>
           <option>Kodein</option>
+          <option>Koin</option>
           <option>Metro</option>
           <option>Inara</option>
         </select>
@@ -391,6 +392,9 @@ They can be combined, such as Prometheus&#8217;s scrape for the metrics alongsid
 <li id="_tabs_1_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_1_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_1_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -415,6 +419,16 @@ They can be combined, such as Prometheus&#8217;s scrape for the metrics alongsid
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-prometheus-kodein:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-otel-kodein:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_1_koin--panel" class="tabpanel" aria-labelledby="_tabs_1_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-prometheus-koin:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-server-http-ktor-otel-koin:3.1.0-SNAPSHOT")
 }</code></pre>
 </div>
 </div>
@@ -507,6 +521,9 @@ The server&#8217;s other settings are on <a href="../http/server.html#telemetry"
 <li id="_tabs_2_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_2_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_2_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -552,6 +569,23 @@ The server&#8217;s other settings are on <a href="../http/server.html#telemetry"
   bindSingleton { instance&lt;ConfigBinder&gt;().config&lt;StatusServerConfig&gt;("server") }
   bindAppService { singleton { new(::StatusServer) } }                   // serves the scrape at /metrics
   import(ktorServerCioEngineModule)  // or on a port of its own, telemetry.ktor.hostPort, on this engine</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_koin--panel" class="tabpanel" aria-labelledby="_tabs_2_koin">
+<div class="paragraph">
+<p>Include <code>prometheusTelemetryModule()</code> and <code>ktorTelemetryModule()</code> with <code>openTelemetryModule()</code>, and an engine module&#8217;s flavour for the scrape&#8217;s listener:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">openTelemetryModule(),
+prometheusTelemetryModule(),  // registers its reader, and provides the scrape
+ktorTelemetryModule(),        // KtorTelemetry, which serves it; no traces of the scrapes
+module {
+  single { get&lt;ConfigBinder&gt;().config&lt;StatusServerConfig&gt;("server") }
+  single&lt;AppService&gt;(named&lt;StatusServer&gt;()) { StatusServer(get(), get()) }  // serves the scrape at /metrics
+},
+ktorServerCioEngineModule(),  // or on a port of its own, telemetry.ktor.hostPort, on this engine</code></pre>
 </div>
 </div>
 </div>
@@ -636,6 +670,9 @@ Point <code>telemetry.sdk.otlp.endpoint</code> there, and <code>boot-telemetry-o
 <li id="_tabs_3_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_3_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_3_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -658,6 +695,15 @@ Point <code>telemetry.sdk.otlp.endpoint</code> there, and <code>boot-telemetry-o
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-signoz-kodein:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_3_koin--panel" class="tabpanel" aria-labelledby="_tabs_3_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-signoz-koin:3.1.0-SNAPSHOT")
 }</code></pre>
 </div>
 </div>
@@ -744,6 +790,9 @@ Up-down counters and gauges are always cumulative.</td>
 <li id="_tabs_4_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_4_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_4_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -770,6 +819,17 @@ Up-down counters and gauges are always cumulative.</td>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">  import(openTelemetryModule)
   import(sigNozTelemetryModule)  // from telemetry.signoz</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_4_koin--panel" class="tabpanel" aria-labelledby="_tabs_4_koin">
+<div class="paragraph">
+<p>Include <code>sigNozTelemetryModule()</code> with <code>openTelemetryModule()</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">openTelemetryModule(),
+sigNozTelemetryModule(),  // from telemetry.signoz</code></pre>
 </div>
 </div>
 </div>
@@ -828,6 +888,9 @@ Off GCP, nothing is added, and the application&#8217;s own attributes win over w
 <li id="_tabs_5_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_5_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_5_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -850,6 +913,15 @@ Off GCP, nothing is added, and the application&#8217;s own attributes win over w
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-gcp-kodein:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_5_koin--panel" class="tabpanel" aria-labelledby="_tabs_5_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-gcp-koin:3.1.0-SNAPSHOT")
 }</code></pre>
 </div>
 </div>
@@ -929,6 +1001,9 @@ The others are <code>authenticate</code>, to authenticate export whatever the en
 <li id="_tabs_6_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_6_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_6_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -955,6 +1030,17 @@ The others are <code>authenticate</code>, to authenticate export whatever the en
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">  import(openTelemetryModule)
   import(gcpTelemetryModule)  // from telemetry.gcp</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_6_koin--panel" class="tabpanel" aria-labelledby="_tabs_6_koin">
+<div class="paragraph">
+<p>Include <code>gcpTelemetryModule()</code> with <code>openTelemetryModule()</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">openTelemetryModule(),
+gcpTelemetryModule(),  // from telemetry.gcp</code></pre>
 </div>
 </div>
 </div>
@@ -1003,6 +1089,9 @@ fun gcpAppModule() = GcpAppModule(
 <li id="_tabs_7_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_7_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_7_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -1025,6 +1114,15 @@ fun gcpAppModule() = GcpAppModule(
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-micrometer-bridge-kodein:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_7_koin--panel" class="tabpanel" aria-labelledby="_tabs_7_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-micrometer-bridge-koin:3.1.0-SNAPSHOT")
 }</code></pre>
 </div>
 </div>
@@ -1073,6 +1171,9 @@ The registry needs no closing: the SDK exports the meters' last values when <cod
 <li id="_tabs_8_kodein" class="tab">
 <p>Kodein</p>
 </li>
+<li id="_tabs_8_koin" class="tab">
+<p>Koin</p>
+</li>
 <li id="_tabs_8_metro" class="tab">
 <p>Metro</p>
 </li>
@@ -1101,6 +1202,21 @@ The registry needs no closing: the SDK exports the meters' last values when <cod
 
   // e.g. a library's Micrometer binder: the executor's metrics, exported with the rest
   bindSingleton&lt;ExecutorService&gt; { ExecutorServiceMetrics.monitor(instance(), Executors.newFixedThreadPool(4), "work") }</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_8_koin--panel" class="tabpanel" aria-labelledby="_tabs_8_koin">
+<div class="paragraph">
+<p><code>micrometerBridgeModule()</code> defines the <code>MeterRegistry</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">openTelemetryModule(),
+micrometerBridgeModule(),  // a MeterRegistry definition, over the application's OpenTelemetry
+module {
+  // e.g. a library's Micrometer binder: the executor's metrics, exported with the rest
+  single&lt;ExecutorService&gt; { ExecutorServiceMetrics.monitor(get(), Executors.newFixedThreadPool(4), "work") }
+},</code></pre>
 </div>
 </div>
 </div>
