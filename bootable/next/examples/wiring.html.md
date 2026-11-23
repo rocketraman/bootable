@@ -1,0 +1,174 @@
+# Wiring styles
+
+> The smallest Bootable application, one service that logs a greeting, wired with plain Kotlin, Kodein, Koin, Metro, and Inara.
+
+Five examples, `wiring-vanilla`, `wiring-kodein`, `wiring-koin`, `wiring-metro`, and `wiring-inara`, are the same application, wired each of the five ways Bootable supports. The application is one `AppService`, `GreetingService`, which logs a message from config as it starts. Comparing them shows what each wiring style asks of an application, with nothing else in the way; [Choosing a wiring style](https://rocketraman.github.io/bootable/bootable/next/wiring.html.md) says how to choose between them.
+
+> **Note:** Kodein is deprecated, as its authors are sunsetting it: for a new application, consider Inara, its compile-time successor, or Koin, for a DSL like Kodein’s.
+
+## What it uses
+
+- `boot`, the lifecycle, which runs the service and stops it on a signal.
+- `boot-config-hoplite`, for the `greeting` config section; see [Configuration](https://rocketraman.github.io/bootable/bootable/next/configuration/index.html.md).
+- `boot-logging-log4j2`, for the log; see [Logging (Log4j2)](https://rocketraman.github.io/bootable/bootable/next/logging/index.html.md).
+
+The Kodein, Koin, Metro, and Inara examples use the `-kodein`, `-koin`, `-metro`, and `-inara` flavours of `boot` and `boot-config-hoplite`; the Inara example applies KSP, with Inara’s processor.
+
+Each reads the same config, from `src/main/resources/application.conf`:
+
+```hocon
+greeting { message = "hello from Bootable" }
+```
+
+## Wire
+
+**Vanilla:**
+
+Load the config, construct the service, and hand it to `Bootable`:
+
+```kotlin
+fun main() = boot {
+  val binder = hopliteConfigBinder()
+  Bootable(
+    appServices = setOf(GreetingService(binder.config("greeting"))),
+  )
+}
+```
+
+**Kodein:**
+
+Import Bootable’s and the config binder’s modules, bind the config and the service, and resolve the `Bootable`:
+
+```kotlin
+fun main() = boot {
+  val di = DI {
+    import(bootableModule)
+    import(hopliteConfigModule)
+    bindSingleton { instance<ConfigBinder>().config<GreetingConfig>("greeting") }
+    bindAppService { singleton { GreetingService(instance()) } }
+  }
+  di.direct.instance<Bootable>()
+}
+```
+
+**Koin:**
+
+Include Bootable’s and the config binder’s modules, define the config, and the service with a qualifier of its own, and resolve the `Bootable`:
+
+```kotlin
+fun main() = boot {
+  koinApplication {
+    modules(
+      bootableModule(),
+      hopliteConfigModule(),
+      module {
+        single { get<ConfigBinder>().config<GreetingConfig>("greeting") }
+        single<AppService>(named("greeting")) { GreetingService(get()) }
+      },
+    )
+  }.koin.get<Bootable>()
+}
+```
+
+**Metro:**
+
+Contribute the service into the set of services, provide its config, and let the compiler build the graph:
+
+```kotlin
+sealed interface AppScope
+
+@ContributesIntoSet(AppScope::class)
+@SingleIn(AppScope::class)
+@Inject
+class GreetingService(private val cfg: GreetingConfig) : AppService {
+  private val log = logger()
+  override suspend fun start() = log.info { "greeting: ${cfg.message}" }
+}
+
+@ContributesTo(AppScope::class)
+interface AppConfigBindings : ConfigBinderProvider {
+  @Provides fun greetingConfig(): GreetingConfig = config("greeting")
+}
+
+@DependencyGraph(AppScope::class, additionalScopes = [BootScope::class])
+interface AppGraph : BootableGraph
+
+fun main() = boot {
+  createGraph<AppGraph>().bootable
+}
+```
+
+**Inara:**
+
+Compose the config’s and Bootable’s modules with the application’s own members, mark the service `@AppServices`, and let KSP generate the module’s builder, which takes a binding for each member:
+
+```kotlin
+@DIModule(composed = true)
+interface AppModule : ConfigModule, BootableModule {
+  val greetingConfig: GreetingConfig
+  @AppServices val greetingService: GreetingService
+}
+
+fun main() = boot {
+  AppModule(
+    configModule = hopliteConfigModule(),
+    bootableModule = bootableModule(),
+    greetingConfig = config("greeting"),
+    greetingService = Binding.single { GreetingService(greetingConfig) },
+  ).bootable
+}
+```
+
+Leaving out a binding fails the compilation.
+
+In the vanilla, Kodein, and Koin examples, `GreetingService` is a plain class, with no annotations.
+
+## Run it
+
+From the repository root:
+
+**Vanilla:**
+
+```shell
+./gradlew :examples:wiring-vanilla:run
+```
+
+**Kodein:**
+
+```shell
+./gradlew :examples:wiring-kodein:run
+```
+
+**Koin:**
+
+```shell
+./gradlew :examples:wiring-koin:run
+```
+
+**Metro:**
+
+```shell
+./gradlew :examples:wiring-metro:run
+```
+
+**Inara:**
+
+```shell
+./gradlew :examples:wiring-inara:run
+```
+
+The log shows the start plan, then the greeting:
+
+```kotlin
+Start plan: Application[GreetingService]
+greeting: hello from Bootable
+```
+
+The application has no server, so there is nothing to open; it runs until you stop it with Ctrl-C. Change the message with the environment, as `GREETING_MESSAGE=hi ./gradlew :examples:wiring-vanilla:run`.
+
+## Source
+
+- [`examples/wiring-vanilla`](https://github.com/rocketraman/bootable/tree/master/examples/wiring-vanilla)
+- [`examples/wiring-kodein`](https://github.com/rocketraman/bootable/tree/master/examples/wiring-kodein)
+- [`examples/wiring-koin`](https://github.com/rocketraman/bootable/tree/master/examples/wiring-koin)
+- [`examples/wiring-metro`](https://github.com/rocketraman/bootable/tree/master/examples/wiring-metro)
