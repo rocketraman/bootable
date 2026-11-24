@@ -1056,10 +1056,10 @@ From the repository root, run yours:</p>
 <p><a href="../api/boot-config-common/com.github.rocketraman.bootable.config/config.html" class="kdoc"><code>config</code></a>: <code>config&lt;T&gt;(path)</code></p>
 </li>
 <li>
-<p><code>bindConfig&lt;T&gt;(path)</code>, in <code>boot-config-common-kodein</code>: binds a section in a Kodein module</p>
+<p><code>bindConfig&lt;T&gt;(path)</code>, in <code>boot-config-common-kodein</code>: binds a section in a Kodein module; <code>bindConfigAs&lt;T, C&gt;(path)</code> binds a section decoded as a <code>C</code> as its supertype <code>T</code></p>
 </li>
 <li>
-<p><code>config&lt;T&gt;(path)</code>, in <code>boot-config-common-koin</code>'s <code>com.github.rocketraman.bootable.config.koin</code> package: defines a section in a Koin module</p>
+<p><code>config&lt;T&gt;(path)</code>, in <code>boot-config-common-koin</code>'s <code>com.github.rocketraman.bootable.config.koin</code> package: defines a section in a Koin module; <code>configAs&lt;T, C&gt;(path)</code> defines a section decoded as a <code>C</code> as its supertype <code>T</code></p>
 </li>
 <li>
 <p><a href="../api/boot-config-common/com.github.rocketraman.bootable.config/-masked/index.html" class="kdoc"><code>Masked</code></a>: a secret in Bootable&#8217;s own config classes</p>

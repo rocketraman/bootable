@@ -390,8 +390,8 @@ It logs `greeting: hello from Bootable`; try it with `GREETING_MESSAGE=hi` set.
 
 - [`ConfigBinder`](https://rocketraman.github.io/bootable/bootable/next/api/boot-config-common/com.github.rocketraman.bootable.config/-config-binder/index.html): binds a config section to a type
 - [`config`](https://rocketraman.github.io/bootable/bootable/next/api/boot-config-common/com.github.rocketraman.bootable.config/config.html): `config<T>(path)`
-- `bindConfig<T>(path)`, in `boot-config-common-kodein`: binds a section in a Kodein module
-- `config<T>(path)`, in `boot-config-common-koin`'s `com.github.rocketraman.bootable.config.koin` package: defines a section in a Koin module
+- `bindConfig<T>(path)`, in `boot-config-common-kodein`: binds a section in a Kodein module; `bindConfigAs<T, C>(path)` binds a section decoded as a `C` as its supertype `T`
+- `config<T>(path)`, in `boot-config-common-koin`'s `com.github.rocketraman.bootable.config.koin` package: defines a section in a Koin module; `configAs<T, C>(path)` defines a section decoded as a `C` as its supertype `T`
 - [`Masked`](https://rocketraman.github.io/bootable/bootable/next/api/boot-config-common/com.github.rocketraman.bootable.config/-masked/index.html): a secret in Bootable’s own config classes
 - [`HostPort`](https://rocketraman.github.io/bootable/bootable/next/api/boot-config-common/com.github.rocketraman.bootable.config.common/-host-port/index.html): a host and port
 - [`hopliteConfigBinder`](https://rocketraman.github.io/bootable/bootable/next/api/boot-config-hoplite/com.github.rocketraman.bootable.config/hoplite-config-binder.html): the Hoplite binder, and its parameters
