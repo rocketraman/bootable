@@ -8,8 +8,6 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.powerassert.gradle.PowerAssertGradleExtension
 import dev.zacsweers.metro.gradle.MetroPluginExtension
 import org.gradle.api.artifacts.ExternalModuleDependency
-import org.gradle.api.services.BuildService
-import org.gradle.api.services.BuildServiceParameters
 import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
@@ -29,21 +27,6 @@ plugins {
   alias(libs.plugins.testBalloon) apply false
   signing
   alias(libs.plugins.maven.publish) apply false
-}
-
-// Inara's KSP processor isn't safe to run in parallel in one Gradle JVM: concurrent KSP tasks sometimes generate
-// nothing, and the build then fails with "does not have constructors". Run the KSP tasks one at a time.
-abstract class KspOneAtATime : BuildService<BuildServiceParameters.None>
-
-val kspOneAtATime = gradle.sharedServices.registerIfAbsent("kspOneAtATime", KspOneAtATime::class) {
-  maxParallelUsages.set(1)
-}
-allprojects {
-  plugins.withId("com.google.devtools.ksp") {
-    tasks.matching { it.name.startsWith("ksp") && it.name.endsWith("Kotlin") }.configureEach {
-      usesService(kspOneAtATime)
-    }
-  }
 }
 
 val signingRequired: String by project
