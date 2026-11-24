@@ -12,6 +12,7 @@ import com.github.rocketraman.bootable.client.http.ktor.KtorClientService
 import com.github.rocketraman.bootable.client.http.ktor.httpClientTelemetryModule
 import com.github.rocketraman.bootable.client.http.ktor.ktorClientModule
 import com.github.rocketraman.bootable.config.ConfigBinder
+import com.github.rocketraman.bootable.config.bindConfig
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.db.exposed.exposedDatabaseModule
@@ -47,13 +48,13 @@ import org.kodein.di.singleton
  * table to the set whose schema is verified.
  */
 val entriesModule by DI.Module {
-  bindSingleton { instance<ConfigBinder>().config<ServerConfig>("server") }
+  bindConfig<ServerConfig>("server")
   bindSingleton { new(::EntryRepository) }
   inBindSet<Table> { add { singleton { EntryTable } } }
   bindAppService { singleton { new(::SeedEntriesService) } }
   bindSingleton { new(::EntryCountReport) }
   // the entry digest, every entries.digest.interval, once across the instances
-  bindSingleton { instance<ConfigBinder>().config<EntryDigestConfig>("entries.digest") }
+  bindConfig<EntryDigestConfig>("entries.digest")
   inBindSet<DbSchedulerTaskProvider> { add { singleton { new(::EntryDigest) } } }
   // the entry count, every entries.report.interval, on the leader only
   bindAppService {

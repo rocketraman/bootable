@@ -8,11 +8,10 @@ import com.github.rocketraman.bootable.boot.bindAppService
 import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.boot.bootableModule
 import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.bindConfig
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import org.apache.logging.log4j.kotlin.logger
 import org.kodein.di.DI
-import org.kodein.di.bindSingleton
 import org.kodein.di.direct
 import org.kodein.di.instance
 import org.kodein.di.singleton
@@ -29,7 +28,7 @@ fun main() = boot {
   val di = DI {
     import(bootableModule)      // Bootable + default controllers + the multibinding sets (boot:kodein)
     import(hopliteConfigModule) // binds ConfigBinder (boot-config-hoplite:kodein)
-    bindSingleton { instance<ConfigBinder>().config<GreetingConfig>("greeting") }
+    bindConfig<GreetingConfig>("greeting")
     bindAppService { singleton { GreetingService(instance()) } }
   }
   di.direct.instance<Bootable>()

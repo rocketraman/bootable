@@ -3,8 +3,7 @@ package com.github.rocketraman.bootable.leader.k8s
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientDefaults
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientService
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.bindConfig
 import com.github.rocketraman.bootable.leader.LeaderElection
 import org.kodein.di.DI
 import org.kodein.di.bindSingleton
@@ -30,7 +29,7 @@ import kotlin.time.Clock
  */
 @Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val kubernetesLeaderElectionModule by DI.Module {
-  bindSingleton<KubernetesLeaderElectionConfig> { instance<ConfigBinder>().config("leader.kubernetes") }
+  bindConfig<KubernetesLeaderElectionConfig>("leader.kubernetes")
   bindSingleton {
     val config = instance<KubernetesLeaderElectionConfig>()
     val client = instance<KtorClientService>().getOrDefault(config.httpClient)

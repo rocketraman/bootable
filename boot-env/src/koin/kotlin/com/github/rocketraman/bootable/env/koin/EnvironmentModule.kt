@@ -1,8 +1,7 @@
 package com.github.rocketraman.bootable.env.koin
 
 import com.github.rocketraman.bootable.boot.LifecycleController
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.config
 import com.github.rocketraman.bootable.env.EnvironmentConfig
 import com.github.rocketraman.bootable.env.EnvironmentInitializer
 import com.github.rocketraman.bootable.env.environment
@@ -16,6 +15,6 @@ import org.koin.dsl.module
  * boot-config-hoplite's `hopliteConfigModule()`).
  */
 fun environmentModule(): Module = module {
-  single<EnvironmentConfig> { get<ConfigBinder>().config("env") }
+  config<EnvironmentConfig>("env")
   single<LifecycleController>(named<EnvironmentInitializer>()) { EnvironmentInitializer(get()) }
 }

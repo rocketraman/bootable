@@ -1,8 +1,7 @@
 package com.github.rocketraman.bootable.server.http.ktor.koin
 
 import com.github.rocketraman.bootable.boot.AppService
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.config
 import com.github.rocketraman.bootable.server.http.ktor.KtorServerEngine
 import com.github.rocketraman.bootable.server.http.ktor.KtorServerTelemetryCustomizer
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
@@ -32,7 +31,7 @@ import org.koin.dsl.module
  * qualifier of its own.
  */
 fun ktorTelemetryModule(): Module = module {
-  single<KtorTelemetryConfig> { get<ConfigBinder>().config("telemetry.ktor") }
+  config<KtorTelemetryConfig>("telemetry.ktor")
   single<OpenTelemetryCustomizer>(named("ktorScrapeExclusion")) { get<KtorTelemetryConfig>().excludeScrapeFromTraces() }
   single<OpenTelemetryCustomizer>(named("ktorHealthExclusion")) { ktorHealthConfig(get()).excludeHealthFromTraces() }
   single {

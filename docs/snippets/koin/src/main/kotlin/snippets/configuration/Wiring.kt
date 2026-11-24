@@ -5,8 +5,8 @@ import com.github.rocketraman.bootable.boot.Bootable
 import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.boot.koin.bootableModule
 import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
+import com.github.rocketraman.bootable.config.koin.config
 import com.github.rocketraman.bootable.config.koin.hopliteConfigModule
 import com.sksamuel.hoplite.Secret
 import org.koin.core.qualifier.named
@@ -25,7 +25,7 @@ fun appKoin() = koinApplication {
     bootableModule(),
     hopliteConfigModule(),  // defines the ConfigBinder
     module {
-      single { get<ConfigBinder>().config<GreetingConfig>("greeting") }
+      config<GreetingConfig>("greeting")
       single<AppService>(named<GreetingService>()) { GreetingService(get()) }
     },
   )

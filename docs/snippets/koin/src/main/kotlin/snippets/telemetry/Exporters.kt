@@ -2,8 +2,7 @@ package snippets.telemetry
 
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.koin.bootableModule
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.config
 import com.github.rocketraman.bootable.config.koin.hopliteConfigModule
 import com.github.rocketraman.bootable.server.http.ktor.koin.ktorServerCioEngineModule
 import com.github.rocketraman.bootable.server.http.ktor.koin.ktorTelemetryModule
@@ -28,7 +27,7 @@ fun prometheusKoin() = koinApplication {
     prometheusTelemetryModule(),  // registers its reader, and provides the scrape
     ktorTelemetryModule(),        // KtorTelemetry, which serves it; no traces of the scrapes
     module {
-      single { get<ConfigBinder>().config<StatusServerConfig>("server") }
+      config<StatusServerConfig>("server")
       single<AppService>(named<StatusServer>()) { StatusServer(get(), get()) }  // serves the scrape at /metrics
     },
     ktorServerCioEngineModule(),  // or on a port of its own, telemetry.ktor.hostPort, on this engine

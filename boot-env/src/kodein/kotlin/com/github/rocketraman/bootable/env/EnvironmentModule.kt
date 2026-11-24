@@ -1,10 +1,8 @@
 package com.github.rocketraman.bootable.env
 
 import com.github.rocketraman.bootable.boot.LifecycleController
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.bindConfig
 import org.kodein.di.DI
-import org.kodein.di.bindSingleton
 import org.kodein.di.inBindSet
 import org.kodein.di.instance
 import org.kodein.di.singleton
@@ -16,6 +14,6 @@ import org.kodein.di.singleton
  */
 @Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val environmentModule by DI.Module {
-  bindSingleton<EnvironmentConfig> { instance<ConfigBinder>().config("env") }
+  bindConfig<EnvironmentConfig>("env")
   inBindSet<LifecycleController> { add { singleton { EnvironmentInitializer(instance()) } } }
 }

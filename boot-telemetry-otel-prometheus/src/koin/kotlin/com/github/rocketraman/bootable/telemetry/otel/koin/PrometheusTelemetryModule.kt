@@ -1,7 +1,6 @@
 package com.github.rocketraman.bootable.telemetry.otel.koin
 
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.config
 import com.github.rocketraman.bootable.telemetry.otel.MetricsSnapshotProvider
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizer
 import com.github.rocketraman.bootable.telemetry.otel.PrometheusTelemetry
@@ -18,7 +17,7 @@ import org.koin.dsl.module
  * `hopliteConfigModule()`).
  */
 fun prometheusTelemetryModule(): Module = module {
-  single<PrometheusTelemetryConfig> { get<ConfigBinder>().config("telemetry.prometheus") }
+  config<PrometheusTelemetryConfig>("telemetry.prometheus")
   single { PrometheusTelemetry(get()) }
   single<OpenTelemetryCustomizer>(named<PrometheusTelemetry>()) { get<PrometheusTelemetry>() }
   single<MetricsSnapshotProvider>(named<PrometheusTelemetry>()) { get<PrometheusTelemetry>() }

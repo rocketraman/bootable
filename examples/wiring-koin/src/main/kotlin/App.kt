@@ -3,7 +3,7 @@ import com.github.rocketraman.bootable.boot.Bootable
 import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.boot.koin.bootableModule
 import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.config
 import com.github.rocketraman.bootable.config.koin.hopliteConfigModule
 import org.apache.logging.log4j.kotlin.logger
 import org.koin.core.qualifier.named
@@ -19,7 +19,7 @@ class GreetingService(private val cfg: GreetingConfig) : AppService {
 
 // Koin has no set multibindings: Bootable runs every AppService definition, each with a qualifier of its own.
 val appModule = module {
-  single { get<ConfigBinder>().config<GreetingConfig>("greeting") }
+  config<GreetingConfig>("greeting")
   single<AppService>(named("greeting")) { GreetingService(get()) }
 }
 

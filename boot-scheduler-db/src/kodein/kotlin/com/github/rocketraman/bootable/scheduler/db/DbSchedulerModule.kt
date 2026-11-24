@@ -4,8 +4,7 @@ import com.github.kagkarlsson.scheduler.Scheduler
 import com.github.kagkarlsson.scheduler.SchedulerClient
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.HealthCheck
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.bindConfig
 import com.github.rocketraman.bootable.db.jdbc.JdbcConfig
 import io.opentelemetry.api.OpenTelemetry
 import org.kodein.di.DI
@@ -42,7 +41,7 @@ import kotlin.time.Clock
 val dbSchedulerModule by DI.Module {
   bindSet<DbSchedulerTaskProvider>()
   bindSet<DbSchedulerCustomizer>()
-  bindSingleton<DbSchedulerConfig> { instance<ConfigBinder>().config("db.scheduler") }
+  bindConfig<DbSchedulerConfig>("db.scheduler")
   bindSingleton {
     // the tracing first, so its interceptor is outermost
     val tracing = (instanceOrNull<DbSchedulerTracingOptions>() ?: DbSchedulerTracingOptions())

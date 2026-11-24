@@ -4,8 +4,7 @@ import com.github.rocketraman.bootable.client.http.ktor.HttpClientTelemetry
 import com.github.rocketraman.bootable.client.http.ktor.HttpClientTelemetryConfig
 import com.github.rocketraman.bootable.client.http.ktor.HttpClientTelemetryCustomizer
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientCustomizer
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.config
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -20,7 +19,7 @@ import org.koin.dsl.module
  * [HttpClientTelemetryCustomizer], with a qualifier of its own.
  */
 fun httpClientTelemetryModule(): Module = module {
-  single<HttpClientTelemetryConfig> { get<ConfigBinder>().config("telemetry.httpClient") }
+  config<HttpClientTelemetryConfig>("telemetry.httpClient")
   single {
     val customizers = getAll<HttpClientTelemetryCustomizer>()
     HttpClientTelemetry(get(), get()) { builder -> customizers.forEach { it.customize(builder) } }

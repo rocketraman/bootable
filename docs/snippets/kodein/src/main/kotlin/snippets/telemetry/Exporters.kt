@@ -1,10 +1,9 @@
 package snippets.telemetry
 
+import com.github.rocketraman.bootable.config.bindConfig
 import com.github.rocketraman.bootable.server.http.ktor.ktorServerCioEngineModule
 import com.github.rocketraman.bootable.boot.bindAppService
 import com.github.rocketraman.bootable.boot.bootableModule
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.server.http.ktor.KtorTelemetry
 import com.github.rocketraman.bootable.server.http.ktor.ktorTelemetryModule
@@ -30,7 +29,7 @@ fun prometheusDI() = DI {
   import(prometheusTelemetryModule)  // registers its reader, and provides the scrape
   import(ktorTelemetryModule)        // KtorTelemetry, which serves it; no traces of the scrapes
 
-  bindSingleton { instance<ConfigBinder>().config<StatusServerConfig>("server") }
+  bindConfig<StatusServerConfig>("server")
   bindAppService { singleton { new(::StatusServer) } }                   // serves the scrape at /metrics
   import(ktorServerCioEngineModule)  // or on a port of its own, telemetry.ktor.hostPort, on this engine
   // end::prometheus[]

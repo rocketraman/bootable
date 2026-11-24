@@ -133,7 +133,7 @@ fun main() = boot {
   val di = DI {
     import(bootableModule)      // Bootable + default controllers + the multibinding sets
     import(hopliteConfigModule) // binds ConfigBinder (boot-config-hoplite:kodein)
-    bindSingleton { instance<ConfigBinder>().config<ServerConfig>("server") }
+    bindConfig<ServerConfig>("server")
     bindAppService { singleton { ExampleServer(instance(), instance()) } }
   }
   di.direct.instance<Bootable>()
@@ -143,6 +143,7 @@ fun main() = boot {
 `bootableModule`, `hopliteConfigModule`, `environmentModule` and the `bindAppService` / `bindLifecycleController`
 helpers come from the modules' `-kodein` artifacts (`boot-kodein`, `boot-config-hoplite-kodein`,
 `boot-env-kodein`).
+`bindConfig<ServerConfig>("server")`, from `boot-config-common-kodein`, which `boot-config-hoplite-kodein` brings, binds the `server` section, decoded once by the `ConfigBinder`.
 
 [#koin]
 == Koin
@@ -158,7 +159,7 @@ fun main() = boot {
       bootableModule(),      // Bootable + default controllers, over every AppService and LifecycleController
       hopliteConfigModule(), // defines ConfigBinder (boot-config-hoplite:koin)
       module {
-        single { get<ConfigBinder>().config<ServerConfig>("server") }
+        config<ServerConfig>("server")
         single<AppService>(named<ExampleServer>()) { ExampleServer(get(), get()) }
       },
     )
@@ -169,6 +170,7 @@ fun main() = boot {
 Each Bootable module's `-koin` artifact has a Koin module named as its Kodein module is, such as `bootableModule()`, `jdbcDataSourceModule()`, `openTelemetryModule()`, or `ktorClientModule()`, in the module's package plus `.koin`, such as `com.github.rocketraman.bootable.boot.koin.bootableModule()`.
 Each is a function, as Koin keeps a module's single instances in the module itself: each call is a new module, so each Koin application gets instances of its own.
 The application uses its own Koin application, from `koinApplication`, rather than Koin's global one.
+`config<ServerConfig>("server")`, from `boot-config-common-koin`, which `boot-config-hoplite-koin` brings, defines the `server` section as a single, decoded once by the `ConfigBinder`.
 
 === Sets, without multibindings
 

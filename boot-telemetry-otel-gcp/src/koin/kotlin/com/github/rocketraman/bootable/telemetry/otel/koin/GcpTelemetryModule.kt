@@ -1,7 +1,6 @@
 package com.github.rocketraman.bootable.telemetry.otel.koin
 
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.config
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizer
 import com.github.rocketraman.bootable.telemetry.otel.GcpTelemetry
 import com.github.rocketraman.bootable.telemetry.otel.GcpTelemetryConfig
@@ -16,7 +15,7 @@ import org.koin.dsl.module
  * `hopliteConfigModule()`).
  */
 fun gcpTelemetryModule(): Module = module {
-  single<GcpTelemetryConfig> { get<ConfigBinder>().config("telemetry.gcp") }
+  config<GcpTelemetryConfig>("telemetry.gcp")
   single { GcpTelemetry(get()) }
   single<OpenTelemetryCustomizer>(named<GcpTelemetry>()) { get<GcpTelemetry>() }
 }

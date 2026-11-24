@@ -4,8 +4,7 @@ import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.Bootable
 import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.boot.koin.bootableModule
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.config
 import com.github.rocketraman.bootable.config.koin.hopliteConfigModule
 import com.github.rocketraman.bootable.server.http.ktor.koin.ktorHealthModule
 import com.github.rocketraman.bootable.server.http.ktor.koin.ktorServerCioEngineModule
@@ -16,7 +15,7 @@ import org.koin.dsl.module
 // tag::wire[]
 val serverModule = module {
   includes(ktorHealthModule())  // KtorHealth, over bootableModule()'s HealthLifecycleController, from health.ktor
-  single { get<ConfigBinder>().config<ServerConfig>("server") }
+  config<ServerConfig>("server")
   single<AppService>(named<GreetingServer>()) { GreetingServer(get(), get()) }
   // the engine of the probes' own listener, which ktorHealthModule() adds, if health.ktor.hostPort is set
   includes(ktorServerCioEngineModule())

@@ -259,6 +259,9 @@ project("boot") {
 project("boot-client-http-ktor") {
   configureDiVariants()
   dependencies {
+    // the kodein and koin flavors bind their config with config-common's helpers
+    "kodeinApi"(project(path = ":boot-config-common", configuration = "kodeinElements"))
+    "koinApi"(project(path = ":boot-config-common", configuration = "koinElements"))
     // runSuspendCatching
     testImplementation(project(":boot-test"))
     // KtorClientService is an AppService, and the clients it owns are Ktor's own HttpClient
@@ -318,6 +321,9 @@ listOf(
 project("boot-client-http-ktor-otel") {
   configureDiVariants()
   dependencies {
+    // the kodein and koin flavors bind their config with config-common's helpers
+    "kodeinApi"(project(path = ":boot-config-common", configuration = "kodeinElements"))
+    "koinApi"(project(path = ":boot-config-common", configuration = "koinElements"))
     api(project(":boot-client-http-ktor"))
     // the customizer only needs an OpenTelemetry, whichever SDK built it
     api(rootProject.libs.opentelemetry.api)
@@ -379,6 +385,9 @@ project("boot-common") {
 project("boot-config-hoplite") {
   configureDiVariants()
   dependencies {
+    // the kodein and koin flavors re-expose config-common's, so their consumers get its config helpers too
+    "kodeinApi"(project(path = ":boot-config-common", configuration = "kodeinElements"))
+    "koinApi"(project(path = ":boot-config-common", configuration = "koinElements"))
     api(project(":boot-config-common"))
     api(rootProject.libs.bundles.hoplite)
 
@@ -474,6 +483,9 @@ project("boot-db-jdbc-otel") {
 project("boot-db-pool-hikari") {
   configureDiVariants()
   dependencies {
+    // the kodein and koin flavors bind their config with config-common's helpers
+    "kodeinApi"(project(path = ":boot-config-common", configuration = "kodeinElements"))
+    "koinApi"(project(path = ":boot-config-common", configuration = "koinElements"))
     api(project(":boot-db-jdbc"))
     api(rootProject.libs.hikari)
     // the logging API only: the application chooses the logging implementation (e.g. boot-logging-log4j2)
@@ -706,6 +718,9 @@ project("boot-db-jdbc-postgresql") {
 project("boot-db-exposed") {
   configureDiVariants()
   dependencies {
+    // the kodein and koin flavors bind their config with config-common's helpers
+    "kodeinApi"(project(path = ":boot-config-common", configuration = "kodeinElements"))
+    "koinApi"(project(path = ":boot-config-common", configuration = "koinElements"))
     // runSuspendCatching
     testImplementation(project(":boot-test"))
     api(project(":boot-db-jdbc"))
@@ -760,6 +775,9 @@ project("boot-db-exposed") {
 project("boot-db-flyway") {
   configureDiVariants()
   dependencies {
+    // the kodein and koin flavors bind their config with config-common's helpers
+    "kodeinApi"(project(path = ":boot-config-common", configuration = "kodeinElements"))
+    "koinApi"(project(path = ":boot-config-common", configuration = "koinElements"))
     api(project(":boot-db-jdbc"))
     // flyway-core supports SQLite itself; other databases' Flyway modules come with their driver modules
     // (boot-db-jdbc-postgresql, boot-db-jdbc-mysql)
@@ -810,6 +828,9 @@ project("boot-db-flyway") {
 project("boot-env") {
   configureDiVariants()
   dependencies {
+    // the kodein and koin flavors bind their config with config-common's helpers
+    "kodeinApi"(project(path = ":boot-config-common", configuration = "kodeinElements"))
+    "koinApi"(project(path = ":boot-config-common", configuration = "koinElements"))
     api(project(":boot-config-common"))
     implementation(project(":boot"))
     // the metro flavor contributes to boot's BootScope (in-repo: boot's metro source set; POM: boot-metro)
@@ -847,6 +868,9 @@ project("boot-leader-k8s") {
   apply(plugin = "org.jetbrains.kotlin.plugin.serialization")
   configureDiVariants()
   dependencies {
+    // the kodein and koin flavors bind their config with config-common's helpers
+    "kodeinApi"(project(path = ":boot-config-common", configuration = "kodeinElements"))
+    "koinApi"(project(path = ":boot-config-common", configuration = "koinElements"))
     // KubernetesLeaderElection is an AppService and a LeaderElection
     api(project(":boot"))
     api(project(":boot-config-common"))
@@ -942,6 +966,9 @@ project("boot-scheduler-db") {
   apply(plugin = "org.jetbrains.kotlin.plugin.serialization")
   configureDiVariants()
   dependencies {
+    // the kodein and koin flavors bind their config with config-common's helpers
+    "kodeinApi"(project(path = ":boot-config-common", configuration = "kodeinElements"))
+    "koinApi"(project(path = ":boot-config-common", configuration = "koinElements"))
     // DbSchedulerService is an AppService over boot-db-jdbc's DataSource, ordered after its milestones
     api(project(":boot-db-jdbc"))
     api(rootProject.libs.db.scheduler)
@@ -1191,6 +1218,11 @@ mapOf(
       "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
       "koinApi"(project(path = ":boot-telemetry-otel", configuration = "koinElements"))
       "inaraApi"(project(path = ":boot-telemetry-otel", configuration = "inaraElements"))
+      // the kodein and koin flavors that bind config do it with config-common's helpers
+      if (name != "micrometer-bridge") {
+        "kodeinApi"(project(path = ":boot-config-common", configuration = "kodeinElements"))
+        "koinApi"(project(path = ":boot-config-common", configuration = "koinElements"))
+      }
 
       testImplementation(rootProject.libs.opentelemetry.sdk.testing)
       // the tests exercise this module's kodein, koin, metro, and inara flavors too, wired up as a consumer would
@@ -1222,6 +1254,9 @@ mapOf(
 project("boot-server-http-ktor-otel") {
   configureDiVariants()
   dependencies {
+    // the kodein and koin flavors bind their config with config-common's helpers
+    "kodeinApi"(project(path = ":boot-config-common", configuration = "kodeinElements"))
+    "koinApi"(project(path = ":boot-config-common", configuration = "koinElements"))
     api(project(":boot-server-http-ktor"))
     api(project(":boot-telemetry-otel"))
     api(rootProject.libs.opentelemetry.instrumentation.ktor)

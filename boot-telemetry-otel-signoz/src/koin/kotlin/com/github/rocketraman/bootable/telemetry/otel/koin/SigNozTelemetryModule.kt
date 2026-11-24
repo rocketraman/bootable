@@ -1,7 +1,6 @@
 package com.github.rocketraman.bootable.telemetry.otel.koin
 
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.config
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizer
 import com.github.rocketraman.bootable.telemetry.otel.SigNozTelemetry
 import com.github.rocketraman.bootable.telemetry.otel.SigNozTelemetryConfig
@@ -16,7 +15,7 @@ import org.koin.dsl.module
  * `hopliteConfigModule()`).
  */
 fun sigNozTelemetryModule(): Module = module {
-  single<SigNozTelemetryConfig> { get<ConfigBinder>().config("telemetry.signoz") }
+  config<SigNozTelemetryConfig>("telemetry.signoz")
   single { SigNozTelemetry(get()) }
   single<OpenTelemetryCustomizer>(named<SigNozTelemetry>()) { get<SigNozTelemetry>() }
 }
