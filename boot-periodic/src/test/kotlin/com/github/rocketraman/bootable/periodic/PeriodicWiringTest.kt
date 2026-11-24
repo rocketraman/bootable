@@ -12,9 +12,11 @@ import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableM
 import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.ConfigModule
+import com.github.rocketraman.bootable.config.bindConfig
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
+import com.github.rocketraman.bootable.config.koin.config as koinConfig
 import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
 import com.github.rocketraman.bootable.leader.AlwaysLeaderModule
 import com.github.rocketraman.bootable.leader.LeaderElection
@@ -138,10 +140,11 @@ val PeriodicWiringTest by testSuite {
         import(periodicModule)
         bindSingleton { Counter() }
         bindSingleton<LeaderElection> { TestLeaderElection(false) }
+        bindConfig<PeriodicConfig>("jobs.counter", tag = "counter")
         inBindSet<AppService> {
           add {
             singleton {
-              instance<PeriodicServices>().create("counter", instance<ConfigBinder>().config("jobs.counter")) {
+              instance<PeriodicServices>().create("counter", instance("counter")) {
                 instance<Counter>().runs.incrementAndGet()
               }
             }
@@ -168,8 +171,9 @@ val PeriodicWiringTest by testSuite {
           module {
             single { Counter() }
             single<LeaderElection> { TestLeaderElection(false) }
+            koinConfig<PeriodicConfig>("jobs.counter", named("counter"))
             single<AppService>(named("counter")) {
-              get<PeriodicServices>().create("counter", get<ConfigBinder>().config("jobs.counter")) {
+              get<PeriodicServices>().create("counter", get(named("counter"))) {
                 get<Counter>().runs.incrementAndGet()
               }
             }

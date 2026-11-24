@@ -308,8 +308,8 @@ It logs `greeting: hello from Bootable`; try it with `GREETING_MESSAGE=hi` set.
 
 * kdoc:boot-config-common:com.github.rocketraman.bootable.config.ConfigBinder[]: binds a config section to a type
 * kdoc:boot-config-common:com.github.rocketraman.bootable.config.config[]: `config<T>(path)`
-* `bindConfig<T>(path)`, in `boot-config-common-kodein`: binds a section in a Kodein module
-* `config<T>(path)`, in ``boot-config-common-koin``'s `com.github.rocketraman.bootable.config.koin` package: defines a section in a Koin module
+* `bindConfig<T>(path)`, in `boot-config-common-kodein`: binds a section in a Kodein module; `bindConfigAs<T, C>(path)` binds a section decoded as a `C` as its supertype `T`
+* `config<T>(path)`, in ``boot-config-common-koin``'s `com.github.rocketraman.bootable.config.koin` package: defines a section in a Koin module; `configAs<T, C>(path)` defines a section decoded as a `C` as its supertype `T`
 * kdoc:boot-config-common:com.github.rocketraman.bootable.config.Masked[]: a secret in Bootable's own config classes
 * kdoc:boot-config-common:com.github.rocketraman.bootable.config.common.HostPort[]: a host and port
 * kdoc:boot-config-hoplite:com.github.rocketraman.bootable.config.hopliteConfigBinder[]: the Hoplite binder, and its parameters

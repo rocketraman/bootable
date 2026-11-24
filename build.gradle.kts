@@ -408,6 +408,9 @@ project("boot-config-common") {
 project("boot-db-jdbc") {
   configureDiVariants()
   dependencies {
+    // the kodein and koin flavors bind their config with config-common's helpers
+    "kodeinApi"(project(path = ":boot-config-common", configuration = "kodeinElements"))
+    "koinApi"(project(path = ":boot-config-common", configuration = "koinElements"))
     api(project(":boot"))
     api(project(":boot-config-common"))
     "metroApi"(project(path = ":boot", configuration = "metroElements"))
@@ -581,6 +584,9 @@ project("boot-db-pool-hikari-otel") {
 project("boot-db-jdbc-sqlite") {
   configureDiVariants()
   dependencies {
+    // the kodein and koin flavors bind their config with config-common's helpers
+    "kodeinApi"(project(path = ":boot-config-common", configuration = "kodeinElements"))
+    "koinApi"(project(path = ":boot-config-common", configuration = "koinElements"))
     api(project(":boot-db-jdbc"))
     // the driver is the point of this module: depending on it brings the right JDBC driver transitively
     api(rootProject.libs.sqlite.jdbc)
@@ -624,6 +630,9 @@ project("boot-db-jdbc-sqlite") {
 project("boot-db-jdbc-mysql") {
   configureDiVariants()
   dependencies {
+    // the kodein and koin flavors bind their config with config-common's helpers
+    "kodeinApi"(project(path = ":boot-config-common", configuration = "kodeinElements"))
+    "koinApi"(project(path = ":boot-config-common", configuration = "koinElements"))
     api(project(":boot-db-jdbc"))
     // the driver is the point of this module: depending on it brings the right JDBC driver transitively
     api(rootProject.libs.mysql.connector.j)
@@ -671,6 +680,9 @@ project("boot-db-jdbc-mysql") {
 project("boot-db-jdbc-postgresql") {
   configureDiVariants()
   dependencies {
+    // the kodein and koin flavors bind their config with config-common's helpers
+    "kodeinApi"(project(path = ":boot-config-common", configuration = "kodeinElements"))
+    "koinApi"(project(path = ":boot-config-common", configuration = "koinElements"))
     api(project(":boot-db-jdbc"))
     // the driver is the point of this module: depending on it brings the right JDBC driver transitively
     api(rootProject.libs.postgresql)
