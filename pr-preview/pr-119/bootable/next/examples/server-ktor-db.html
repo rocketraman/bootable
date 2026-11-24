@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Server with a database :: Bootable</title>
+    <meta name="description" content="A key/value store over HTTP, with a database, telemetry, an HTTP client, health probes, and background work, wired five ways.">
+    <meta name="generator" content="Antora 3.2.2">
+    <link rel="stylesheet" href="../../../_/css/tokens.css">
+    <link rel="stylesheet" href="../../../_/css/header.css">
+    <link rel="stylesheet" href="../../../_/css/nav.css">
+    <link rel="stylesheet" href="../../../_/css/bootable.css">
+<script>
+  (function () {
+    try { var theme = localStorage.getItem('bootable-theme') } catch (e) {}
+    if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme
+    // and whether install blocks show their telemetry variant (bootable.js), so the right one shows from the start
+    try { if (localStorage.getItem('bootable-install-telemetry') === 'on') document.documentElement.dataset.installTelemetry = 'on' } catch (e) {}
+  })()
+</script>
+<script defer src="../../../_/js/vendor/tabs.js" data-sync-storage-key="bootable-tabs"></script>
+<script defer src="../../../_/js/bootable.js"></script>
+<link rel="alternate" type="text/markdown" href="server-ktor-db.html.md">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><rect width="24" height="24" rx="6" fill="currentColor"/><path d="M12 5.5v6.2M8 8.1a5.6 5.6 0 1 0 8 0" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </span>
+      <span class="brand-name">Bootable</span>
+      <span class="brand-docs">Docs</span>
+    </a>
+    <div class="navbar-sections">
+      <a class="section-link" href="../index.html">Get started</a>
+      <a class="section-link" href="../configuration/index.html">Functions</a>
+      <a class="section-link is-current" href="index.html">Examples</a>
+      <a class="section-link section-link-api" href="../api/index.html">API reference</a>
+    </div>
+    <div class="navbar-search" id="search-field">
+      <svg class="navbar-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="search-input" type="text" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off">
+      <kbd class="navbar-search-key" title="Press / to search">/</kbd>
+    </div>
+    <div class="navbar-tools">
+      <label class="di-switch" title="The wiring style the code is shown in">
+        <span class="di-switch-label">Wiring</span>
+        <select id="di-switch">
+          <option>Vanilla</option>
+          <option>Kodein</option>
+          <option>Koin</option>
+          <option>Metro</option>
+          <option>Inara</option>
+        </select>
+      </label>
+      <button class="icon-button theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+        <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+      <a class="icon-button" href="https://github.com/rocketraman/bootable" aria-label="Bootable on GitHub" title="GitHub">
+        <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      </a>
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="bootable" data-version="next">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <button class="nav-menu-toggle" aria-label="Toggle expand/collapse all" style="display: none"></button>
+    <h3 class="title"><a href="../index.html">Bootable</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Get started</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../index.html">Overview</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../wiring.html">Choosing a wiring style</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../modules.html">All modules</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../aot-cache.html">Faster start: AOT cache</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Concepts</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../concepts/index.html">Overview</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../concepts/philosophy.html">No magic</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../concepts/lifecycle.html">Lifecycle and services</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../concepts/start-order.html">Start order</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Functions</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../configuration/index.html">Configuration</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../environment/index.html">Environment</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../logging/index.html">Logging (Log4j2)</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <a class="nav-link" href="../database/index.html">Database</a>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../database/drivers.html">Drivers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../database/hikari.html">Connection pool (HikariCP)</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../database/flyway.html">Migrations (Flyway)</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../database/exposed.html">ORM (Exposed)</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <a class="nav-link" href="../http/index.html">Web / HTTP</a>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../http/server.html">Server (Ktor)</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../http/client.html">Client (Ktor)</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../http/health.html">Health</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <a class="nav-link" href="../background/index.html">Background work</a>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../background/periodic.html">Periodic work</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../background/leader.html">Leader election</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../background/scheduler.html">Scheduled tasks (db-scheduler)</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <a class="nav-link" href="../telemetry/index.html">Telemetry (OpenTelemetry)</a>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../telemetry/exporters.html">Exporters and integrations</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../testing/index.html">Testing</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Examples</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="index.html">Overview</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="wiring.html">Wiring styles</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="server-ktor.html">Ktor server</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="1">
+    <a class="nav-link" href="server-ktor-db.html">Server with a database</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="start-order.html">Custom start order</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="compose-html.html">Web app with Compose HTML</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="htmx.html">Web app with htmx</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="kilua.html">Web app with Kilua</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">API reference</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/index.html">All modules</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot/index.html">boot</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-client-http-ktor/index.html">boot-client-http-ktor</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-client-http-ktor-cio/index.html">boot-client-http-ktor-cio</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-client-http-ktor-java/index.html">boot-client-http-ktor-java</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-client-http-ktor-otel/index.html">boot-client-http-ktor-otel</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-common/index.html">boot-common</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-config-common/index.html">boot-config-common</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-config-hoplite/index.html">boot-config-hoplite</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-db-exposed/index.html">boot-db-exposed</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-db-flyway/index.html">boot-db-flyway</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-db-jdbc/index.html">boot-db-jdbc</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-db-jdbc-mysql/index.html">boot-db-jdbc-mysql</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-db-jdbc-otel/index.html">boot-db-jdbc-otel</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-db-jdbc-postgresql/index.html">boot-db-jdbc-postgresql</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-db-jdbc-sqlite/index.html">boot-db-jdbc-sqlite</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-db-pool-hikari/index.html">boot-db-pool-hikari</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-db-pool-hikari-otel/index.html">boot-db-pool-hikari-otel</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-env/index.html">boot-env</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-leader-common/index.html">boot-leader-common</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-leader-k8s/index.html">boot-leader-k8s</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-logging/index.html">boot-logging</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-logging-log4j2/index.html">boot-logging-log4j2</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-periodic/index.html">boot-periodic</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-scheduler-db/index.html">boot-scheduler-db</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-server-http-ktor/index.html">boot-server-http-ktor</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-server-http-ktor-cio/index.html">boot-server-http-ktor-cio</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-server-http-ktor-netty/index.html">boot-server-http-ktor-netty</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-server-http-ktor-otel/index.html">boot-server-http-ktor-otel</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-telemetry-otel/index.html">boot-telemetry-otel</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-telemetry-otel-common/index.html">boot-telemetry-otel-common</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-telemetry-otel-gcp/index.html">boot-telemetry-otel-gcp</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-telemetry-otel-micrometer-bridge/index.html">boot-telemetry-otel-micrometer-bridge</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-telemetry-otel-prometheus/index.html">boot-telemetry-otel-prometheus</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-telemetry-otel-signoz/index.html">boot-telemetry-otel-signoz</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-test/index.html">boot-test</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-test-otel/index.html">boot-test-otel</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+    <button class="nav-item-toggle"></button>
+    <span class="nav-text">Comparison</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../comparison/spring-boot.html">Spring Boot</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+  <a href="../index.html" class="home-link"></a>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="../index.html">Bootable</a></li>
+    <li>Examples</li>
+    <li><a href="server-ktor-db.html">Server with a database</a></li>
+  </ul>
+</nav>
+<div class="edit-this-page">
+<a href="https://github.com/rocketraman/bootable/edit/master/docs/modules/examples/pages/server-ktor-db.adoc">Edit this page</a>
+<a class="page-markdown" href="server-ktor-db.html.md" type="text/markdown">View as Markdown</a>
+</div>
+</div>
+  <div class="content">
+<aside class="toc sidebar" data-title="On this page" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+<article class="doc">
+<h1 class="page">Server with a database</h1>
+<p class="page-lead is-before-toc">A key/value store over HTTP, with a database, telemetry, an HTTP client, health probes, and background work, wired five ways.</p>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p><code>server-ktor-db</code> is a Ktor server that stores named entries in a SQLite database, and traces and measures itself with OpenTelemetry.
+Its <code>GET /relay/{name}</code> calls the server back through a lifecycle-managed Ktor <code>HttpClient</code>, as a call to another service would be made.
+In the background, a periodic loop logs the entry count, on the leader only, and a db-scheduler task logs a digest of the entries.</p>
+</div>
+<div class="paragraph">
+<p>It is the example that puts most of Bootable&#8217;s functions together, and it is wired each of the five ways: the server, repository, table, migrations, and config are shared, in <code>common</code>, and <code>vanilla</code>, <code>kodein</code>, <code>koin</code>, <code>metro</code>, and <code>inara</code> are each a runnable application.
+<code>jib</code> builds the vanilla application into a container image, with its JVM AOT cache in it.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_what_it_uses"><a class="anchor" href="#_what_it_uses"></a>What it uses</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="../database/index.html" class="xref page">Database</a>: SQLite (<a href="../database/drivers.html" class="xref page"><code>boot-db-jdbc-sqlite</code></a>) through a HikariCP pool (<a href="../database/hikari.html" class="xref page"><code>boot-db-pool-hikari-otel</code></a>), migrated by <a href="../database/flyway.html" class="xref page">Flyway</a>, and queried with <a href="../database/exposed.html" class="xref page">Exposed</a>, which verifies the <code>entry</code> table against the migrated schema; <code>boot-db-jdbc-otel</code> traces each query.</p>
+</li>
+<li>
+<p><a href="../http/server.html" class="xref page">HTTP server</a>: <code>EntryServer</code>, a <code>CioKtorService</code>, on Ktor&#8217;s CIO engine.</p>
+</li>
+<li>
+<p><a href="../http/client.html" class="xref page">HTTP client</a>: the named client <code>entries</code>, from <code>boot-client-http-ktor-cio</code>, traced by <code>boot-client-http-ktor-otel</code>.</p>
+</li>
+<li>
+<p><a href="../http/health.html" class="xref page">Health</a>: liveness and readiness, served by the server as JSON, with readiness down while the database doesn&#8217;t answer, and the <a href="../http/health.html#build-info" class="xref page">build info</a>.</p>
+</li>
+<li>
+<p><a href="../telemetry/index.html" class="xref page">Telemetry</a>: the OpenTelemetry SDK, a Prometheus scrape at <code>/metrics</code>, the server&#8217;s request traces and metrics, the pool&#8217;s metrics, and a trace of the application&#8217;s start, with a span for each service&#8217;s start.</p>
+</li>
+<li>
+<p><a href="../background/periodic.html" class="xref page">Periodic work</a>: the entry count&#8217;s loop, gated on <a href="../background/leader.html" class="xref page">leader election</a> through a Kubernetes Lease, which the config skips outside Kubernetes (<code>leader.kubernetes.assumeLeader = true</code>).</p>
+</li>
+<li>
+<p><a href="../background/scheduler.html" class="xref page">Scheduled tasks</a>: the entry digest, a recurring db-scheduler task, whose table Flyway migrates with the application&#8217;s.</p>
+</li>
+<li>
+<p><a href="../configuration/index.html" class="xref page">Configuration</a> and <a href="../logging/index.html" class="xref page">Logging</a>, as in every example.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p><code>SeedEntriesService</code> stores two sample entries on a first run.
+It starts after the <code>DbMilestones.SchemaMigrated</code> milestone, in the <code>Initialization</code> phase, so it runs on a migrated schema, and before the server takes a request.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_wire"><a class="anchor" href="#_wire"></a>Wire</h2>
+<div class="sectionbody">
+<div id="_tabs_1" class="openblock tabs is-sync data-sync-group-id=di is-loading">
+<div class="content">
+<div class="ulist tablist">
+<ul>
+<li id="_tabs_1_vanilla" class="tab">
+<p>Vanilla</p>
+</li>
+<li id="_tabs_1_kodein" class="tab">
+<p>Kodein</p>
+</li>
+<li id="_tabs_1_koin" class="tab">
+<p>Koin</p>
+</li>
+<li id="_tabs_1_metro" class="tab">
+<p>Metro</p>
+</li>
+<li id="_tabs_1_inara" class="tab">
+<p>Inara</p>
+</li>
+</ul>
+</div>
+<div id="_tabs_1_vanilla--panel" class="tabpanel" aria-labelledby="_tabs_1_vanilla">
+<div class="paragraph">
+<p><code>EntriesApp</code>, in <code>vanilla/src/main/kotlin/App.kt</code>, constructs every service and lifecycle controller in plain Kotlin, and <code>main</code> hands them to <code>Bootable</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">fun main() = boot {
+  val app = EntriesApp(hopliteConfigBinder())
+  Bootable(app.services, app.lifecycleControllers)
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The order of the set doesn&#8217;t matter: each service declares where it starts, and Bootable logs the start plan.</p>
+</div>
+</div>
+<div id="_tabs_1_kodein--panel" class="tabpanel" aria-labelledby="_tabs_1_kodein">
+<div class="paragraph">
+<p><code>appDI()</code>, in <code>kodein/src/main/kotlin/App.kt</code>, imports each module&#8217;s Kodein module, and <code>entriesModule</code>, the application&#8217;s own bindings:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">fun appDI() = DI {
+  import(bootableModule)
+  import(hopliteConfigModule)
+  import(openTelemetryModule)
+  // ... telemetry, server, health, and client modules
+  import(jdbcDataSourceModule)
+  import(sqliteConfigModule)
+  import(hikariPoolModule)
+  import(flywayMigrationModule)
+  import(exposedDatabaseModule)
+  // ... leader election, periodic, and db-scheduler modules
+  import(entriesModule)
+}
+
+fun main() = boot {
+  appDI().direct.instance&lt;Bootable&gt;()
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_1_koin--panel" class="tabpanel" aria-labelledby="_tabs_1_koin">
+<div class="paragraph">
+<p><code>appKoin()</code>, in <code>koin/src/main/kotlin/App.kt</code>, includes each module&#8217;s Koin module, and <code>entriesModule</code>, the application&#8217;s own definitions, each with a qualifier of its own where it adds to the app services or the tables:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">fun appKoin(): KoinApplication = koinApplication {
+  modules(
+    bootableModule(),
+    hopliteConfigModule(),
+    openTelemetryModule(),
+    // ... telemetry, server, health, and client modules
+    jdbcDataSourceModule(),
+    sqliteConfigModule(),
+    hikariPoolModule(),
+    flywayMigrationModule(),
+    exposedDatabaseModule(),
+    // ... leader election, periodic, and db-scheduler modules
+    entriesModule,
+  )
+}
+
+fun main() = boot {
+  appKoin().koin.get&lt;Bootable&gt;()
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_1_metro--panel" class="tabpanel" aria-labelledby="_tabs_1_metro">
+<div class="paragraph">
+<p>The <code>-metro</code> modules contribute their bindings on their own; <code>EntriesBindings</code>, in <code>metro/src/main/kotlin/App.kt</code>, contributes the application&#8217;s, and the graph adds two binding containers:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@DependencyGraph(
+  AppScope::class,
+  additionalScopes = [BootScope::class],
+  bindingContainers = [ServiceStartTracingBindings::class, JdbcHealthCheckBindings::class],
+)
+interface AppGraph : BootableGraph
+
+fun main() = boot {
+  createGraph&lt;AppGraph&gt;().bootable
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Leaving out the driver or the pool fails the compilation with a missing binding.</p>
+</div>
+</div>
+<div id="_tabs_1_inara--panel" class="tabpanel" aria-labelledby="_tabs_1_inara">
+<div class="paragraph">
+<p><code>EntriesModule</code>, in <code>inara/src/main/kotlin/App.kt</code>, is the application&#8217;s own module, which requires the Bootable modules it uses; <code>AppModule</code> composes it with them, each once:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@DIModule(composed = true)
+interface AppModule :
+  ConfigModule, BootableModule, OpenTelemetryModule,
+  // ... telemetry, server, health, and client modules
+  JdbcDataSourceModule, HikariPoolModule, FlywayMigrationModule, ExposedDatabaseModule,
+  // ... leader election, periodic, and db-scheduler modules
+  EntriesModule
+
+fun appModule(): AppModule = AppModule(
+  configModule = hopliteConfigModule(),
+  bootableModule = bootableModule(),
+  openTelemetryModule = openTelemetryModule(),
+  // ...
+  jdbcDataSourceModule = jdbcDataSourceModule(SqliteConfigSource),
+  hikariPoolModule = hikariPoolModule(),
+  flywayMigrationModule = flywayMigrationModule(),
+  exposedDatabaseModule = exposedDatabaseModule(setOf(EntryTable)),
+  // ...
+  entriesModule = entriesModule(),
+)
+
+fun main() = boot {
+  appModule().bootable
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Leaving out the driver or the pool, or any module another requires, fails the compilation.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_run_it"><a class="anchor" href="#_run_it"></a>Run it</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>From the repository root:</p>
+</div>
+<div id="_tabs_2" class="openblock tabs is-sync data-sync-group-id=di is-loading">
+<div class="content">
+<div class="ulist tablist">
+<ul>
+<li id="_tabs_2_vanilla" class="tab">
+<p>Vanilla</p>
+</li>
+<li id="_tabs_2_kodein" class="tab">
+<p>Kodein</p>
+</li>
+<li id="_tabs_2_koin" class="tab">
+<p>Koin</p>
+</li>
+<li id="_tabs_2_metro" class="tab">
+<p>Metro</p>
+</li>
+<li id="_tabs_2_inara" class="tab">
+<p>Inara</p>
+</li>
+</ul>
+</div>
+<div id="_tabs_2_vanilla--panel" class="tabpanel" aria-labelledby="_tabs_2_vanilla">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:vanilla:run</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_kodein--panel" class="tabpanel" aria-labelledby="_tabs_2_kodein">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:kodein:run</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_koin--panel" class="tabpanel" aria-labelledby="_tabs_2_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:koin:run</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_metro--panel" class="tabpanel" aria-labelledby="_tabs_2_metro">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:metro:run</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_inara--panel" class="tabpanel" aria-labelledby="_tabs_2_inara">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:inara:run</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Each serves <a href="http://localhost:8001" class="bare">http://localhost:8001</a>, and keeps its database in its own directory, at <code>build/entries.db</code>.
+The config is in <code>common/src/main/resources/application.conf</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_endpoints"><a class="anchor" href="#_endpoints"></a>Endpoints</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><a href="http://localhost:8001" class="bare">http://localhost:8001</a> is an index page, with a form to try each operation, the API, and the entries stored so far.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>GET /entries</code></dt>
+<dd>
+<p>Lists every entry, one <code>name=value</code> per line.</p>
+</dd>
+<dt class="hdlist1"><code>GET /entries/{name}</code></dt>
+<dd>
+<p>Returns an entry&#8217;s value, or 404.</p>
+</dd>
+<dt class="hdlist1"><code>PUT /entries/{name}</code></dt>
+<dd>
+<p>Stores the request body as the entry&#8217;s value.</p>
+</dd>
+<dt class="hdlist1"><code>DELETE /entries/{name}</code></dt>
+<dd>
+<p>Removes an entry, or answers 404.</p>
+</dd>
+<dt class="hdlist1"><code>GET /relay/{name}</code></dt>
+<dd>
+<p>Gets an entry by calling <code>GET /entries/{name}</code> on this server through the <code>entries</code> HTTP client, configured under <code>http.client.named.entries</code>.</p>
+</dd>
+<dt class="hdlist1"><code>GET /metrics</code></dt>
+<dd>
+<p>The Prometheus scrape.</p>
+</dd>
+<dt class="hdlist1"><code>GET /health/live</code></dt>
+<dd>
+<p>Liveness: 200 until the application has stopped.</p>
+</dd>
+<dt class="hdlist1"><code>GET /health/ready</code></dt>
+<dd>
+<p>Readiness: 200 while the application is running and the database answers, 503 otherwise.</p>
+</dd>
+<dt class="hdlist1"><code>GET /health/info</code></dt>
+<dd>
+<p>The build info, from the <code>build</code> config section.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>For example, store an entry, and get it back through the HTTP client:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">curl -X PUT --data 'hello' http://localhost:8001/entries/greeting
+curl http://localhost:8001/relay/greeting</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The health endpoints answer in JSON, with the lifecycle state, and readiness with its one check, the database&#8217;s, by name:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">$ curl -s http://localhost:8001/health/live
+{"status":"UP","state":"Running"}
+$ curl -s http://localhost:8001/health/ready
+{"status":"UP","state":"Running","checks":{"jdbc":{"status":"UP"}}}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>So a script can check the database:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">curl -s http://localhost:8001/health/ready | jq -e '.checks.jdbc.status == "UP"'</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>To see readiness go down before the server stops, set a drain delay, as <code>HEALTH_READINESS_DRAINDELAY=10s</code>, stop the application with Ctrl-C, and ask for readiness during the delay.</p>
+</div>
+<div class="paragraph">
+<p>Start the application with a version, such as <code>BUILD_VERSION=1.4.2</code>, and a test can check which build answered it:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">curl -s http://localhost:8001/health/info | jq -e '.version == "1.4.2"'</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_metrics_and_traces"><a class="anchor" href="#_metrics_and_traces"></a>Metrics and traces</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>As configured, the example has no OTLP endpoint, so it pushes nothing: its metrics are only pulled, from its Prometheus scrape, which needs nothing else running.
+After a few requests, the scrape has the server&#8217;s request metrics, the pool&#8217;s, the JVM&#8217;s, and the example&#8217;s own counter, <code>entries_stored_total</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">curl -s http://localhost:8001/metrics | grep -E 'entries_stored|http_server_request_duration_seconds_count|db_client_connections_usage'</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Traces are only pushed, so they need a collector, and an OTLP endpoint to reach it.
+With one set, the example pushes its metrics there too, every <code>metrics.interval</code>, and still serves the scrape.
+Grafana&#8217;s <code>otel-lgtm</code> image runs a collector, with Tempo, Prometheus, Loki, and Grafana, in a single container:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">podman run --rm -p 3000:3000 -p 4318:4318 docker.io/grafana/otel-lgtm
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 TELEMETRY_SDK_METRICS_INTERVAL=5s ./gradlew :examples:server-ktor-db:vanilla:run</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In Grafana, at <a href="http://localhost:3000" class="bare">http://localhost:3000</a>, search Tempo for the service <code>entries</code>.
+Each request is a trace, with a span for the database operation, such as <code>entries.put</code>, and a span for each of its queries within that.
+<code>GET /relay/{name}</code> has a client span, with the server&#8217;s own <code>GET /entries/{name}</code> within it, since the client carries the trace in a <code>traceparent</code> header.
+The application&#8217;s start is a trace too, <code>start application</code>, with a span for each service&#8217;s start.</p>
+</div>
+<div class="paragraph">
+<p>Jaeger takes OTLP as well: run <code>docker.io/jaegertracing/jaeger:latest</code> with ports 16686 and 4318, and open <a href="http://localhost:16686" class="bare">http://localhost:16686</a>.</p>
+</div>
+<div class="paragraph">
+<p>Log lines written within a request carry its <code>trace_id</code> and <code>span_id</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_start_faster_with_an_aot_cache"><a class="anchor" href="#_start_faster_with_an_aot_cache"></a>Start faster, with an AOT cache</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <code>vanilla</code> application has an <code>aotCache</code> task, which runs the installed application once, serving a few requests, to write its JVM AOT cache; run the application with it:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:vanilla:aotCache
+cd examples/server-ktor-db/vanilla
+JAVA_OPTS=-XX:AOTCache=build/aot/vanilla.aot build/install/vanilla/bin/vanilla</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>jib</code> project builds the vanilla application into a container image, <code>bootable-examples/server-ktor-db-jib</code>, with the cache in it.
+The JVM only uses a cache with the same JDK build and the same jars as the run that trained it, so the training runs in a container of the image itself, and the final image adds the cache as one more layer:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:jib:jibDockerBuild -PcontainerCli=podman
+podman run --rm -p 8001:8001 bootable-examples/server-ktor-db-jib</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Leave out <code>-PcontainerCli=podman</code> to use Docker.
+The repository&#8217;s <code>server-ktor-db</code> <a href="https://dagger.io">Dagger</a> module builds the same image as a CI pipeline.
+<code>mise run demo</code> uses it to run the image with the <code>otel-lgtm</code> stack, in containers, with the OTLP endpoint set, so its traces and metrics are pushed to Grafana at <a href="http://localhost:3000" class="bare">http://localhost:3000</a>.</p>
+</div>
+<div class="paragraph">
+<p>See <a href="../aot-cache.html" class="xref page">Faster start: the JVM AOT cache</a> for how the cache is trained, and what it gains.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_tests"><a class="anchor" href="#_tests"></a>Tests</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-shell hljs" data-lang="shell">./gradlew :examples:server-ktor-db:common:test :examples:server-ktor-db:vanilla:test :examples:server-ktor-db:kodein:test :examples:server-ktor-db:koin:test :examples:server-ktor-db:metro:test</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>common</code> tests the routes against a real SQLite database, and each application tests its own wiring.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_source"><a class="anchor" href="#_source"></a>Source</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><a href="https://github.com/rocketraman/bootable/tree/master/examples/server-ktor-db"><code>examples/server-ktor-db</code></a></p>
+</div>
+</div>
+</div>
+</article>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <p>Bootable is licensed under the Apache License 2.0. <a href="https://github.com/rocketraman/bootable">Source on GitHub</a>.</p>
+</footer>
+<script id="site-script" src="../../../_/js/site.js" data-ui-root-path="../../../_"></script>
+<script async src="../../../_/js/vendor/highlight.js"></script>
+<script src="../../../_/js/vendor/lunr.js"></script>
+<script src="../../../_/js/search-ui.js" id="search-ui-script" data-site-root-path="../../.." data-snippet-length="100" data-stylesheet="../../../_/css/search.css"></script>
+<script async src="../../../search-index.js"></script>
+  </body>
+</html>
