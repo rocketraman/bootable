@@ -24,6 +24,7 @@ Each install snippet lists the dependencies for each wiring style, and, where a 
 
 - [Configuration](https://rocketraman.github.io/bootable/bootable/next/configuration/index.html.md): Typed config classes, bound from HOCON and the environment by Hoplite, with secrets masked.
 - [Environment](https://rocketraman.github.io/bootable/bootable/next/environment/index.html.md): The deployment environment, such as dev, test, or prod, from config, in a global variable.
+- [Clock](https://rocketraman.github.io/bootable/bootable/next/clock/index.html.md): boot-clock: the application's clock, bound once, as a kotlin.time.Clock and a java.time.Clock, for a test to replace with its own.
 - [Logging (Log4j2)](https://rocketraman.github.io/bootable/bootable/next/logging/index.html.md): Log4j2 to the console, as plain or coloured text, Elastic Common Schema JSON, or Google Cloud's JSON, with structured fields, set up before anything else runs.
 - [Database](https://rocketraman.github.io/bootable/bootable/next/database/index.html.md): A connection pool tied to the application's lifecycle, with migrations and an ORM on top.
 - [Database: Drivers](https://rocketraman.github.io/bootable/bootable/next/database/drivers.html.md): SQLite, PostgreSQL, MySQL, or any database by JDBC URL.

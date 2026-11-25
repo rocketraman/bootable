@@ -11,6 +11,8 @@ module:boot-client-http-ktor-java
 com.github.rocketraman.bootable.client.http.ktor
 module:boot-client-http-ktor-otel
 com.github.rocketraman.bootable.client.http.ktor
+module:boot-clock
+com.github.rocketraman.bootable.clock
 module:boot-common
 com.github.rocketraman.bootable.common
 module:boot-config-common

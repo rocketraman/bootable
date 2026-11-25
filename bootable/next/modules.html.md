@@ -30,6 +30,14 @@ See [Environment](https://rocketraman.github.io/bootable/bootable/next/environme
 | --- | --- |
 | [`boot-env`](https://rocketraman.github.io/bootable/bootable/next/environment/index.html.md) | `environment`: the deployment environment, such as dev or prod, from config |
 
+## Clock
+
+See [Clock](https://rocketraman.github.io/bootable/bootable/next/clock/index.html.md).
+
+| Module | What it provides |
+| --- | --- |
+| [`boot-clock`](https://rocketraman.github.io/bootable/bootable/next/clock/index.html.md) | The application’s clock, as a `kotlin.time.Clock` and a `java.time.Clock`, bound once, for a test to replace |
+
 ## Logging
 
 See [Logging (Log4j2)](https://rocketraman.github.io/bootable/bootable/next/logging/index.html.md).

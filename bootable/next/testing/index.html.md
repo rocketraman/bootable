@@ -147,7 +147,7 @@ fun sessionsExpire() {
 }
 ```
 
-Pass it to whatever takes a `Clock`, such as `OpenTelemetryService`, `ServiceStartTracing`, or `PeriodicAppService`, or, with Kodein, Koin, or Metro, bind it as the `Clock`, which they then take their time from; with Inara, which has no optional bindings, pass it to each module’s builder, such as `openTelemetryModule(clock)`. For a monotonic `TimeSource`, use the standard library’s `kotlin.time.TestTimeSource`.
+Pass it to whatever takes a `Clock`, such as `OpenTelemetryService`, `ServiceStartTracing`, or `PeriodicAppService`, or, with Kodein, Koin, or Metro, bind it as the `Clock`, which they then take their time from; with Inara, which has no optional bindings, pass it to each module’s builder, such as `openTelemetryModule(clock)`. With [`boot-clock`](https://rocketraman.github.io/bootable/bootable/next/clock/index.html.md), give it to the application in place of the bound clock, which makes it the application’s `java.time.Clock` too; `asJavaClock()` is it as a `java.time.Clock`, for a class that takes one. For a monotonic `TimeSource`, use the standard library’s `kotlin.time.TestTimeSource`.
 
 ### Logs
 
