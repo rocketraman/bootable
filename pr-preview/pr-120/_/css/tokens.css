@@ -1,0 +1,179 @@
+/*
+ * Bootable docs tokens: the fonts, colours and sizes the docs pages and the API reference share.
+ */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url(../font/inter-latin-wght-normal.woff2) format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url(../font/jetbrains-mono-latin-wght-normal.woff2) format("woff2");
+}
+
+/* ---------------------------------------------------------------------------------------------------------------
+ * Tokens
+ * ------------------------------------------------------------------------------------------------------------- */
+
+:root {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --bg: #ffffff;
+  --bg-subtle: #fafafa;
+  --bg-muted: #f4f4f5;
+  --bg-hover: #f4f4f5;
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+
+  --text: #18181b;
+  --text-body: #3f3f46;
+  --text-muted: #71717a;
+  --text-faint: #a1a1aa;
+
+  --accent: #4f46e5;
+  --accent-strong: #3730a3;
+  --accent-subtle: #eef2ff;
+  --accent-border: #c7d2fe;
+
+  --code-bg: #fafafa;
+  --code-text: #383a42;
+  --code-header-bg: #f4f4f5;
+  --inline-code-bg: #eef2ff;
+  --inline-code-text: #3730a3;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.06);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 12px rgb(0 0 0 / 0.04);
+
+  --note: #2563eb;
+  --note-bg: #eff6ff;
+  --tip: #059669;
+  --tip-bg: #ecfdf5;
+  --warning: #d97706;
+  --warning-bg: #fffbeb;
+  --caution: #dc2626;
+  --caution-bg: #fef2f2;
+
+  /* syntax: a light theme after Atom One Light */
+  --hl-keyword: #a626a4;
+  --hl-string: #50a14f;
+  --hl-number: #986801;
+  --hl-comment: #a0a1a7;
+  --hl-title: #4078f2;
+  --hl-type: #c18401;
+  --hl-meta: #4078f2;
+  --hl-attr: #986801;
+  --hl-variable: #e45649;
+
+  --header-height: 60px;
+  /* the widest the header's and the page's contents get; wider, they're centered */
+  --page-width: 1440px;
+  --nav-width: 272px;
+  --toc-width: 220px;
+  --content-width: 780px;
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0c0c0f;
+  --bg-subtle: #111115;
+  --bg-muted: #18181c;
+  --bg-hover: #1c1c21;
+  --border: #26262c;
+  --border-strong: #34343c;
+
+  --text: #fafafa;
+  --text-body: #d4d4d8;
+  --text-muted: #a1a1aa;
+  --text-faint: #71717a;
+
+  --accent: #818cf8;
+  --accent-strong: #c7d2fe;
+  --accent-subtle: rgb(129 140 248 / 0.12);
+  --accent-border: rgb(129 140 248 / 0.35);
+
+  --code-bg: #111115;
+  --code-text: #d4d4d8;
+  --code-header-bg: #16161b;
+  --inline-code-bg: rgb(129 140 248 / 0.14);
+  --inline-code-text: #c7d2fe;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+
+  --note: #60a5fa;
+  --note-bg: rgb(96 165 250 / 0.08);
+  --tip: #34d399;
+  --tip-bg: rgb(52 211 153 / 0.08);
+  --warning: #fbbf24;
+  --warning-bg: rgb(251 191 36 / 0.08);
+  --caution: #f87171;
+  --caution-bg: rgb(248 113 113 / 0.08);
+
+  /* syntax: a dark theme after Atom One Dark */
+  --hl-keyword: #c678dd;
+  --hl-string: #98c379;
+  --hl-number: #d19a66;
+  --hl-comment: #6b7280;
+  --hl-title: #61afef;
+  --hl-type: #e5c07b;
+  --hl-meta: #61afef;
+  --hl-attr: #d19a66;
+  --hl-variable: #e06c75;
+
+  color-scheme: dark;
+}
+
+/* the system's dark mode, unless the reader chose light */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c0c0f;
+    --bg-subtle: #111115;
+    --bg-muted: #18181c;
+    --bg-hover: #1c1c21;
+    --border: #26262c;
+    --border-strong: #34343c;
+    --text: #fafafa;
+    --text-body: #d4d4d8;
+    --text-muted: #a1a1aa;
+    --text-faint: #71717a;
+    --accent: #818cf8;
+    --accent-strong: #c7d2fe;
+    --accent-subtle: rgb(129 140 248 / 0.12);
+    --accent-border: rgb(129 140 248 / 0.35);
+    --code-bg: #111115;
+    --code-text: #d4d4d8;
+    --code-header-bg: #16161b;
+    --inline-code-bg: rgb(129 140 248 / 0.14);
+    --inline-code-text: #c7d2fe;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+    --note: #60a5fa;
+    --note-bg: rgb(96 165 250 / 0.08);
+    --tip: #34d399;
+    --tip-bg: rgb(52 211 153 / 0.08);
+    --warning: #fbbf24;
+    --warning-bg: rgb(251 191 36 / 0.08);
+    --caution: #f87171;
+    --caution-bg: rgb(248 113 113 / 0.08);
+    --hl-keyword: #c678dd;
+    --hl-string: #98c379;
+    --hl-number: #d19a66;
+    --hl-comment: #6b7280;
+    --hl-title: #61afef;
+    --hl-type: #e5c07b;
+    --hl-meta: #61afef;
+    --hl-attr: #d19a66;
+    --hl-variable: #e06c75;
+    color-scheme: dark;
+  }
+}
+
