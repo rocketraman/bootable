@@ -468,7 +468,7 @@ Kodein is deprecated, as its authors are sunsetting it: for a new application, c
   val di = DI {
     import(bootableModule)
     import(hopliteConfigModule)
-    bindSingleton { instance&lt;ConfigBinder&gt;().config&lt;GreetingConfig&gt;("greeting") }
+    bindConfig&lt;GreetingConfig&gt;("greeting")
     bindAppService { singleton { GreetingService(instance()) } }
   }
   di.direct.instance&lt;Bootable&gt;()
@@ -488,7 +488,7 @@ Kodein is deprecated, as its authors are sunsetting it: for a new application, c
       bootableModule(),
       hopliteConfigModule(),
       module {
-        single { get&lt;ConfigBinder&gt;().config&lt;GreetingConfig&gt;("greeting") }
+        config&lt;GreetingConfig&gt;("greeting")
         single&lt;AppService&gt;(named("greeting")) { GreetingService(get()) }
       },
     )

@@ -121,7 +121,7 @@ Import `prometheusTelemetryModule` and `ktorTelemetryModule` after `openTelemetr
   import(prometheusTelemetryModule)  // registers its reader, and provides the scrape
   import(ktorTelemetryModule)        // KtorTelemetry, which serves it; no traces of the scrapes
 
-  bindSingleton { instance<ConfigBinder>().config<StatusServerConfig>("server") }
+  bindConfig<StatusServerConfig>("server")
   bindAppService { singleton { new(::StatusServer) } }                   // serves the scrape at /metrics
   import(ktorServerCioEngineModule)  // or on a port of its own, telemetry.ktor.hostPort, on this engine
 ```
@@ -135,7 +135,7 @@ openTelemetryModule(),
 prometheusTelemetryModule(),  // registers its reader, and provides the scrape
 ktorTelemetryModule(),        // KtorTelemetry, which serves it; no traces of the scrapes
 module {
-  single { get<ConfigBinder>().config<StatusServerConfig>("server") }
+  config<StatusServerConfig>("server")
   single<AppService>(named<StatusServer>()) { StatusServer(get(), get()) }  // serves the scrape at /metrics
 },
 ktorServerCioEngineModule(),  // or on a port of its own, telemetry.ktor.hostPort, on this engine

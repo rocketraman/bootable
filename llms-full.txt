@@ -1156,13 +1156,13 @@ fun main() = boot {
 
 **Kodein:**
 
-Import `hopliteConfigModule`, which binds the `ConfigBinder`, and bind each section from it:
+Import `hopliteConfigModule`, which binds the `ConfigBinder`, and bind each section with `bindConfig<T>(path)`, which decodes it once:
 
 ```kotlin
 fun appDI() = DI {
   import(bootableModule)
   import(hopliteConfigModule)  // binds the ConfigBinder
-  bindSingleton { instance<ConfigBinder>().config<GreetingConfig>("greeting") }
+  bindConfig<GreetingConfig>("greeting")
   bindAppService { singleton { new(::GreetingService) } }
 }
 
@@ -1173,7 +1173,7 @@ fun main() = boot {
 
 **Koin:**
 
-Include `hopliteConfigModule()`, which defines the `ConfigBinder`, and define each section from it:
+Include `hopliteConfigModule()`, which defines the `ConfigBinder`, and define each section with `config<T>(path)`, a `single` that decodes it once:
 
 ```kotlin
 fun appKoin() = koinApplication {
@@ -1181,7 +1181,7 @@ fun appKoin() = koinApplication {
     bootableModule(),
     hopliteConfigModule(),  // defines the ConfigBinder
     module {
-      single { get<ConfigBinder>().config<GreetingConfig>("greeting") }
+      config<GreetingConfig>("greeting")
       single<AppService>(named<GreetingService>()) { GreetingService(get()) }
     },
   )
@@ -1353,6 +1353,8 @@ It logs `greeting: hello from Bootable`; try it with `GREETING_MESSAGE=hi` set.
 
 - [`ConfigBinder`](https://rocketraman.github.io/bootable/bootable/next/api/boot-config-common/com.github.rocketraman.bootable.config/-config-binder/index.html): binds a config section to a type
 - [`config`](https://rocketraman.github.io/bootable/bootable/next/api/boot-config-common/com.github.rocketraman.bootable.config/config.html): `config<T>(path)`
+- `bindConfig<T>(path)`, in `boot-config-common-kodein`: binds a section in a Kodein module; `bindConfigAs<T, C>(path)` binds a section decoded as a `C` as its supertype `T`
+- `config<T>(path)`, in `boot-config-common-koin`'s `com.github.rocketraman.bootable.config.koin` package: defines a section in a Koin module; `configAs<T, C>(path)` defines a section decoded as a `C` as its supertype `T`
 - [`Masked`](https://rocketraman.github.io/bootable/bootable/next/api/boot-config-common/com.github.rocketraman.bootable.config/-masked/index.html): a secret in Bootable’s own config classes
 - [`HostPort`](https://rocketraman.github.io/bootable/bootable/next/api/boot-config-common/com.github.rocketraman.bootable.config.common/-host-port/index.html): a host and port
 - [`hopliteConfigBinder`](https://rocketraman.github.io/bootable/bootable/next/api/boot-config-hoplite/com.github.rocketraman.bootable.config/hoplite-config-binder.html): the Hoplite binder, and its parameters
@@ -2969,7 +2971,7 @@ Import `ktorHealthModule`, and `ktorServerCioEngineModule` for the engine, bind 
 ```kotlin
 val serverModule by DI.Module {
   import(ktorHealthModule)  // KtorHealth, over bootableModule's HealthLifecycleController, from health.ktor
-  bindSingleton { instance<ConfigBinder>().config<ServerConfig>("server") }
+  bindConfig<ServerConfig>("server")
   bindAppService { singleton { new(::GreetingServer) } }
   // the engine of the probes' own listener, which ktorHealthModule adds, if health.ktor.hostPort is set
   import(ktorServerCioEngineModule)
@@ -2993,7 +2995,7 @@ Include `ktorHealthModule()`, and `ktorServerCioEngineModule()` for the engine, 
 ```kotlin
 val serverModule = module {
   includes(ktorHealthModule())  // KtorHealth, over bootableModule()'s HealthLifecycleController, from health.ktor
-  single { get<ConfigBinder>().config<ServerConfig>("server") }
+  config<ServerConfig>("server")
   single<AppService>(named<GreetingServer>()) { GreetingServer(get(), get()) }
   // the engine of the probes' own listener, which ktorHealthModule() adds, if health.ktor.hostPort is set
   includes(ktorServerCioEngineModule())
@@ -3231,7 +3233,7 @@ import(openTelemetryModule)        // the application's OpenTelemetry, from boot
 import(prometheusTelemetryModule)  // a pulled backend, to scrape
 import(ktorTelemetryModule)        // KtorTelemetry, from telemetry.ktor, after openTelemetryModule
 import(ktorHealthModule)
-bindSingleton { instance<ConfigBinder>().config<ServerConfig>("server") }
+bindConfig<ServerConfig>("server")
 bindAppService { singleton { new(::TracedGreetingServer) } }
 // the engine of the scrape's and the probes' own listeners, if their hostPort is set
 import(ktorServerCioEngineModule)
@@ -3247,7 +3249,7 @@ prometheusTelemetryModule(),  // a pulled backend, to scrape
 ktorTelemetryModule(),        // KtorTelemetry, from telemetry.ktor, over openTelemetryModule()
 ktorHealthModule(),
 module {
-  single { get<ConfigBinder>().config<ServerConfig>("server") }
+  config<ServerConfig>("server")
   single<AppService>(named<TracedGreetingServer>()) { TracedGreetingServer(get(), get(), get()) }
 },
 // the engine of the scrape's and the probes' own listeners, if their hostPort is set
@@ -4802,9 +4804,11 @@ fun periodicDI() = DI {
   import(periodicModule)  // PeriodicServices, gated on the LeaderElection binding, if there is one
 
   bindSingleton { new(::Notifications) }
+  // each loop has a PeriodicConfig of its own, so tag it
+  bindConfig<PeriodicConfig>("notifications.loop", tag = "notifications")
   bindAppService {
     singleton {
-      instance<PeriodicServices>().create("notifications", instance<ConfigBinder>().config("notifications.loop")) {
+      instance<PeriodicServices>().create("notifications", instance("notifications")) {
         instance<Notifications>().sendPending()
       }
     }
@@ -4826,9 +4830,11 @@ fun periodicKoin() = koinApplication {
     periodicModule(),  // PeriodicServices, gated on the LeaderElection definition, if there is one
     module {
       single { Notifications() }
+      // each loop has a PeriodicConfig of its own, so qualify it
+      config<PeriodicConfig>("notifications.loop", named("notifications"))
       single<AppService>(named("notifications")) {
         val notifications = get<Notifications>()
-        get<PeriodicServices>().create("notifications", get<ConfigBinder>().config("notifications.loop")) {
+        get<PeriodicServices>().create("notifications", get(named("notifications"))) {
           notifications.sendPending()
         }
       }
@@ -6223,7 +6229,7 @@ Import `prometheusTelemetryModule` and `ktorTelemetryModule` after `openTelemetr
   import(prometheusTelemetryModule)  // registers its reader, and provides the scrape
   import(ktorTelemetryModule)        // KtorTelemetry, which serves it; no traces of the scrapes
 
-  bindSingleton { instance<ConfigBinder>().config<StatusServerConfig>("server") }
+  bindConfig<StatusServerConfig>("server")
   bindAppService { singleton { new(::StatusServer) } }                   // serves the scrape at /metrics
   import(ktorServerCioEngineModule)  // or on a port of its own, telemetry.ktor.hostPort, on this engine
 ```
@@ -6237,7 +6243,7 @@ openTelemetryModule(),
 prometheusTelemetryModule(),  // registers its reader, and provides the scrape
 ktorTelemetryModule(),        // KtorTelemetry, which serves it; no traces of the scrapes
 module {
-  single { get<ConfigBinder>().config<StatusServerConfig>("server") }
+  config<StatusServerConfig>("server")
   single<AppService>(named<StatusServer>()) { StatusServer(get(), get()) }  // serves the scrape at /metrics
 },
 ktorServerCioEngineModule(),  // or on a port of its own, telemetry.ktor.hostPort, on this engine
@@ -7347,7 +7353,7 @@ fun main() = boot {
   val di = DI {
     import(bootableModule)
     import(hopliteConfigModule)
-    bindSingleton { instance<ConfigBinder>().config<GreetingConfig>("greeting") }
+    bindConfig<GreetingConfig>("greeting")
     bindAppService { singleton { GreetingService(instance()) } }
   }
   di.direct.instance<Bootable>()
@@ -7365,7 +7371,7 @@ fun main() = boot {
       bootableModule(),
       hopliteConfigModule(),
       module {
-        single { get<ConfigBinder>().config<GreetingConfig>("greeting") }
+        config<GreetingConfig>("greeting")
         single<AppService>(named("greeting")) { GreetingService(get()) }
       },
     )

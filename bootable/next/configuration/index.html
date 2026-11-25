@@ -747,14 +747,14 @@ With a DI, a module&#8217;s bindings bind its config from the graph&#8217;s <cod
 </div>
 <div id="_tabs_2_kodein--panel" class="tabpanel" aria-labelledby="_tabs_2_kodein">
 <div class="paragraph">
-<p>Import <code>hopliteConfigModule</code>, which binds the <code>ConfigBinder</code>, and bind each section from it:</p>
+<p>Import <code>hopliteConfigModule</code>, which binds the <code>ConfigBinder</code>, and bind each section with <code>bindConfig&lt;T&gt;(path)</code>, which decodes it once:</p>
 </div>
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">fun appDI() = DI {
   import(bootableModule)
   import(hopliteConfigModule)  // binds the ConfigBinder
-  bindSingleton { instance&lt;ConfigBinder&gt;().config&lt;GreetingConfig&gt;("greeting") }
+  bindConfig&lt;GreetingConfig&gt;("greeting")
   bindAppService { singleton { new(::GreetingService) } }
 }
 
@@ -766,7 +766,7 @@ fun main() = boot {
 </div>
 <div id="_tabs_2_koin--panel" class="tabpanel" aria-labelledby="_tabs_2_koin">
 <div class="paragraph">
-<p>Include <code>hopliteConfigModule()</code>, which defines the <code>ConfigBinder</code>, and define each section from it:</p>
+<p>Include <code>hopliteConfigModule()</code>, which defines the <code>ConfigBinder</code>, and define each section with <code>config&lt;T&gt;(path)</code>, a <code>single</code> that decodes it once:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -775,7 +775,7 @@ fun main() = boot {
     bootableModule(),
     hopliteConfigModule(),  // defines the ConfigBinder
     module {
-      single { get&lt;ConfigBinder&gt;().config&lt;GreetingConfig&gt;("greeting") }
+      config&lt;GreetingConfig&gt;("greeting")
       single&lt;AppService&gt;(named&lt;GreetingService&gt;()) { GreetingService(get()) }
     },
   )
@@ -1054,6 +1054,12 @@ From the repository root, run yours:</p>
 </li>
 <li>
 <p><a href="../api/boot-config-common/com.github.rocketraman.bootable.config/config.html" class="kdoc"><code>config</code></a>: <code>config&lt;T&gt;(path)</code></p>
+</li>
+<li>
+<p><code>bindConfig&lt;T&gt;(path)</code>, in <code>boot-config-common-kodein</code>: binds a section in a Kodein module; <code>bindConfigAs&lt;T, C&gt;(path)</code> binds a section decoded as a <code>C</code> as its supertype <code>T</code></p>
+</li>
+<li>
+<p><code>config&lt;T&gt;(path)</code>, in <code>boot-config-common-koin</code>'s <code>com.github.rocketraman.bootable.config.koin</code> package: defines a section in a Koin module; <code>configAs&lt;T, C&gt;(path)</code> defines a section decoded as a <code>C</code> as its supertype <code>T</code></p>
 </li>
 <li>
 <p><a href="../api/boot-config-common/com.github.rocketraman.bootable.config/-masked/index.html" class="kdoc"><code>Masked</code></a>: a secret in Bootable&#8217;s own config classes</p>
