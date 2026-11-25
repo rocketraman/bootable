@@ -17,7 +17,7 @@ inara = "0.4.0"
 # protoc plugin: Kotlin coroutine stubs and server bases, for grpc-kotlin's runtime, without grpc-java's own plugin
 kotpb = "0.2.3"
 # 4.0.0 is out, but npm tags it next rather than latest, and Ktor's HTMX attributes follow htmx 2
-htmx = "2.0.11"
+htmx = "4.0.2"
 jib = "3.5.4"
 koin = "4.2.2"
 kilua = "0.0.36"
