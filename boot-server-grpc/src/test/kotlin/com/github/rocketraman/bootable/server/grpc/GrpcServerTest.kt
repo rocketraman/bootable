@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.apache.logging.log4j.Level
@@ -66,7 +67,9 @@ private suspend fun withApp(
   } finally {
     bootable.stop()
     run.await()
-    app.channel.shutdownNow()
+    // gracefully, so a call the server completed as it stopped still gets its reply to the test
+    app.channel.shutdown()
+    if (!runInterruptible(Dispatchers.IO) { app.channel.awaitTermination(5, TimeUnit.SECONDS) }) app.channel.shutdownNow()
   }
 }
 
