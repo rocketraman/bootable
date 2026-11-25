@@ -1,10 +1,7 @@
 package com.github.rocketraman.bootable.db.jdbc
 
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.bindConfigAs
 import org.kodein.di.DI
-import org.kodein.di.bindSingleton
-import org.kodein.di.instance
 
 /**
  * A Kodein module that decodes a [MysqlConfig] from the `db.jdbc` config section as the [JdbcConfig].
@@ -13,5 +10,5 @@ import org.kodein.di.instance
  */
 @Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val mysqlConfigModule by DI.Module {
-  bindSingleton<JdbcConfig> { instance<ConfigBinder>().config<MysqlConfig>("db.jdbc") }
+  bindConfigAs<JdbcConfig, MysqlConfig>("db.jdbc")
 }

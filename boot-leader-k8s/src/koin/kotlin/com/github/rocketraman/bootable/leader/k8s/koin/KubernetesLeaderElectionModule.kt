@@ -3,8 +3,7 @@ package com.github.rocketraman.bootable.leader.k8s.koin
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientDefaults
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientService
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.config
 import com.github.rocketraman.bootable.leader.LeaderElection
 import com.github.rocketraman.bootable.leader.k8s.KubernetesLeaderElection
 import com.github.rocketraman.bootable.leader.k8s.KubernetesLeaderElectionConfig
@@ -29,7 +28,7 @@ import kotlin.time.Clock
  * `periodicModule()` (from boot-periodic-koin) gates the application's periodic services on it.
  */
 fun kubernetesLeaderElectionModule(): Module = module {
-  single<KubernetesLeaderElectionConfig> { get<ConfigBinder>().config("leader.kubernetes") }
+  config<KubernetesLeaderElectionConfig>("leader.kubernetes")
   single {
     val config = get<KubernetesLeaderElectionConfig>()
     val client = get<KtorClientService>().getOrDefault(config.httpClient)

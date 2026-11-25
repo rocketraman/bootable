@@ -1,8 +1,7 @@
 package com.github.rocketraman.bootable.db.exposed
 
 import com.github.rocketraman.bootable.boot.AppService
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.bindConfig
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.kodein.di.DI
@@ -31,7 +30,7 @@ import org.kodein.di.singleton
 val exposedDatabaseModule by DI.Module {
   bindSet<Table>()
   bindSet<ExposedConfigCustomizer>()
-  bindSingleton<ExposedConfig> { instance<ConfigBinder>().config("db.exposed") }
+  bindConfig<ExposedConfig>("db.exposed")
   bindSingleton {
     val customizers = instance<Set<ExposedConfigCustomizer>>()
     ExposedDatabaseService(instance(), instance()) { builder -> customizers.forEach { it.customize(builder) } }

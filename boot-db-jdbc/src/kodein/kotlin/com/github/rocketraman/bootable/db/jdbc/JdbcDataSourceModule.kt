@@ -2,8 +2,7 @@ package com.github.rocketraman.bootable.db.jdbc
 
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.HealthCheck
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.bindConfigAs
 import org.kodein.di.DI
 import org.kodein.di.bindSet
 import org.kodein.di.bindSingleton
@@ -45,7 +44,7 @@ val jdbcDataSourceModule by DI.Module {
  */
 @Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val jdbcGenericConfigModule by DI.Module {
-  bindSingleton<JdbcConfig> { instance<ConfigBinder>().config<JdbcGenericConfig>("db.jdbc") }
+  bindConfigAs<JdbcConfig, JdbcGenericConfig>("db.jdbc")
 }
 
 /**

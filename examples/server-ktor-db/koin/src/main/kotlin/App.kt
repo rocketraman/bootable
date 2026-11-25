@@ -7,8 +7,7 @@ import com.github.rocketraman.bootable.client.http.ktor.KtorClientEngine
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientService
 import com.github.rocketraman.bootable.client.http.ktor.koin.httpClientTelemetryModule
 import com.github.rocketraman.bootable.client.http.ktor.koin.ktorClientModule
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.config
 import com.github.rocketraman.bootable.config.koin.hopliteConfigModule
 import com.github.rocketraman.bootable.db.exposed.koin.exposedDatabaseModule
 import com.github.rocketraman.bootable.db.flyway.koin.flywayMigrationModule
@@ -19,6 +18,7 @@ import com.github.rocketraman.bootable.db.jdbc.koin.jdbcHealthCheckModule
 import com.github.rocketraman.bootable.db.jdbc.koin.jdbcTracingModule
 import com.github.rocketraman.bootable.db.jdbc.koin.sqliteConfigModule
 import com.github.rocketraman.bootable.leader.k8s.koin.kubernetesLeaderElectionModule
+import com.github.rocketraman.bootable.periodic.PeriodicConfig
 import com.github.rocketraman.bootable.periodic.PeriodicServices
 import com.github.rocketraman.bootable.periodic.koin.periodicModule
 import com.github.rocketraman.bootable.scheduler.db.DbSchedulerTaskProvider
@@ -41,17 +41,18 @@ import org.koin.dsl.module
  * own, and adds to the others rather than overriding them.
  */
 val entriesModule = module {
-  single { get<ConfigBinder>().config<ServerConfig>("server") }
+  config<ServerConfig>("server")
   single { EntryRepository(get()) }
   single<Table>(named<EntryTable>()) { EntryTable }
   single<AppService>(named<SeedEntriesService>()) { SeedEntriesService(get()) }
   single { EntryCountReport(get()) }
   // the entry digest, every entries.digest.interval, once across the instances
-  single { get<ConfigBinder>().config<EntryDigestConfig>("entries.digest") }
+  config<EntryDigestConfig>("entries.digest")
   single<DbSchedulerTaskProvider>(named<EntryDigest>()) { EntryDigest(get(), get()) }
   // the entry count, every entries.report.interval, on the leader only
+  config<PeriodicConfig>("entries.report", named("entry-count"))
   single<AppService>(named("entry-count")) {
-    get<PeriodicServices>().create("entry-count", get<ConfigBinder>().config("entries.report")) {
+    get<PeriodicServices>().create("entry-count", get(named("entry-count"))) {
       get<EntryCountReport>().report()
     }
   }

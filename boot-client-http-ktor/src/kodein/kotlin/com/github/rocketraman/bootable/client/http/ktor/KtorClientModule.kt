@@ -1,8 +1,7 @@
 package com.github.rocketraman.bootable.client.http.ktor
 
 import com.github.rocketraman.bootable.boot.AppService
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.bindConfig
 import io.ktor.client.*
 import org.kodein.di.DI
 import org.kodein.di.bindSet
@@ -39,7 +38,7 @@ import org.kodein.di.singleton
 val ktorClientModule by DI.Module {
   bindSet<KtorClientCustomizer>()
   bindSet<KtorClientDefaults>()
-  bindSingleton<KtorClientsConfig> { instance<ConfigBinder>().config("http.client") }
+  bindConfig<KtorClientsConfig>("http.client")
   bindSingleton {
     KtorClientService(
       instance(),

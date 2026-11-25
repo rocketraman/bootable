@@ -50,7 +50,7 @@ fun main() = boot {
   val di = DI {
     import(bootableModule)
     import(hopliteConfigModule)
-    bindSingleton { instance<ConfigBinder>().config<GreetingConfig>("greeting") }
+    bindConfig<GreetingConfig>("greeting")
     bindAppService { singleton { GreetingService(instance()) } }
   }
   di.direct.instance<Bootable>()
@@ -69,7 +69,7 @@ fun main() = boot {
       bootableModule(),
       hopliteConfigModule(),
       module {
-        single { get<ConfigBinder>().config<GreetingConfig>("greeting") }
+        config<GreetingConfig>("greeting")
         single<AppService>(named("greeting")) { GreetingService(get()) }
       },
     )

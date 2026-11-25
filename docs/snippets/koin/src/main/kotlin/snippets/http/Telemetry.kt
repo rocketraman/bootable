@@ -3,8 +3,7 @@ package snippets.http
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.koin.bootableModule
 import com.github.rocketraman.bootable.client.http.ktor.koin.httpClientTelemetryModule
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.config
 import com.github.rocketraman.bootable.config.koin.hopliteConfigModule
 import com.github.rocketraman.bootable.server.http.ktor.koin.ktorHealthModule
 import com.github.rocketraman.bootable.server.http.ktor.koin.ktorServerCioEngineModule
@@ -25,7 +24,7 @@ fun tracedServerKoin() = koinApplication {
     ktorTelemetryModule(),        // KtorTelemetry, from telemetry.ktor, over openTelemetryModule()
     ktorHealthModule(),
     module {
-      single { get<ConfigBinder>().config<ServerConfig>("server") }
+      config<ServerConfig>("server")
       single<AppService>(named<TracedGreetingServer>()) { TracedGreetingServer(get(), get(), get()) }
     },
     // the engine of the scrape's and the probes' own listeners, if their hostPort is set

@@ -226,6 +226,10 @@ Each Koin module is a function named as its Kodein counterpart is, in the module
 Koin keeps a module's single instances in the module itself, so each call returns a new module, and each Koin application gets instances of its own.
 Koin has no set multibindings, so where Kodein opens a `Set<AppService>`, `Set<HealthCheck>`, `Set<OpenTelemetryCustomizer>`, and so on, the Koin modules collect every definition of that type with `getAll`.
 Contribute one with a qualifier of its own, so it adds to the others rather than overriding them: `single<AppService>(named("greeting")) { GreetingService() }`.
+`boot-config-common-koin` adds `config<T>("prefix")`, which defines a config section as a `single` in a Koin module, such as `config<ServerConfig>("server")`.
+`boot-config-common-kodein` restores 2.x's `bindConfig<T>("prefix")`, which binds a config section as a singleton in a Kodein module, and was dropped in 3.0.
+`bindConfigAs<T, C>("prefix")` and `configAs<T, C>("prefix")` bind a section decoded as a `C` as its supertype `T`, such as `bindConfigAs<JdbcConfig, SqliteConfig>("db.jdbc")`.
+`boot-config-hoplite-koin` and `boot-config-hoplite-kodein` bring them, and Bootable's own Koin and Kodein modules bind their config with them.
 See link:docs/wiring.adoc[Wiring Bootable].
 
 The Kodein bindings are deprecated, as Kodein is: use the `-inara` bindings, Kodein's compile-time successor, or the `-koin` bindings, to keep a style like Kodein's.

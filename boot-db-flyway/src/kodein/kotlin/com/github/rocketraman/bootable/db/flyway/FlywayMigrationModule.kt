@@ -1,8 +1,7 @@
 package com.github.rocketraman.bootable.db.flyway
 
 import com.github.rocketraman.bootable.boot.AppService
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.bindConfig
 import org.kodein.di.DI
 import org.kodein.di.bindSet
 import org.kodein.di.bindSingleton
@@ -25,7 +24,7 @@ import org.kodein.di.singleton
 @Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val flywayMigrationModule by DI.Module {
   bindSet<FlywayConfigurationCustomizer>()
-  bindSingleton<FlywayConfig> { instance<ConfigBinder>().config("db.flyway") }
+  bindConfig<FlywayConfig>("db.flyway")
   bindSingleton {
     val customizers = instance<Set<FlywayConfigurationCustomizer>>()
     FlywayMigrationService(instance(), instance()) { configuration -> customizers.forEach { it.customize(configuration) } }

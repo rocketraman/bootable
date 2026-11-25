@@ -11,8 +11,7 @@ import com.github.rocketraman.bootable.client.http.ktor.KtorClientEngine
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientService
 import com.github.rocketraman.bootable.client.http.ktor.httpClientTelemetryModule
 import com.github.rocketraman.bootable.client.http.ktor.ktorClientModule
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.bindConfig
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.db.exposed.exposedDatabaseModule
 import com.github.rocketraman.bootable.db.flyway.flywayMigrationModule
@@ -23,6 +22,7 @@ import com.github.rocketraman.bootable.db.jdbc.jdbcHealthCheckModule
 import com.github.rocketraman.bootable.db.jdbc.jdbcTracingModule
 import com.github.rocketraman.bootable.db.jdbc.sqliteConfigModule
 import com.github.rocketraman.bootable.leader.k8s.kubernetesLeaderElectionModule
+import com.github.rocketraman.bootable.periodic.PeriodicConfig
 import com.github.rocketraman.bootable.periodic.PeriodicServices
 import com.github.rocketraman.bootable.periodic.periodicModule
 import com.github.rocketraman.bootable.scheduler.db.DbSchedulerTaskProvider
@@ -47,18 +47,19 @@ import org.kodein.di.singleton
  * table to the set whose schema is verified.
  */
 val entriesModule by DI.Module {
-  bindSingleton { instance<ConfigBinder>().config<ServerConfig>("server") }
+  bindConfig<ServerConfig>("server")
   bindSingleton { new(::EntryRepository) }
   inBindSet<Table> { add { singleton { EntryTable } } }
   bindAppService { singleton { new(::SeedEntriesService) } }
   bindSingleton { new(::EntryCountReport) }
   // the entry digest, every entries.digest.interval, once across the instances
-  bindSingleton { instance<ConfigBinder>().config<EntryDigestConfig>("entries.digest") }
+  bindConfig<EntryDigestConfig>("entries.digest")
   inBindSet<DbSchedulerTaskProvider> { add { singleton { new(::EntryDigest) } } }
   // the entry count, every entries.report.interval, on the leader only
+  bindConfig<PeriodicConfig>("entries.report", tag = "entry-count")
   bindAppService {
     singleton {
-      instance<PeriodicServices>().create("entry-count", instance<ConfigBinder>().config("entries.report")) {
+      instance<PeriodicServices>().create("entry-count", instance("entry-count")) {
         instance<EntryCountReport>().report()
       }
     }

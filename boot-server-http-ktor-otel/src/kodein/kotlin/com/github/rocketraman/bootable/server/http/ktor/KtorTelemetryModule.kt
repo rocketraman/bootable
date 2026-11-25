@@ -1,8 +1,7 @@
 package com.github.rocketraman.bootable.server.http.ktor
 
 import com.github.rocketraman.bootable.boot.bindAppService
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.bindConfig
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryCustomizer
 import org.kodein.di.DI
 import org.kodein.di.bindSet
@@ -32,7 +31,7 @@ import org.kodein.di.singleton
 @Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val ktorTelemetryModule by DI.Module {
   bindSet<KtorServerTelemetryCustomizer>()
-  bindSingleton<KtorTelemetryConfig> { instance<ConfigBinder>().config("telemetry.ktor") }
+  bindConfig<KtorTelemetryConfig>("telemetry.ktor")
   inBindSet<OpenTelemetryCustomizer> {
     add { singleton { instance<KtorTelemetryConfig>().excludeScrapeFromTraces() } }
     add { singleton { ktorHealthConfig(instance()).excludeHealthFromTraces() } }

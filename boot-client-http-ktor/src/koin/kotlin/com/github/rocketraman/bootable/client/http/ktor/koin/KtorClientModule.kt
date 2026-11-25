@@ -7,8 +7,7 @@ import com.github.rocketraman.bootable.client.http.ktor.KtorClientDefaults
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientEngine
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientService
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientsConfig
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.config
 import io.ktor.client.*
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
@@ -39,7 +38,7 @@ import org.koin.dsl.module
  * defining a [KtorClientDefaults], in the same way.
  */
 fun ktorClientModule(): Module = module {
-  single<KtorClientsConfig> { get<ConfigBinder>().config("http.client") }
+  config<KtorClientsConfig>("http.client")
   single {
     KtorClientService(
       get(),

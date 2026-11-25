@@ -1,8 +1,7 @@
 package com.github.rocketraman.bootable.db.flyway.koin
 
 import com.github.rocketraman.bootable.boot.AppService
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.config
 import com.github.rocketraman.bootable.db.flyway.FlywayConfig
 import com.github.rocketraman.bootable.db.flyway.FlywayConfigurationCustomizer
 import com.github.rocketraman.bootable.db.flyway.FlywayMigrationService
@@ -23,7 +22,7 @@ import org.koin.dsl.module
  * ```
  */
 fun flywayMigrationModule(): Module = module {
-  single<FlywayConfig> { get<ConfigBinder>().config("db.flyway") }
+  config<FlywayConfig>("db.flyway")
   single {
     val customizers = getAll<FlywayConfigurationCustomizer>()
     FlywayMigrationService(get(), get()) { configuration -> customizers.forEach { it.customize(configuration) } }

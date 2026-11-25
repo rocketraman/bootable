@@ -1,7 +1,6 @@
 package com.github.rocketraman.bootable.db.jdbc.koin
 
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.config
 import com.github.rocketraman.bootable.db.jdbc.ConnectionPoolFactory
 import com.github.rocketraman.bootable.db.jdbc.HikariConfigCustomizer
 import com.github.rocketraman.bootable.db.jdbc.HikariConnectionPoolFactory
@@ -21,7 +20,7 @@ import org.koin.dsl.module
  * ```
  */
 fun hikariPoolModule(): Module = module {
-  single<HikariPoolConfig> { get<ConfigBinder>().config("db.pool") }
+  config<HikariPoolConfig>("db.pool")
   single<ConnectionPoolFactory> {
     val customizers = getAll<HikariConfigCustomizer>()
     HikariConnectionPoolFactory(get()) { config -> customizers.forEach { it.customize(config) } }

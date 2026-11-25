@@ -1,8 +1,7 @@
 package com.github.rocketraman.bootable.db.exposed.koin
 
 import com.github.rocketraman.bootable.boot.AppService
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.config
 import com.github.rocketraman.bootable.db.exposed.ExposedConfig
 import com.github.rocketraman.bootable.db.exposed.ExposedConfigCustomizer
 import com.github.rocketraman.bootable.db.exposed.ExposedDatabaseService
@@ -29,7 +28,7 @@ import org.koin.dsl.module
  * To adjust Exposed beyond [ExposedConfig], define an [ExposedConfigCustomizer], in the same way.
  */
 fun exposedDatabaseModule(): Module = module {
-  single<ExposedConfig> { get<ConfigBinder>().config("db.exposed") }
+  config<ExposedConfig>("db.exposed")
   single {
     val customizers = getAll<ExposedConfigCustomizer>()
     ExposedDatabaseService(get(), get()) { builder -> customizers.forEach { it.customize(builder) } }

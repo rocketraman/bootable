@@ -2,8 +2,7 @@ package com.github.rocketraman.bootable.db.jdbc.koin
 
 import com.github.rocketraman.bootable.boot.AppService
 import com.github.rocketraman.bootable.boot.HealthCheck
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.configAs
 import com.github.rocketraman.bootable.db.jdbc.ConnectionPoolFactory
 import com.github.rocketraman.bootable.db.jdbc.DataSourceWrapper
 import com.github.rocketraman.bootable.db.jdbc.JdbcConfig
@@ -43,7 +42,7 @@ fun jdbcDataSourceModule(): Module = module {
  * Requires a `ConfigBinder` definition (e.g. from boot-config-hoplite's `hopliteConfigModule()`).
  */
 fun jdbcGenericConfigModule(): Module = module {
-  single<JdbcConfig> { get<ConfigBinder>().config<JdbcGenericConfig>("db.jdbc") }
+  configAs<JdbcConfig, JdbcGenericConfig>("db.jdbc")
 }
 
 /**

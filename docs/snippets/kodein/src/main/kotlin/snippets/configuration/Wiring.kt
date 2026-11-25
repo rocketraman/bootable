@@ -6,7 +6,7 @@ import com.github.rocketraman.bootable.boot.bindAppService
 import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.boot.bootableModule
 import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.bindConfig
 import com.github.rocketraman.bootable.config.hopliteConfigBinder
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.sksamuel.hoplite.Secret
@@ -27,7 +27,7 @@ class GreetingService(private val config: GreetingConfig) : AppService {
 fun appDI() = DI {
   import(bootableModule)
   import(hopliteConfigModule)  // binds the ConfigBinder
-  bindSingleton { instance<ConfigBinder>().config<GreetingConfig>("greeting") }
+  bindConfig<GreetingConfig>("greeting")
   bindAppService { singleton { new(::GreetingService) } }
 }
 

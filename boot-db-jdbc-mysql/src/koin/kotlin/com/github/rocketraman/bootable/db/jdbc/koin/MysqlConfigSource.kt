@@ -1,7 +1,6 @@
 package com.github.rocketraman.bootable.db.jdbc.koin
 
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.koin.configAs
 import com.github.rocketraman.bootable.db.jdbc.JdbcConfig
 import com.github.rocketraman.bootable.db.jdbc.MysqlConfig
 import org.koin.core.module.Module
@@ -13,5 +12,5 @@ import org.koin.dsl.module
  * definition (e.g. from boot-config-hoplite's `hopliteConfigModule()`).
  */
 fun mysqlConfigModule(): Module = module {
-  single<JdbcConfig> { get<ConfigBinder>().config<MysqlConfig>("db.jdbc") }
+  configAs<JdbcConfig, MysqlConfig>("db.jdbc")
 }

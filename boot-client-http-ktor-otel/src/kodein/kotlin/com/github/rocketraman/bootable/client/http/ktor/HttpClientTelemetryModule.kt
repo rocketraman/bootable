@@ -1,7 +1,6 @@
 package com.github.rocketraman.bootable.client.http.ktor
 
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.bindConfig
 import org.kodein.di.DI
 import org.kodein.di.bindSet
 import org.kodein.di.bindSingleton
@@ -22,7 +21,7 @@ import org.kodein.di.singleton
 @Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val httpClientTelemetryModule by DI.Module {
   bindSet<HttpClientTelemetryCustomizer>()
-  bindSingleton<HttpClientTelemetryConfig> { instance<ConfigBinder>().config("telemetry.httpClient") }
+  bindConfig<HttpClientTelemetryConfig>("telemetry.httpClient")
   bindSingleton {
     val customizers = instance<Set<HttpClientTelemetryCustomizer>>()
     HttpClientTelemetry(instance(), instance()) { builder -> customizers.forEach { it.customize(builder) } }

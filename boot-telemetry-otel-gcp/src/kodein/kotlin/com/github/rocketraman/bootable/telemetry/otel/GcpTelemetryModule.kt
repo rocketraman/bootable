@@ -1,7 +1,6 @@
 package com.github.rocketraman.bootable.telemetry.otel
 
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.bindConfig
 import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.kodein.di.inBindSet
@@ -16,7 +15,7 @@ import org.kodein.di.singleton
  */
 @Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val gcpTelemetryModule by DI.Module {
-  bindSingleton<GcpTelemetryConfig> { instance<ConfigBinder>().config("telemetry.gcp") }
+  bindConfig<GcpTelemetryConfig>("telemetry.gcp")
   bindSingleton { GcpTelemetry(instance()) }
   inBindSet<OpenTelemetryCustomizer> { add { singleton { instance<GcpTelemetry>() } } }
 }

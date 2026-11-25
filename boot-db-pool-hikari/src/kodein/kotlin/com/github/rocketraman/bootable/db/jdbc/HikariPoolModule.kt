@@ -1,7 +1,6 @@
 package com.github.rocketraman.bootable.db.jdbc
 
-import com.github.rocketraman.bootable.config.ConfigBinder
-import com.github.rocketraman.bootable.config.config
+import com.github.rocketraman.bootable.config.bindConfig
 import org.kodein.di.DI
 import org.kodein.di.bindSet
 import org.kodein.di.bindSingleton
@@ -21,7 +20,7 @@ import org.kodein.di.instance
 @Deprecated("Kodein is deprecated: use the -inara flavor, or the -koin flavor for a DSL like Kodein's")
 val hikariPoolModule by DI.Module {
   bindSet<HikariConfigCustomizer>()
-  bindSingleton<HikariPoolConfig> { instance<ConfigBinder>().config("db.pool") }
+  bindConfig<HikariPoolConfig>("db.pool")
   bindSingleton<ConnectionPoolFactory> {
     val customizers = instance<Set<HikariConfigCustomizer>>()
     HikariConnectionPoolFactory(instance()) { config -> customizers.forEach { it.customize(config) } }
