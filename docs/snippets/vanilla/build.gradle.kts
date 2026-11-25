@@ -7,6 +7,7 @@ plugins {
 // The snippets, wired by hand: the plain coordinate of each module.
 dependencies {
   implementation(project(":docs:snippets:common"))
+  implementation(project(":boot-clock"))
   implementation(project(":boot-config-hoplite"))
   implementation(project(":boot-env"))
   implementation(project(":boot-db-jdbc-sqlite"))

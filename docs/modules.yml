@@ -63,6 +63,15 @@ functions:
       provides: '`environment`: the deployment environment, such as dev or prod, from config'
       page: environment:index.adoc
 
+- id: clock
+  title: Clock
+  page: clock:index.adoc
+  groups:
+  - modules:
+    - name: boot-clock
+      provides: 'The application''s clock, as a `kotlin.time.Clock` and a `java.time.Clock`, bound once, for a test to replace'
+      page: clock:index.adoc
+
 - id: logging
   title: Logging
   page: logging:index.adoc

@@ -1,6 +1,7 @@
 .Functions
 * xref:configuration:index.adoc[Configuration]
 * xref:environment:index.adoc[Environment]
+* xref:clock:index.adoc[Clock]
 * xref:logging:index.adoc[Logging (Log4j2)]
 * xref:database:index.adoc[Database]
 ** xref:database:drivers.adoc[Drivers]

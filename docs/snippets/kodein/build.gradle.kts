@@ -7,6 +7,7 @@ plugins {
 dependencies {
   implementation(project(":docs:snippets:common"))
   implementation(project(path = ":boot", configuration = "kodeinElements"))
+  implementation(project(path = ":boot-clock", configuration = "kodeinElements"))
   implementation(project(path = ":boot-config-hoplite", configuration = "kodeinElements"))
   implementation(project(path = ":boot-env", configuration = "kodeinElements"))
   implementation(project(path = ":boot-db-jdbc-sqlite", configuration = "kodeinElements"))

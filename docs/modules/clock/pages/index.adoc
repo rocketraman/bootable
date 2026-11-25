@@ -1,0 +1,141 @@
+= Clock
+:description: boot-clock: the application's clock, bound once, as a kotlin.time.Clock and a java.time.Clock, for a test to replace with its own.
+
+Code that reads the time takes a clock, rather than reading the system's, so that a test can set the time.
+`boot-clock` binds the application's clock once, for the application's code and Bootable's modules to share, so an application doesn't bind its own, and a test replaces it in one place.
+
+It binds the clock as a `kotlin.time.Clock`, which Bootable's modules take, and as a `java.time.Clock`, which many Java libraries take.
+The `java.time.Clock` wraps the `kotlin.time.Clock`, in UTC, so a test that replaces the `kotlin.time.Clock` replaces both.
+
+== Modules
+
+modules::clock[]
+
+== Install
+
+install::[boot-clock]
+
+== The clocks
+
+The clock is `Clock.System`, unless the application or a test gives another, such as boot-test's xref:testing:index.adoc#clock[`TestClock`].
+
+Its `java.time.Clock` is `asJavaClock()` of the `kotlin.time.Clock`, in UTC unless given another zone.
+It wraps the `kotlin.time.Clock` rather than copying its time, so it always tells the time the `kotlin.time.Clock` does, such as a `TestClock` a test has moved.
+`Clock.System` is `java.time.Clock.systemUTC()`.
+`asKotlinClock()` wraps a `java.time.Clock` the same way, such as a `java.time.Clock.fixed(...)` a test already has.
+
+The examples on this page wire two classes, one that takes each clock:
+
+[source,kotlin]
+----
+include::ROOT:example$common/clock/Invoices.kt[]
+----
+
+== Wire
+
+The Bootable modules that take a `kotlin.time.Clock`, such as xref:background:periodic.adoc[`boot-periodic`], xref:background:leader.adoc[`boot-leader-k8s`], xref:background:scheduler.adoc[`boot-scheduler-db`], and xref:telemetry:index.adoc[`boot-telemetry-otel`], take the bound clock, if there is one, with Kodein, Koin, and Metro; with Inara, pass it to their builders.
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+Pass the clock to each class that takes one, and `asJavaClock()` of it to each that takes a `java.time.Clock`:
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/clock/Clock.kt[tag=wire]
+----
+
+Kodein::
++
+Import `clockModule(clock)`, which binds both clocks, `Clock.System` by default:
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/clock/Clock.kt[tag=wire]
+----
++
+The `java.time.Clock` binding wraps the `kotlin.time.Clock` binding, so a binding of a `kotlin.time.Clock` of your own, with `overrides = true`, replaces both.
+
+Koin::
++
+Include `clockModule(clock)`, which defines both clocks, `Clock.System` by default:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/clock/Clock.kt[tag=wire]
+----
++
+The `java.time.Clock` definition gets the `kotlin.time.Clock` definition, so a definition of a `kotlin.time.Clock` of your own, after this module's, replaces both.
+
+Metro::
++
+`boot-clock-metro` contributes both clocks, `Clock.System`, to the graph:
++
+[source,kotlin]
+----
+include::ROOT:example$metro/clock/Clock.kt[tag=wire]
+----
++
+The `java.time.Clock` is the graph's `kotlin.time.Clock`, so a graph with another `kotlin.time.Clock` has it as both.
+
+Inara::
++
+Compose `clockModule(clock)`, a `ClockModule` that provides both clocks, `Clock.System` by default, and require the `ClockModule` in the application's own modules:
++
+[source,kotlin]
+----
+include::ROOT:example$inara/clock/Clock.kt[tag=wire]
+----
++
+Inara has no optional bindings, so Bootable's Inara modules take their clock as a builder parameter, such as `periodicModule(clock)`: pass them the same clock.
+======
+
+== Test
+
+A test gives the application a clock of its own, which then is both clocks.
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/clock/Clock.kt[tag=test]
+----
+
+Kodein::
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/clock/Clock.kt[tag=test]
+----
+
+Koin::
++
+[source,kotlin]
+----
+include::ROOT:example$koin/clock/Clock.kt[tag=test]
+----
+
+Metro::
++
+A dynamic graph, with a binding container of the test's own, replaces the graph's `kotlin.time.Clock`:
++
+[source,kotlin]
+----
+include::ROOT:example$metro/clock/Clock.kt[tag=test]
+----
+
+Inara::
++
+[source,kotlin]
+----
+include::ROOT:example$inara/clock/Clock.kt[tag=test]
+----
+======
+
+== Reference
+
+* kdoc:boot-clock:com.github.rocketraman.bootable.clock.asJavaClock[]: a `kotlin.time.Clock` as a `java.time.Clock`
+* kdoc:boot-clock:com.github.rocketraman.bootable.clock.asKotlinClock[]: a `java.time.Clock` as a `kotlin.time.Clock`
