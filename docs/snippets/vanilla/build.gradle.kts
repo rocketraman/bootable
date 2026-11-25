@@ -1,5 +1,7 @@
 plugins {
   kotlin("jvm")
+  // for the @Serializable value in the logging snippet
+  kotlin("plugin.serialization")
 }
 
 // The snippets, wired by hand: the plain coordinate of each module.
@@ -33,6 +35,7 @@ dependencies {
   implementation(project(":boot-client-http-ktor-java"))
   implementation(project(":boot-leader-common"))
   implementation(project(":boot-logging-log4j2"))
+  implementation(project(":boot-logging-log4j2-serialization"))
   implementation(project(":boot-test-otel"))
   implementation(project(":boot-test"))
 }

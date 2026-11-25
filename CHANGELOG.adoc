@@ -102,6 +102,7 @@ See Logging in the https://rocketraman.github.io/bootable/[documentation].
 * `StructuredMessage` is a Log4j2 message with a text and typed fields.
 * The `JSON` and `GCLOUD` output types write a map message's fields as top-level JSON fields.
 * The text output types write a `StructuredMessage`'s fields after its text, with a `%fields` converter.
+* `structuredMessageOf`, in the new `boot-logging-log4j2-serialization`, makes a `StructuredMessage` from a `@Serializable` value.
 * `JSON` writes the trace and span ids as ECS's `trace.id` and `span.id`.
 * `JSON` writes the source location as ECS's `log.origin.*` fields when `LOGGING_LOCATION_ENABLED` is set.
 

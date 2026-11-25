@@ -56,6 +56,7 @@ dependencies {
   dokka(project(":boot-leader-k8s"))
   dokka(project(":boot-logging"))
   dokka(project(":boot-logging-log4j2"))
+  dokka(project(":boot-logging-log4j2-serialization"))
   dokka(project(":boot-periodic"))
   dokka(project(":boot-scheduler-db"))
   dokka(project(":boot-server-http-ktor"))
@@ -1073,6 +1074,18 @@ project("boot-logging-log4j2") {
       "-Alog4j.graalvm.groupId=${project.group}",
       "-Alog4j.graalvm.artifactId=${project.name}",
     ))
+  }
+}
+
+project("boot-logging-log4j2-serialization") {
+  apply(plugin = "org.jetbrains.kotlin.plugin.serialization")
+  dependencies {
+    api(project(":boot-logging-log4j2"))
+    // the value is encoded to a JsonElement, whose properties become the message's fields
+    api(rootProject.libs.kotlinx.serialization.json)
+    // the JSON layout, to check the fields' JSON types
+    testImplementation(platform(rootProject.libs.log4j.bom))
+    testImplementation(rootProject.libs.bundles.log4j.impl)
   }
 }
 

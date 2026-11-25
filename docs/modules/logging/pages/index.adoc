@@ -76,6 +76,24 @@ The JSON output types write the entries of any of Log4j's map messages this way,
 Fields belong to one event; for fields that every event logged during a request should carry, such as a request id, put them in Log4j's `ThreadContext` instead, with `withLoggingContext` from Log4j's Kotlin API.
 `JSON` writes the context's entries as top-level fields too.
 
+[#serializable]
+==== From a serializable value
+
+`structuredMessageOf`, in `boot-logging-log4j2-serialization`, makes a `StructuredMessage` from a `@Serializable` value, with each of its properties as a field:
+
+install::[boot-logging-log4j2-serialization]
+
+[source,kotlin]
+----
+include::ROOT:example$vanilla/logging/Logging.kt[tag=serializable]
+----
+
+The event has the fields `refund.orderId`, `refund.amount`, and `refund.reason`.
+A nested object's properties are fields too, named with a dot: a `customer` property with an `id` is the field `refund.customer.id`.
+A list stays a list, which `JSON` writes as an array.
+The `prefix` is optional; without it, the fields are named for the properties alone.
+The value is encoded with kotlinx.serialization's `Json`, or with a `json` of your own, so `@SerialName` names a field.
+
 [#output-types]
 == Output types
 
@@ -217,6 +235,7 @@ LOGGING_TYPE=json ./gradlew :examples:wiring-vanilla:run
 * kdoc:boot-logging-log4j2:com.github.rocketraman.bootable.logging.log4j2.LoggingType[]: the output types
 * kdoc:boot-logging-log4j2:com.github.rocketraman.bootable.logging.log4j2.loggingInit[]: initializes logging, as `boot { }` does
 * kdoc:boot-logging-log4j2:com.github.rocketraman.bootable.logging.log4j2.StructuredMessage[]: a message with structured fields
+* kdoc:boot-logging-log4j2-serialization:com.github.rocketraman.bootable.logging.log4j2.serialization.structuredMessageOf[]: a `StructuredMessage` from a serializable value
 * kdoc:boot-logging:com.github.rocketraman.bootable.logging.BootLoggingLevel[]: the log levels
 * https://logging.apache.org/log4j/2.x/manual/configuration.html[Log4j2's configuration]
 * https://www.elastic.co/guide/en/ecs/current/ecs-field-reference.html[Elastic Common Schema's fields]
