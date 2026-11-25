@@ -610,9 +610,11 @@ On shutdown, it starts no further run, and doesn&#8217;t wait for the interval: 
   import(periodicModule)  // PeriodicServices, gated on the LeaderElection binding, if there is one
 
   bindSingleton { new(::Notifications) }
+  // each loop has a PeriodicConfig of its own, so tag it
+  bindConfig&lt;PeriodicConfig&gt;("notifications.loop", tag = "notifications")
   bindAppService {
     singleton {
-      instance&lt;PeriodicServices&gt;().create("notifications", instance&lt;ConfigBinder&gt;().config("notifications.loop")) {
+      instance&lt;PeriodicServices&gt;().create("notifications", instance("notifications")) {
         instance&lt;Notifications&gt;().sendPending()
       }
     }
@@ -638,9 +640,11 @@ Its clock is the <code>kotlin.time.Clock</code> binding, if there is one, and it
     periodicModule(),  // PeriodicServices, gated on the LeaderElection definition, if there is one
     module {
       single { Notifications() }
+      // each loop has a PeriodicConfig of its own, so qualify it
+      config&lt;PeriodicConfig&gt;("notifications.loop", named("notifications"))
       single&lt;AppService&gt;(named("notifications")) {
         val notifications = get&lt;Notifications&gt;()
-        get&lt;PeriodicServices&gt;().create("notifications", get&lt;ConfigBinder&gt;().config("notifications.loop")) {
+        get&lt;PeriodicServices&gt;().create("notifications", get(named("notifications"))) {
           notifications.sendPending()
         }
       }

@@ -736,7 +736,7 @@ return Bootable(
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">val serverModule by DI.Module {
   import(ktorHealthModule)  // KtorHealth, over bootableModule's HealthLifecycleController, from health.ktor
-  bindSingleton { instance&lt;ConfigBinder&gt;().config&lt;ServerConfig&gt;("server") }
+  bindConfig&lt;ServerConfig&gt;("server")
   bindAppService { singleton { new(::GreetingServer) } }
   // the engine of the probes' own listener, which ktorHealthModule adds, if health.ktor.hostPort is set
   import(ktorServerCioEngineModule)
@@ -762,7 +762,7 @@ fun main() = boot {
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">val serverModule = module {
   includes(ktorHealthModule())  // KtorHealth, over bootableModule()'s HealthLifecycleController, from health.ktor
-  single { get&lt;ConfigBinder&gt;().config&lt;ServerConfig&gt;("server") }
+  config&lt;ServerConfig&gt;("server")
   single&lt;AppService&gt;(named&lt;GreetingServer&gt;()) { GreetingServer(get(), get()) }
   // the engine of the probes' own listener, which ktorHealthModule() adds, if health.ktor.hostPort is set
   includes(ktorServerCioEngineModule())
@@ -1102,7 +1102,7 @@ return Bootable(
 import(prometheusTelemetryModule)  // a pulled backend, to scrape
 import(ktorTelemetryModule)        // KtorTelemetry, from telemetry.ktor, after openTelemetryModule
 import(ktorHealthModule)
-bindSingleton { instance&lt;ConfigBinder&gt;().config&lt;ServerConfig&gt;("server") }
+bindConfig&lt;ServerConfig&gt;("server")
 bindAppService { singleton { new(::TracedGreetingServer) } }
 // the engine of the scrape's and the probes' own listeners, if their hostPort is set
 import(ktorServerCioEngineModule)</code></pre>
@@ -1120,7 +1120,7 @@ prometheusTelemetryModule(),  // a pulled backend, to scrape
 ktorTelemetryModule(),        // KtorTelemetry, from telemetry.ktor, over openTelemetryModule()
 ktorHealthModule(),
 module {
-  single { get&lt;ConfigBinder&gt;().config&lt;ServerConfig&gt;("server") }
+  config&lt;ServerConfig&gt;("server")
   single&lt;AppService&gt;(named&lt;TracedGreetingServer&gt;()) { TracedGreetingServer(get(), get(), get()) }
 },
 // the engine of the scrape's and the probes' own listeners, if their hostPort is set

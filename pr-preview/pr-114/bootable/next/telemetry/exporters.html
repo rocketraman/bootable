@@ -576,7 +576,7 @@ The server&#8217;s other settings are on <a href="../http/server.html#telemetry"
   import(prometheusTelemetryModule)  // registers its reader, and provides the scrape
   import(ktorTelemetryModule)        // KtorTelemetry, which serves it; no traces of the scrapes
 
-  bindSingleton { instance&lt;ConfigBinder&gt;().config&lt;StatusServerConfig&gt;("server") }
+  bindConfig&lt;StatusServerConfig&gt;("server")
   bindAppService { singleton { new(::StatusServer) } }                   // serves the scrape at /metrics
   import(ktorServerCioEngineModule)  // or on a port of its own, telemetry.ktor.hostPort, on this engine</code></pre>
 </div>
@@ -592,7 +592,7 @@ The server&#8217;s other settings are on <a href="../http/server.html#telemetry"
 prometheusTelemetryModule(),  // registers its reader, and provides the scrape
 ktorTelemetryModule(),        // KtorTelemetry, which serves it; no traces of the scrapes
 module {
-  single { get&lt;ConfigBinder&gt;().config&lt;StatusServerConfig&gt;("server") }
+  config&lt;StatusServerConfig&gt;("server")
   single&lt;AppService&gt;(named&lt;StatusServer&gt;()) { StatusServer(get(), get()) }  // serves the scrape at /metrics
 },
 ktorServerCioEngineModule(),  // or on a port of its own, telemetry.ktor.hostPort, on this engine</code></pre>

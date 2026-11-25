@@ -89,7 +89,7 @@ See [Web / HTTP](https://rocketraman.github.io/bootable/bootable/next/http/index
 | --- | --- |
 | **Server telemetry: optional** |  |
 | `boot-server-grpc-otel` | Each call traced and measured, with the health service’s probes left out |
-| `boot-server-grpc` | `GrpcService`: a gRPC server, over grpc-java, that starts and stops with the application, for services written as coroutines on the server bases kotpb-grpc-codegen generates, and `GrpcHealth`, the standard health service, answered from the application’s health |
+| `boot-server-grpc` | `GrpcServer`: a gRPC server, over grpc-java, that starts and stops with the application, for services written as coroutines on the server bases kotpb-grpc-codegen generates, and `GrpcHealth`, the standard health service, answered from the application’s health |
 
 ## Background work
 

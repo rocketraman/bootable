@@ -134,9 +134,11 @@ fun periodicDI() = DI {
   import(periodicModule)  // PeriodicServices, gated on the LeaderElection binding, if there is one
 
   bindSingleton { new(::Notifications) }
+  // each loop has a PeriodicConfig of its own, so tag it
+  bindConfig<PeriodicConfig>("notifications.loop", tag = "notifications")
   bindAppService {
     singleton {
-      instance<PeriodicServices>().create("notifications", instance<ConfigBinder>().config("notifications.loop")) {
+      instance<PeriodicServices>().create("notifications", instance("notifications")) {
         instance<Notifications>().sendPending()
       }
     }
@@ -158,9 +160,11 @@ fun periodicKoin() = koinApplication {
     periodicModule(),  // PeriodicServices, gated on the LeaderElection definition, if there is one
     module {
       single { Notifications() }
+      // each loop has a PeriodicConfig of its own, so qualify it
+      config<PeriodicConfig>("notifications.loop", named("notifications"))
       single<AppService>(named("notifications")) {
         val notifications = get<Notifications>()
-        get<PeriodicServices>().create("notifications", get<ConfigBinder>().config("notifications.loop")) {
+        get<PeriodicServices>().create("notifications", get(named("notifications"))) {
           notifications.sendPending()
         }
       }
