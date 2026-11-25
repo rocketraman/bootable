@@ -72,8 +72,8 @@ val StructuredMessageLayoutTest by testSuite {
     assert(json["logging.googleapis.com/spanId"] == JsonPrimitive("00f067aa0ba902b7"))
   }
 
-  test("JSON writes the typed fields at top level, beside ECS's message") {
-    val json = consoleLayout("log4j2-base-json.xml").renderJson(event(orderPlaced))
+  test("JSON writes the typed fields and the logging context at top level, and the trace and span as ECS's") {
+    val json = consoleLayout("log4j2-base-json.xml").renderJson(event(orderPlaced, otelContext))
     assert(json["ecs.version"] == JsonPrimitive("1.2.0"))
     assert(json["log.level"] == JsonPrimitive("INFO"))
     assert(json["log.logger"] == JsonPrimitive("com.example.Orders"))
@@ -81,6 +81,10 @@ val StructuredMessageLayoutTest by testSuite {
     assert(json["order.id"] == JsonPrimitive("42"))
     assert(json["order.total"] == JsonPrimitive(1250))
     assert(json["order.gift"] == JsonPrimitive(true))
-    assert("fields" !in json)
+    assert(json["trace.id"] == JsonPrimitive("4bf92f3577b34da6a3ce929d0e0e4736"))
+    assert(json["span.id"] == JsonPrimitive("00f067aa0ba902b7"))
+    assert(json["tenant"] == JsonPrimitive("acme"))
+    assert("trace_id" !in json && "span_id" !in json && "trace_flags" !in json)
+    assert("fields" !in json && "labels" !in json)
   }
 }
