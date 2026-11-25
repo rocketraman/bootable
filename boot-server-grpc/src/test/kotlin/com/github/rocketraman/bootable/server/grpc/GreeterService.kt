@@ -9,6 +9,7 @@ import io.grpc.Metadata
 import io.grpc.Status
 import io.grpc.StatusException
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.count
@@ -21,11 +22,17 @@ fun reply(message: String): HelloReply = helloReply { this.message = message }
 
 /** A service with a method of each kind, on the generated server base, as an application writes one. */
 class GreeterService : GreeterGrpcKt.GreeterCoroutineImplBase() {
+  /** Receives once for each "slow" call, as it starts, so a test can stop the server with the call in flight. */
+  val slowCallStarted = Channel<Unit>(Channel.UNLIMITED)
+
   override suspend fun sayHello(request: HelloRequest): HelloReply {
     when (request.name) {
       "invalid" -> throw StatusException(Status.INVALID_ARGUMENT.withDescription("no such name"))
       "boom" -> error("boom")
-      "slow" -> delay(500.milliseconds)
+      "slow" -> {
+        slowCallStarted.send(Unit)
+        delay(500.milliseconds)
+      }
       "header" -> return reply("header ${grpcRequestHeaders()?.get(TEST_HEADER)}")
     }
     return reply("Hello, ${request.name}")

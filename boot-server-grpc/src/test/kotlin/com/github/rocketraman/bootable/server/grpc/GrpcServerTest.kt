@@ -36,7 +36,12 @@ import kotlinx.coroutines.withTimeout
 import org.apache.logging.log4j.Level
 
 /** A running application, with a [GrpcServer] serving [GreeterService], and a channel to it. */
-private class RunningApp(val bootable: Bootable, val health: HealthLifecycleController, val service: GrpcServer) {
+private class RunningApp(
+  val bootable: Bootable,
+  val health: HealthLifecycleController,
+  val service: GrpcServer,
+  val greeterService: GreeterService,
+) {
   val channel: ManagedChannel by lazy { ManagedChannelBuilder.forAddress("127.0.0.1", service.port).usePlaintext().build() }
   val greeter: GreeterGrpcKt.GreeterCoroutineStub get() = GreeterGrpcKt.GreeterCoroutineStub(channel).withDeadlineAfter(5, TimeUnit.SECONDS)
   val healthStub: HealthGrpcKt.HealthCoroutineStub get() = HealthGrpcKt.HealthCoroutineStub(channel).withDeadlineAfter(5, TimeUnit.SECONDS)
@@ -50,11 +55,12 @@ private suspend fun withApp(
 ) = withContext(Dispatchers.Default) {
   // on real time, not the test's virtual time: the server, and its clients, run on threads of their own
   val health = HealthLifecycleController(checks)
-  val service = GrpcServer(config, setOf(GreeterService()), GrpcHealth(health))
+  val greeterService = GreeterService()
+  val service = GrpcServer(config, setOf(greeterService), GrpcHealth(health))
   val bootable = Bootable(setOf(service), setOf(AppStartStopLifecycleController(), health))
   val run = async(Dispatchers.Default) { bootable.run(maxShutdownTime = 10.seconds) }
   withTimeout(10.seconds) { health.states.first { it == LifecycleState.Running } }
-  val app = RunningApp(bootable, health, service)
+  val app = RunningApp(bootable, health, service, greeterService)
   try {
     app.block()
   } finally {
@@ -154,8 +160,8 @@ val GrpcServerTest by testSuite {
       lateinit var reply: kotlinx.coroutines.Deferred<String>
       withApp {
         reply = async { greeter.sayHello(request("slow")).message }
-        // let the call reach the server before the stop
-        kotlinx.coroutines.delay(100)
+        // stop once the call has reached the server
+        withTimeout(5.seconds) { greeterService.slowCallStarted.receive() }
       }
       assert(reply.await() == "Hello, slow")
     }
@@ -165,7 +171,7 @@ val GrpcServerTest by testSuite {
       val config = GrpcServerConfig(hostPort = "127.0.0.1:0", shutdownGracePeriod = 0.seconds)
       withApp(config = config) {
         status = async { statusOf { greeter.sayHello(request("slow")) } }
-        kotlinx.coroutines.delay(100)
+        withTimeout(5.seconds) { greeterService.slowCallStarted.receive() }
       }
       assert(status.await().code == Status.Code.UNAVAILABLE || status.await().code == Status.Code.CANCELLED)
     }
