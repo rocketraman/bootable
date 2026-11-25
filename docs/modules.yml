@@ -74,6 +74,13 @@ functions:
     - name: boot-logging-log4j2
       provides: Log4j2, with layouts for plain, coloured, Elastic Common Schema JSON, and Google Cloud output, and `StructuredMessage` for structured fields
       page: logging:index.adoc
+  - title: Serializable fields
+    choice: optional
+    modules:
+    - name: boot-logging-log4j2-serialization
+      extends: boot-logging-log4j2
+      provides: '`structuredMessageOf`, a `StructuredMessage` from a `@Serializable` value'
+      page: logging:index.adoc#serializable
   - title: Core
     choice: implied
     note: comes with Log4j2

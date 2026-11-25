@@ -6,6 +6,8 @@ import com.github.rocketraman.bootable.logging.BootLoggingLevel
 import com.github.rocketraman.bootable.logging.log4j2.StructuredMessage
 import com.github.rocketraman.bootable.logging.log4j2.LoggingType
 import com.github.rocketraman.bootable.logging.log4j2.loggingInit
+import com.github.rocketraman.bootable.logging.log4j2.serialization.structuredMessageOf
+import kotlinx.serialization.Serializable
 import org.apache.logging.log4j.kotlin.logger
 
 // tag::boot[]
@@ -52,3 +54,17 @@ class OrderShipped(shipment: Shipment) : StructuredMessage(
   "order.carrier" to shipment.carrier,
 )
 // end::fields[]
+
+// tag::serializable[]
+@Serializable
+data class Refund(val orderId: String, val amount: Long, val reason: String)
+
+class Refunds {
+  private val log = logger()
+
+  fun refund(refund: Refund) {
+    // ...
+    log.info(structuredMessageOf("order ${refund.orderId} refunded", refund, prefix = "refund"))
+  }
+}
+// end::serializable[]
