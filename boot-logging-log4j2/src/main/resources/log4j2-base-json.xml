@@ -3,7 +3,10 @@
   <Appenders>
     <!-- Setting direct to false can cause a race with standard i/o redirection -->
     <Console name="Console" direct="${env:LOGGING_CONSOLE_DIRECT:-${sys:logging.console.direct:-true}}">
-      <JsonTemplateLayout locationInfoEnabled="${env:LOGGING_LOCATION_ENABLED:-${sys:logging.location.enabled:-false}}"/>
+      <!-- Log4j's Elastic Common Schema template, plus the structured fields -->
+      <JsonTemplateLayout eventTemplateUri="classpath:EcsLayout.json" locationInfoEnabled="${env:LOGGING_LOCATION_ENABLED:-${sys:logging.location.enabled:-false}}">
+        <EventTemplateAdditionalField key="fields" format="JSON" value='{"$resolver": "map", "flatten": true}'/>
+      </JsonTemplateLayout>
     </Console>
   </Appenders>
   <Loggers>

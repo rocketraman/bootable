@@ -1063,6 +1063,7 @@ project("boot-logging-log4j2") {
     api(rootProject.libs.kotlin.reflect)
     implementation(platform(rootProject.libs.log4j.bom))
     implementation(rootProject.libs.bundles.log4j.impl)
+    testImplementation(rootProject.libs.kotlinx.serialization.json)
   }
 }
 
