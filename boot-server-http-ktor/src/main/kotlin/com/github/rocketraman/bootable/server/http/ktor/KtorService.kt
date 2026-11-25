@@ -26,10 +26,12 @@ import org.slf4j.LoggerFactory
  * [configureEngine] to change those, add connectors, or set the engine's own options.
  */
 abstract class KtorService<TEngine : ApplicationEngine, TConfiguration : ApplicationEngine.Configuration>(
-  private val name: String,
+  name: String,
   private val hostPort: HostPort,
   private val engineFactory: ApplicationEngineFactory<TEngine, TConfiguration>,
 ) : AppService {
+
+  private val loggerName = name
 
   lateinit var server: EmbeddedServer<TEngine, TConfiguration>
 
@@ -40,7 +42,7 @@ abstract class KtorService<TEngine : ApplicationEngine, TConfiguration : Applica
   override suspend fun start(scope: CoroutineScope) {
     this.scope = scope
     val environment = applicationEnvironment {
-      log = LoggerFactory.getLogger(name)
+      log = LoggerFactory.getLogger(loggerName)
     }
 
     server = embeddedServer(engineFactory,

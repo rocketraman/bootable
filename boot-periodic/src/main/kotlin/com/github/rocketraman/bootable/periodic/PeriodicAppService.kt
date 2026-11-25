@@ -62,7 +62,7 @@ internal val log = logger("com.github.rocketraman.bootable.periodic.PeriodicAppS
  *   the calls that block, or pass it here.
  */
 class PeriodicAppService(
-  private val name: String,
+  override val name: String,
   private val config: PeriodicConfig,
   private val gate: PeriodicGate = PeriodicGate.Always,
   private val clock: Clock = Clock.System,
@@ -98,8 +98,6 @@ class PeriodicAppService(
 
   /** Whether the loop is running: from start until it stops, at shutdown or the failure limit. */
   val isRunning: Boolean get() = loop?.isActive == true
-
-  override fun name() = name
 
   override fun ordering() = ordering
 

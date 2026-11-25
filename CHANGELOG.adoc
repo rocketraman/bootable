@@ -248,6 +248,17 @@ See link:docs/wiring.adoc[Wiring Bootable].
 
 The Kodein bindings are deprecated, as Kodein is: use the `-inara` bindings, Kodein's compile-time successor, or the `-koin` bindings, to keep a style like Kodein's.
 
+=== `AppService.name` property
+
+`AppService` has a `name` property, which Bootable reads, and which defaults to the simple class name.
+Its `name()` function is deprecated: override `val name` instead.
+A service that still overrides `name()` keeps its name, since the property calls it unless overridden.
+
+==== Breaking changes
+
+* A class implementing `AppService` with a property of its own called `name` must override the interface's `name`, or rename its own.
+* `KtorService`'s constructor parameter `name` is no longer a property.
+
 === Fixes
 
 * A stop requested during the start no longer deadlocks; it takes effect once running.

@@ -122,7 +122,7 @@ It calls `stop(0)` and then waits for `run` to return, up to the shutdown timeou
 [source,kotlin]
 ----
 interface AppService {
-  fun name(): String = javaClass.simpleName
+  val name: String get() = javaClass.simpleName
   suspend fun start() {}
   suspend fun shutdown() {}
   fun ordering(): Ordering = Ordering()
@@ -388,7 +388,7 @@ So `ServiceStartTracing` puts the span in the coroutine context instead, with `o
 ----
 override suspend fun aroundServiceStart(appService: AppService, start: suspend () -> Unit) {
   // the parent is the current context, which the `start application` span's context element made current
-  val span = tracer.spanBuilder("start ${appService.name()}").startSpan()
+  val span = tracer.spanBuilder("start ${appService.name}").startSpan()
   try {
     withContext(Context.current().with(span).asContextElement()) { start() }
   } catch (e: Throwable) {

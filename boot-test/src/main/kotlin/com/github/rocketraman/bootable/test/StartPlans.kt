@@ -30,7 +30,7 @@ fun checkShuffledStartPlans(
       check(plan)
     } catch (e: Throwable) {
       throw AssertionError(
-        "The start plan with $tiebreaker failed the check: ${plan.joinToString { it.name() }}",
+        "The start plan with $tiebreaker failed the check: ${plan.joinToString { it.name }}",
         e,
       )
     }

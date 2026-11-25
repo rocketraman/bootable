@@ -403,7 +403,7 @@ val PeriodicAppServiceTest by testSuite(testConfig = TestConfig.testScope(isEnab
     }
     val plan = startPlan(setOf(loop, app, infrastructure), tiebreaker = StartOrder.Tiebreaker.Shuffled())
     assert(plan == listOf(infrastructure, app, loop))
-    assert(loop.name() == "loop")
+    assert(loop.name == "loop")
   }
 
   test("PeriodicServices shares its settings with the services it creates") {

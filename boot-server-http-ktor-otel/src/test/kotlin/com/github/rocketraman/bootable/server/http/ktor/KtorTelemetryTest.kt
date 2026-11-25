@@ -448,7 +448,7 @@ val KtorTelemetryWiringTest by testSuite {
       val ktorTelemetry = di.instance<KtorTelemetry>()
       assert(ktorTelemetry.config == expectedConfig)
       val services = di.instance<Set<AppService>>()
-      assert(services.single { it.name().startsWith("MetricsKtorService") }.name() == "MetricsKtorService (none)")
+      assert(services.single { it.name.startsWith("MetricsKtorService") }.name == "MetricsKtorService (none)")
       checkServes(services, ktorTelemetry, inMemory)
     }
 
@@ -469,7 +469,7 @@ val KtorTelemetryWiringTest by testSuite {
         val ktorTelemetry = koin.get<KtorTelemetry>()
         assert(ktorTelemetry.config == expectedConfig)
         val services = koin.getAll<AppService>().toSet()
-        assert(services.single { it.name().startsWith("MetricsKtorService") }.name() == "MetricsKtorService (none)")
+        assert(services.single { it.name.startsWith("MetricsKtorService") }.name == "MetricsKtorService (none)")
         checkServes(services, ktorTelemetry, inMemory)
       } finally {
         koin.close()
@@ -480,7 +480,7 @@ val KtorTelemetryWiringTest by testSuite {
       val graph = createGraph<TestGraph>()
 
       assert(graph.ktorTelemetry.config == expectedConfig)
-      assert(graph.appServices.single { it.name().startsWith("MetricsKtorService") }.name() == "MetricsKtorService (none)")
+      assert(graph.appServices.single { it.name.startsWith("MetricsKtorService") }.name == "MetricsKtorService (none)")
       checkServes(graph.appServices, graph.ktorTelemetry, graph.inMemoryTelemetry)
     }
 
@@ -497,7 +497,7 @@ val KtorTelemetryWiringTest by testSuite {
 
       assert(module.ktorTelemetry.config == expectedConfig)
       val services = module.setOfAppServices()
-      assert(services.single { it.name().startsWith("MetricsKtorService") }.name() == "MetricsKtorService (none)")
+      assert(services.single { it.name.startsWith("MetricsKtorService") }.name == "MetricsKtorService (none)")
       checkServes(services, module.ktorTelemetry, module.inMemoryTelemetry)
     }
   }

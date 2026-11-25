@@ -72,7 +72,7 @@ object HealthListenerBindings {
 interface HealthListenerGraph : BootableGraph
 
 /** The listener of its own [services] has, or the service in its place that does nothing. */
-private fun Set<AppService>.healthListener(): AppService = single { it.name().startsWith("HealthKtorService") }
+private fun Set<AppService>.healthListener(): AppService = single { it.name.startsWith("HealthKtorService") }
 
 /** An application's module, composed as an Inara application composes it. */
 @DIModule(composed = true)
@@ -168,7 +168,7 @@ val KtorHealthWiringTest by testSuite {
         import(ktorHealthModule)
         bindSingleton<ConfigBinder> { healthConfigBinder() }
       }.direct
-      assert(di.instance<Set<AppService>>().healthListener().name() == "HealthKtorService (none)")
+      assert(di.instance<Set<AppService>>().healthListener().name == "HealthKtorService (none)")
     }
 
     test("that does nothing, with no engine needed, when no hostPort is set, in koin") {
@@ -176,14 +176,14 @@ val KtorHealthWiringTest by testSuite {
         modules(koinBootableModule(), koinKtorHealthModule(), module { single<ConfigBinder> { healthConfigBinder() } })
       }.koin
       try {
-        assert(koin.getAll<AppService>().toSet().healthListener().name() == "HealthKtorService (none)")
+        assert(koin.getAll<AppService>().toSet().healthListener().name == "HealthKtorService (none)")
       } finally {
         koin.close()
       }
     }
 
     test("that does nothing, with no engine needed, when no hostPort is set, in metro") {
-      assert(createGraph<HealthGraph>().appServices.healthListener().name() == "HealthKtorService (none)")
+      assert(createGraph<HealthGraph>().appServices.healthListener().name == "HealthKtorService (none)")
     }
 
     test("that fails, naming the missing engine, when hostPort is set but there is no engine, in kodein") {
@@ -221,7 +221,7 @@ val KtorHealthWiringTest by testSuite {
     }
 
     test("that does nothing, with no engine needed, when no hostPort is set, in inara") {
-      assert(inaraHealthModule().setOfAppServices().healthListener().name() == "HealthKtorService (none)")
+      assert(inaraHealthModule().setOfAppServices().healthListener().name == "HealthKtorService (none)")
     }
 
     test("that fails, naming the missing engine, when hostPort is set but there is no engine, in inara") {

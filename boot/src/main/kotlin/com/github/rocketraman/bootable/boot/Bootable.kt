@@ -229,7 +229,7 @@ class Bootable(
 
     val notStopped = started.keys.toList()
     if (notStopped.isNotEmpty()) {
-      log.error { "Services didn't stop: ${notStopped.map { it.name() }}\n${diagnostics()}" }
+      log.error { "Services didn't stop: ${notStopped.map { it.name }}\n${diagnostics()}" }
     }
     // anything left in the application's scope, which no service owns
     applicationJob.cancel()
@@ -302,12 +302,12 @@ class Bootable(
     yield()
     val votedNo = lifecycleControllers.filter { it.serviceStartVote(appService) == ServiceStartVote.NO }
     if (votedNo.isNotEmpty()) {
-      log.warn { "==> Skipping start of ${appService.name()}, these controllers voted NO: ${votedNo.map { it.name() }}…" }
+      log.warn { "==> Skipping start of ${appService.name}, these controllers voted NO: ${votedNo.map { it.name() }}…" }
       setState(appService, ServiceState.Skipped)
       return
     }
 
-    log.info { "==> Starting ${appService.name()}…" }
+    log.info { "==> Starting ${appService.name}…" }
     setState(appService, ServiceState.Starting)
     val policy = appService.scopeFailurePolicy
     val serviceJob = if (policy.supervise) SupervisorJob(applicationJob) else Job(applicationJob)
@@ -333,7 +333,7 @@ class Bootable(
   }
 
   private suspend fun startService(appService: AppService, serviceJob: Job, policy: ScopeFailurePolicy) {
-    var context = applicationScope.coroutineContext + serviceJob + CoroutineName(appService.name())
+    var context = applicationScope.coroutineContext + serviceJob + CoroutineName(appService.name)
     if (policy.supervise) {
       context += CoroutineExceptionHandler { coroutine, e ->
         policy.onFailure(this, appService, coroutine[CoroutineName]?.name, e)
@@ -348,14 +348,14 @@ class Bootable(
   private suspend fun serviceShutdown(appService: AppService) {
     val serviceJob = started[appService]
     if (serviceJob == null) {
-      log.info { "==> Stopping ${appService.name()}… not started, ignoring shutdown" }
+      log.info { "==> Stopping ${appService.name}… not started, ignoring shutdown" }
       return
     }
     // the first service to stop arms the watchdog: after the drain, as the shutdown timeout is
     shutdownWatchdog.armOnce(maxShutdownTime + haltGrace)
-    log.info { "==> Stopping ${appService.name()}…" }
+    log.info { "==> Stopping ${appService.name}…" }
     setState(appService, ServiceState.Stopping)
-    runCatchingNonCancellation({ e -> log.warn(e) { "Error stopping ${appService.name()}, ignoring…" } }) {
+    runCatchingNonCancellation({ e -> log.warn(e) { "Error stopping ${appService.name}, ignoring…" } }) {
       appService.shutdown()
     }
     serviceJob.cancelAndJoin()
@@ -375,7 +375,7 @@ class Bootable(
 
   /** Each service's state, the coroutines still running, and the threads' stacks, to say why a stop is stuck. */
   private fun diagnostics(): String = buildString {
-    appendLine("Services: ${states.value.entries.joinToString { (service, state) -> "${service.name()}=$state" }}")
+    appendLine("Services: ${states.value.entries.joinToString { (service, state) -> "${service.name}=$state" }}")
     if (::applicationJob.isInitialized) {
       appendLine("Coroutines still running:")
       appendJobTree(applicationJob, "  ")

@@ -24,7 +24,7 @@ private val testServerConfig = ServerConfig(hostPort = "127.0.0.1:0", fakeSecret
 val ExampleServerTest by testSuite {
   test("constructs directly with no DI involved") {
     val server = ExampleServer(testServerConfig, HelloConfig(response = "hi"))
-    assert(server.name() == "ExampleServer")
+    assert(server.name == "ExampleServer")
   }
 
   testSuite("serves") {

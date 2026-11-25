@@ -85,7 +85,7 @@ class ServiceStartTracing(
   }
 
   override suspend fun aroundServiceStart(appService: AppService, start: suspend () -> Unit) {
-    tracer.spanBuilder("start ${appService.name()}").runInSpan(start)
+    tracer.spanBuilder("start ${appService.name}").runInSpan(start)
   }
 
   /**

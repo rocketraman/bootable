@@ -27,14 +27,13 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
 private class RecordingService(
-  private val name: String,
+  override val name: String,
   private val phase: Phase,
   private val events: MutableList<String>,
   private val failStart: Boolean = false,
   private val startTime: kotlin.time.Duration? = null,
   private val stopTime: kotlin.time.Duration? = null,
 ) : AppService {
-  override fun name() = name
   override fun ordering() = Ordering(phase)
 
   override suspend fun start() {
@@ -57,7 +56,7 @@ private class RecordingService(
  * run on to the shutdown timeout meanwhile.
  */
 private class BackgroundService(
-  private val name: String,
+  override val name: String,
   private val events: MutableList<String>,
   private val context: CoroutineContext,
   override val scopeFailurePolicy: ScopeFailurePolicy = ScopeFailurePolicy.StopApplication(),
@@ -65,8 +64,6 @@ private class BackgroundService(
   val failure = CompletableDeferred<Unit>()
   var job: Job? = null
   var sibling: Job? = null
-
-  override fun name() = name
 
   override suspend fun start(scope: CoroutineScope) {
     events += "start $name"
@@ -85,7 +82,7 @@ private class BackgroundService(
 /** Votes against starting [name]. */
 private class Veto(private val name: String) : LifecycleController {
   override fun serviceStartVote(appService: AppService) =
-    if (appService.name() == name) ServiceStartVote.NO else ServiceStartVote.YES
+    if (appService.name == name) ServiceStartVote.NO else ServiceStartVote.YES
 }
 
 /**
@@ -150,7 +147,7 @@ private class Observer : LifecycleController {
     context = serviceContext
     start()
   }
-  fun states() = context.states.value.entries.associate { (service, state) -> service.name() to state }
+  fun states() = context.states.value.entries.associate { (service, state) -> service.name to state }
 }
 
 private fun events() = Collections.synchronizedList(mutableListOf<String>())
