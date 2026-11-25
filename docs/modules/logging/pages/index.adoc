@@ -1,7 +1,7 @@
 = Logging (Log4j2)
-:description: Log4j2 to the console, as plain or coloured text, JSON, or Google Cloud's JSON, set up before anything else runs.
+:description: Log4j2 to the console, as plain or coloured text, Elastic Common Schema JSON, or Google Cloud's JSON, with structured fields, set up before anything else runs.
 
-`boot-logging-log4j2` makes https://logging.apache.org/log4j/2.x/[Log4j2] the application's logging, with a console appender in one of several output types: coloured or plain text, JSON, or Google Cloud's structured JSON.
+`boot-logging-log4j2` makes https://logging.apache.org/log4j/2.x/[Log4j2] the application's logging, with a console appender in one of several output types: coloured or plain text, Elastic Common Schema JSON, or Google Cloud's structured JSON.
 It routes the other logging APIs to Log4j2 too: SLF4J, `java.util.logging`, and the standard output and error streams.
 
 `boot { }` initializes logging before anything else, before it builds the application, so config loading and the application's construction log with the chosen output.
@@ -17,7 +17,7 @@ modules::logging[]
 == Install
 
 `boot` brings `boot-logging-log4j2` at runtime, since `boot { }` initializes it.
-Add it as a dependency to use its API in your code: `LoggingType`, `loggingInit`, and Log4j's Kotlin API.
+Add it as a dependency to use its API in your code: `LoggingType`, `loggingInit`, `StructuredMessage`, and Log4j's Kotlin API.
 
 install::[boot-logging-log4j2]
 
@@ -33,6 +33,48 @@ include::ROOT:example$vanilla/logging/Logging.kt[tag=logger]
 ----
 
 A library that logs through SLF4J or `java.util.logging` logs through Log4j2 too, with the same output.
+
+[#fields]
+=== Structured fields
+
+A `StructuredMessage` is a message with typed fields beside its text, for a backend to index and query, such as an order's id and total:
+
+[source,kotlin]
+----
+include::ROOT:example$vanilla/logging/Logging.kt[tag=fields]
+----
+
+The JSON output types write each field as a top-level field of the event, and `message` holds the text alone:
+
+[source,json]
+----
+{"@timestamp":"2026-11-25T09:30:00.000Z","ecs.version":"1.2.0","log.level":"INFO","message":"order 42 placed","process.thread.name":"main","log.logger":"com.example.Orders","order.id":"42","order.total":1250}
+----
+
+A number or a boolean stays a JSON number or boolean; any other value is written as its `toString()`.
+A field whose value is `null` is left out.
+The text output types write the fields after the text, as `{order.id=42, order.total=1250}`, with the `%fields` pattern converter, which a pattern of your own can use too.
+
+Name the fields as the backend expects them, such as the https://www.elastic.co/guide/en/ecs/current/ecs-field-reference.html[Elastic Common Schema]'s `http.request.method` or `event.duration` for `JSON`.
+A field must not have the same name as an existing output field, such as `message`.
+The event would then have two fields with that name.
+The output types write these fields:
+
+[cols="1,4"]
+|===
+| Output type | Fields
+
+| `JSON`
+| `@timestamp`, `ecs.version`, `log.level`, `message`, `process.thread.name`, `log.logger`, `tags`, `trace.id`, `span.id`, `log.origin.file.name`, `log.origin.file.line`, `log.origin.function`, `error.type`, `error.message`, `error.stack_trace`, and the logging context's keys
+
+| `GCLOUD`
+| `timestampSeconds`, `timestampNanos`, `severity`, `message`, `logging.googleapis.com/labels`, `logging.googleapis.com/sourceLocation`, `logging.googleapis.com/trace`, `logging.googleapis.com/spanId`, `logging.googleapis.com/trace_sampled`, `exception`, `thread`, `logger`
+|===
+
+The JSON output types write the entries of any of Log4j's map messages this way, such as a `StringMapMessage`.
+
+Fields belong to one event; for fields that every event logged during a request should carry, such as a request id, put them in Log4j's `ThreadContext` instead, with `withLoggingContext` from Log4j's Kotlin API.
+`JSON` writes the context's entries as top-level fields too.
 
 [#output-types]
 == Output types
@@ -51,10 +93,10 @@ A library that logs through SLF4J or `java.util.logging` logs through Log4j2 too
 | The same text, without colours.
 
 | `JSON`
-| One JSON object for each event, in Log4j's JSON template layout's default, Elastic Common Schema, layout.
+| One JSON object for each event, in the https://www.elastic.co/guide/en/ecs/current/index.html[Elastic Common Schema]: the logging context's entries, and the <<fields,structured fields>>, as top-level fields, and the trace and span from the logging context's `trace_id` and `span_id` as ECS's `trace.id` and `span.id`.
 
 | `GCLOUD`
-| One JSON object for each event, in the layout Google Cloud Logging reads as structured logs: the severity in Google Cloud's levels, and the trace and span from the logging context's `trace_id` and `span_id`, so Cloud Logging links each event to its trace.
+| One JSON object for each event, in the layout Google Cloud Logging reads as structured logs: the severity in Google Cloud's levels, the trace and span from the logging context's `trace_id` and `span_id`, so Cloud Logging links each event to its trace, and the <<fields,structured fields>> as top-level fields, which Cloud Logging puts in the entry's `jsonPayload`.
 
 | `EMPTY`
 | Nothing: every event is discarded.
@@ -96,7 +138,7 @@ The output types read these environment variables, or the system properties afte
 | `LOGGING_LOCATION_ENABLED`
 | `logging.location.enabled`
 | `false`
-| Whether `JSON` and `GCLOUD` record each event's source location, its class, method, and line, which is costly.
+| Whether `JSON` and `GCLOUD` record each event's source location, its file, method, and line, which is costly.
 
 | `LOGGING_CONSOLE_DIRECT`
 | `logging.console.direct`
@@ -174,5 +216,7 @@ LOGGING_TYPE=json ./gradlew :examples:wiring-vanilla:run
 
 * kdoc:boot-logging-log4j2:com.github.rocketraman.bootable.logging.log4j2.LoggingType[]: the output types
 * kdoc:boot-logging-log4j2:com.github.rocketraman.bootable.logging.log4j2.loggingInit[]: initializes logging, as `boot { }` does
+* kdoc:boot-logging-log4j2:com.github.rocketraman.bootable.logging.log4j2.StructuredMessage[]: a message with structured fields
 * kdoc:boot-logging:com.github.rocketraman.bootable.logging.BootLoggingLevel[]: the log levels
 * https://logging.apache.org/log4j/2.x/manual/configuration.html[Log4j2's configuration]
+* https://www.elastic.co/guide/en/ecs/current/ecs-field-reference.html[Elastic Common Schema's fields]

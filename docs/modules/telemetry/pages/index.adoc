@@ -186,7 +186,7 @@ include::ROOT:example$vanilla/telemetry/Spans.kt[tag=root-span]
 
 `Sample.Always` samples the trace whatever `sampleRatio` is, for a trace too rare or too valuable to lose; the default, `Sample.BySampler`, leaves it to the sampler.
 
-Log events within a span carry its `trace_id` and `span_id`, which xref:logging:index.adoc[`boot-logging-log4j2`]'s layouts print, so a backend can link them to their traces.
+Log events within a span carry its `trace_id` and `span_id` in the logging context, which xref:logging:index.adoc[`boot-logging-log4j2`]'s layouts print, so a backend can link them to their traces: `JSON` writes them as the Elastic Common Schema's `trace.id` and `span.id`, and `GCLOUD` as Cloud Logging's trace and span.
 Logs themselves aren't exported over OpenTelemetry: the SDK has no logger provider, so ship them with the platform's log collection.
 
 [#start-tracing]
