@@ -29,7 +29,7 @@ kotlinx-serialization = "1.12.0"
 ktor = "3.6.0"
 log4j = "2.26.1"
 log4j-kotlin-api = "1.5.0"
-metro = "1.4.5"
+metro = "1.6.0"
 micrometer = "1.17.1"
 mysql-connector-j = "26.10.0"
 # the instrumentation libraries are built against this SDK release; keep the two in step
