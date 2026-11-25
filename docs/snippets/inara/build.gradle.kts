@@ -30,6 +30,8 @@ dependencies {
   implementation(project(path = ":boot-leader-common", configuration = "inaraElements"))
   implementation(project(path = ":boot-leader-k8s", configuration = "inaraElements"))
   implementation(project(path = ":boot-scheduler-db", configuration = "inaraElements"))
+  implementation(project(path = ":boot-server-grpc", configuration = "inaraElements"))
+  implementation(project(path = ":boot-server-grpc-otel", configuration = "inaraElements"))
   // modules without DI flavours
   implementation(project(":boot-server-http-ktor-cio"))
   // the engine of the probes' and the scrape's own listeners

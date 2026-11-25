@@ -20,6 +20,8 @@ dependencies {
   implementation(project(":boot-telemetry-otel-micrometer-bridge"))
   implementation(project(":boot-server-http-ktor"))
   implementation(project(":boot-server-http-ktor-otel"))
+  implementation(project(":boot-server-grpc"))
+  implementation(project(":boot-server-grpc-otel"))
   implementation(project(":boot-client-http-ktor"))
   implementation(project(":boot-client-http-ktor-otel"))
   implementation(project(":boot-periodic"))

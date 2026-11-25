@@ -30,6 +30,7 @@ Every page on this site shows its code in the style you pick, and remembers it.
 * xref:logging:index.adoc[Logging] Log4j2, with plain, coloured, JSON, and Google Cloud output.
 * xref:database:index.adoc[Database] A lifecycle-managed connection pool, migrations, and Exposed.
 * xref:http:index.adoc[Web / HTTP] A Ktor server and clients, with liveness and readiness probes.
+* xref:grpc:index.adoc[gRPC server] A gRPC server for services written as coroutines, with the standard health service.
 * xref:background:index.adoc[Background work] Periodic loops, leader election, and persistent scheduled tasks.
 * xref:telemetry:index.adoc[Telemetry] OpenTelemetry traces and metrics, pushed or pulled.
 * xref:testing:index.adoc[Testing] Helpers for fast unit tests, with no application booted.

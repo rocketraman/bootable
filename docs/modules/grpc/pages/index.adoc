@@ -1,0 +1,286 @@
+= gRPC server
+:description: A gRPC server that starts and stops with the application, for services written as coroutines, with the standard health service, traced and measured.
+
+`boot-server-grpc` runs a gRPC server as one of the application's services: `GrpcServer` starts the server when the application starts, and stops it gracefully when it stops.
+The services it serves are written as coroutines, on the server bases that https://github.com/Kotpb/kotpb-grpc-codegen[kotpb-grpc-codegen] generates from the application's `.proto` files.
+The server is grpc-java's, on its shaded Netty transport, so it can't clash with an application's own Netty, such as a Ktor server's.
+
+A `GrpcServer` is in the `Serving` phase, so it starts once the services it uses have started, and stops first, so the calls in flight can finish.
+It also serves the standard <<health,gRPC health service>>, answered from the application's lifecycle.
+
+== Install
+
+modules::grpc[]
+
+install::[boot-server-grpc]
+
+The application generates its own messages, stubs and server bases, with protoc and kotpb-grpc-codegen as a protoc plugin, here with the https://github.com/google/protobuf-gradle-plugin[protobuf Gradle plugin]:
+
+[source,kotlin,subs="attributes+"]
+----
+plugins {
+  id("com.google.protobuf") version "{protobuf-plugin-version}"
+}
+
+dependencies {
+  // protoc's Kotlin DSL builders for the messages
+  implementation("com.google.protobuf:protobuf-kotlin:{protobuf-version}")
+}
+
+protobuf {
+  protoc { artifact = "com.google.protobuf:protoc:{protobuf-version}" }
+  plugins {
+    // kotpb-grpc-codegen's native executable; on a platform it publishes none for, use its jar, "…:jvm@jar"
+    create("grpckt") { artifact = "io.github.kotpb:kotpb-grpc-codegen:{kotpb-version}" }
+  }
+  generateProtoTasks {
+    all().configureEach {
+      plugins { create("grpckt") }
+      builtins { create("kotlin") }
+    }
+  }
+}
+----
+
+`boot-server-grpc` brings grpc-java and grpc-kotlin's coroutine runtime, `grpc-kotlin-stub`, which the generated code runs on.
+
+== A service
+
+For each service in a `.proto`, kotpb-grpc-codegen generates a `<Service>CoroutineImplBase`, whose methods are coroutines, and a `<Service>CoroutineStub`, for clients.
+A service is an ordinary class that extends the base, and overrides its methods:
+
+[source,proto]
+----
+service Greeter {
+  rpc SayHello (HelloRequest) returns (HelloReply);
+  rpc StreamHellos (HelloRequest) returns (stream HelloReply);
+}
+----
+
+[source,kotlin]
+----
+include::ROOT:example$common/grpc/GreeterService.kt[tag=service,indent=0]
+----
+
+A unary method is a `suspend` function, and a streaming one returns, or takes, a `Flow`.
+Each call runs in a coroutine of its own, which is cancelled when the client cancels the call, or its deadline passes.
+
+A method fails its call with a `StatusException`, whose status the client gets.
+Any other exception is `UNKNOWN` to the client, with no details, and is logged.
+A method that isn't overridden answers `UNIMPLEMENTED`, as does one that calls Kotlin's `TODO()`.
+
+A service reads the call's headers with `grpcRequestHeaders()`:
+
+[source,kotlin]
+----
+include::ROOT:example$common/grpc/GreeterService.kt[tag=headers,indent=0]
+----
+
+`grpcRequestHeaders()` is in the `grpckotlins` package, with the server interceptors that fill gaps in grpc-kotlin's runtime: the call's headers, the caller's OpenTelemetry span in the call's coroutine, `UNIMPLEMENTED` for `TODO()`, and the log of other exceptions.
+Expect the package to shrink as grpc-kotlin, or a replacement such as kotlinx-rpc, fills those gaps.
+
+== Settings
+
+`GrpcServerConfig` reads `grpc.server`; every setting is optional:
+
+[source,hocon]
+----
+grpc.server {
+  hostPort = ":50051"         # <1>
+  reflection = true           # <2>
+  shutdownGracePeriod = 10s   # <3>
+  shutdownTimeout = 2s
+}
+----
+<1> A host, if any, and a port, which defaults to 50051; with no host, the server listens on every interface.
+<2> Serves gRPC server reflection, so tools such as `grpcurl` can call the server without its `.proto` files; off by default.
+<3> At shutdown, the server takes no new calls, and waits this long for those in flight; then it cancels the rest, and waits `shutdownTimeout` for them to finish.
+
+`maxInboundMessageSize` sets the largest message the server accepts; see kdoc:boot-server-grpc:com.github.rocketraman.bootable.server.grpc.GrpcServerConfig[all the settings].
+
+For what the config doesn't cover, such as TLS, keep-alive, or an interceptor of the application's own, give the server a `GrpcServerCustomizer`, which adjusts grpc-java's `ServerBuilder` before the server is built:
+
+[source,kotlin]
+----
+include::ROOT:example$vanilla/grpc/Server.kt[tag=customizer,indent=0]
+----
+
+With a DI, add it to the server's customizers as you add a service, below.
+
+[#health]
+== Health
+
+`GrpcHealth` serves the standard `grpc.health.v1.Health` service on the same server, answered from the application's xref:http:health.adoc[`HealthLifecycleController`], so a gRPC probe sees what the HTTP probes would:
+
+[cols="1,3",options="header"]
+|===
+| Service name | Status
+
+| `readiness`, and the empty name | The application's readiness, with its checks: `SERVING` while it is running and every check is healthy.
+| `liveness` | The application's liveness: `SERVING` until it has stopped.
+| Each service the server serves, such as `snippets.greeter.Greeter` | Its readiness.
+| Any other | `NOT_FOUND`; for `Watch`, `SERVICE_UNKNOWN`.
+|===
+
+For a Kubernetes gRPC probe, name the service:
+
+[source,yaml]
+----
+livenessProbe:
+  grpc: { port: 50051, service: liveness }
+readinessProbe:
+  grpc: { port: 50051, service: readiness }
+----
+
+A `Watch` call sends the status, then each change, until shutdown begins.
+Then it sends the status once more, and ends, so a watcher doesn't hold the graceful shutdown.
+So a readiness watch ends with `NOT_SERVING`, and a liveness watch, whose status doesn't change at shutdown, just ends.
+
+`GrpcHealthConfig` reads `health.grpc`, whose settings are the names of the liveness and readiness services, and `watchInterval`, how often a `Watch` checks for a change besides each change of the lifecycle's state, 5 seconds by default.
+
+== Wire
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+Construct the server, with the services it serves and the `GrpcHealth` it answers health from, and pass it to `Bootable`, with its `HealthLifecycleController` in place of the default one:
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/grpc/Server.kt[tag=wire,indent=0]
+----
+
+Kodein::
++
+Import `grpcServerModule`, and add each service with `bindGrpcService`:
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/grpc/Wiring.kt[tag=wire,indent=0]
+----
++
+Add a customizer to the `Set<GrpcServerCustomizer>` it opens, with `inBindSet`.
+
+Koin::
++
+Include `grpcServerModule()`, and define each service as a `BindableService`, with a qualifier of its own:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/grpc/Wiring.kt[tag=wire,indent=0]
+----
++
+Define a customizer the same way, as a `GrpcServerCustomizer`.
+
+Metro::
++
+`boot-server-grpc-metro` contributes the server; contribute each service into the `Set<BindableService>`:
++
+[source,kotlin]
+----
+include::ROOT:example$metro/grpc/Wiring.kt[tag=wire,indent=0]
+----
++
+Contribute a customizer the same way, `@IntoSet`, as a `GrpcServerCustomizer`.
+The graph is Bootable's, with the application's scope:
++
+[source,kotlin]
+----
+include::ROOT:example$metro/grpc/Wiring.kt[tag=graph,indent=0]
+----
+
+Inara::
++
+Compose `grpcServerModule()`, which requires the `BootableModule`, and mark each service `@GrpcServices`:
++
+[source,kotlin]
+----
+include::ROOT:example$inara/grpc/Wiring.kt[tag=wire,indent=0]
+----
++
+Mark a customizer `@GrpcServerCustomizers`.
+======
+
+[#telemetry]
+== Telemetry
+
+`boot-server-grpc-otel` adds `GrpcTelemetry`, a `GrpcServerCustomizer` that installs OpenTelemetry's gRPC server instrumentation.
+It traces every call, continuing the caller's trace when the call carries one, and records the standard RPC server metrics, such as `rpc.server.duration`.
+It reports through the application's OpenTelemetry SDK, from xref:telemetry:index.adoc[`boot-telemetry-otel`], which it brings in.
+
+install::[boot-server-grpc, boot-server-grpc-otel]
+
+The call's span is current in its coroutine, so a span started in a method, such as with `Tracer.withSpan`, is its child, and log events carry its trace id.
+
+It leaves the health service's calls out of the traces, so the platform's probes don't fill them.
+`GrpcTelemetryConfig` reads `telemetry.grpc`; every setting is optional:
+
+[source,hocon]
+----
+telemetry.grpc {
+  capturedRequestMetadata = [x-request-id]  # <1>
+  traceHealth = false                       # <2>
+}
+----
+<1> Records these request headers on each call's span, as `rpc.grpc.request.metadata.<key>`.
+<2> Traces the health service's calls too.
+
+For an instrumentation setting the config doesn't cover, add a `GrpcServerTelemetryCustomizer` (Kodein `inBindSet`, Koin a definition with a qualifier of its own, Metro `@IntoSet`, Inara `@GrpcServerTelemetryCustomizers`), or, with vanilla wiring, pass one to `GrpcTelemetry`.
+
+[tabs,sync-group-id=di]
+======
+Vanilla::
++
+Hand the `openTelemetry` of `OpenTelemetryService` to `GrpcTelemetry`, and give it to the server as a customizer:
++
+[source,kotlin]
+----
+include::ROOT:example$vanilla/grpc/Server.kt[tag=telemetry,indent=0]
+----
+
+Kodein::
++
+Import `grpcTelemetryModule`, with `openTelemetryModule`:
++
+[source,kotlin]
+----
+include::ROOT:example$kodein/grpc/Wiring.kt[tag=telemetry,indent=0]
+----
+
+Koin::
++
+Include `grpcTelemetryModule()`, with `openTelemetryModule()`:
++
+[source,kotlin]
+----
+include::ROOT:example$koin/grpc/Wiring.kt[tag=telemetry,indent=0]
+----
+
+Metro::
++
+`boot-server-grpc-otel-metro` contributes `GrpcTelemetry` to the server's customizers: add it, and `boot-telemetry-otel-metro`, as dependencies.
+
+Inara::
++
+Compose `grpcTelemetryModule()`, which requires an `OpenTelemetryApiModule`, such as `openTelemetryModule()`:
++
+[source,kotlin]
+----
+include::ROOT:example$inara/grpc/Wiring.kt[tag=telemetry,indent=0]
+----
+======
+
+== Example
+
+`examples/server-grpc` is a gRPC server with a unary and a server-streaming method, and the health service, wired by hand; see xref:examples:server-grpc.adoc[].
+
+== Reference
+
+* kdoc:boot-server-grpc:com.github.rocketraman.bootable.server.grpc.GrpcServer[]: the server
+* kdoc:boot-server-grpc:com.github.rocketraman.bootable.server.grpc.GrpcServerConfig[]: its settings
+* kdoc:boot-server-grpc:com.github.rocketraman.bootable.server.grpc.GrpcServerCustomizer[]: for what the settings don't cover
+* kdoc:boot-server-grpc:com.github.rocketraman.bootable.server.grpc.GrpcHealth[]: the health service
+* kdoc:boot-server-grpc:com.github.rocketraman.bootable.server.grpc.GrpcHealthConfig[]: its settings
+* kdoc:boot-server-grpc-otel:com.github.rocketraman.bootable.server.grpc.GrpcTelemetry[]: the telemetry
+* kdoc:boot-server-grpc-otel:com.github.rocketraman.bootable.server.grpc.GrpcTelemetryConfig[]: its settings

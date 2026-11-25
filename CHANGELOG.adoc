@@ -107,6 +107,20 @@ See the HTTP client in the https://rocketraman.github.io/bootable/[documentation
 * Pluggable engine: `boot-client-http-ktor-cio` or `-java`; Ktor's `MockEngine` works in tests.
 * `KtorClientCustomizer` installs extra plugins, such as `ContentNegotiation`, in every client.
 
+=== gRPC server
+
+See the gRPC server in the https://rocketraman.github.io/bootable/[documentation].
+
+* `boot-server-grpc`: `GrpcServer` serves grpc-java ``BindableService``s, as an `AppService` in the `Serving` phase, configured from `grpc.server`.
+* Services are written as coroutines, on the server bases https://github.com/Kotpb/kotpb-grpc-codegen[kotpb-grpc-codegen] generates, over grpc-kotlin's runtime.
+* A graceful shutdown: no new calls, a grace period for those in flight, then cancellation.
+* Optional server reflection, and ``GrpcServerCustomizer``s for TLS, keep-alive, or interceptors.
+* `GrpcHealth` serves `grpc.health.v1.Health` from the application's liveness and readiness, configured from `health.grpc`.
+* `grpcRequestHeaders()` reads the call's headers; `TODO()` answers `UNIMPLEMENTED`; other exceptions are logged.
+* `boot-server-grpc-otel`: `GrpcTelemetry` traces and measures each call, leaving the health service's calls out, configured from `telemetry.grpc`.
+* Koin, Metro, and Inara flavors, and a deprecated Kodein flavor.
+* `examples/server-grpc`: a runnable gRPC server.
+
 === Liveness and readiness
 
 See Health in the https://rocketraman.github.io/bootable/[documentation].

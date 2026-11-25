@@ -22,7 +22,7 @@ No classpath scanning, no auto-configuration, and no annotations that change wha
 Services start and stop in suspending functions, in phases and after the milestones they declare, and their background work runs in scopes of their own, so concurrency is structured.
 
 * *Libraries, used directly.*
-Optional modules set up well-chosen libraries for the common case, and expose their own types rather than wrapping them: Hoplite for configuration, Log4j2 for logging, HikariCP, Flyway, and Exposed for databases, Ktor for HTTP servers and clients, db-scheduler for persistent tasks, and OpenTelemetry for traces and metrics.
+Optional modules set up well-chosen libraries for the common case, and expose their own types rather than wrapping them: Hoplite for configuration, Log4j2 for logging, HikariCP, Flyway, and Exposed for databases, Ktor for HTTP servers and clients, grpc-java and kotpb-grpc-codegen for gRPC servers, db-scheduler for persistent tasks, and OpenTelemetry for traces and metrics.
 Liveness and readiness probes based on the registered services, periodic work, and leader election through a Kubernetes Lease are additional mini-libraries Bootable provides.
 
 * *Testing without booting.*
