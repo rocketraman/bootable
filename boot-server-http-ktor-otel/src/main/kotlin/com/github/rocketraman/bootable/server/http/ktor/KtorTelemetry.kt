@@ -156,7 +156,7 @@ class KtorTelemetry(
   }
 
   private object NoMetricsListener : AppService {
-    override val name = "MetricsKtorService (none)"
+    override val name get() = "MetricsKtorService (none)"
   }
 }
 

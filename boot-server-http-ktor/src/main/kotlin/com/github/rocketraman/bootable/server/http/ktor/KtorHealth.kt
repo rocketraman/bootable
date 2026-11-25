@@ -153,7 +153,7 @@ class KtorHealth(
   }
 
   private object NoHealthListener : AppService {
-    override val name = "HealthKtorService (none)"
+    override val name get() = "HealthKtorService (none)"
   }
 }
 

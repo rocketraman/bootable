@@ -5,7 +5,7 @@ import de.infix.testBalloon.framework.core.testSuite
 private class Unnamed : AppService
 
 private class NamedByProperty : AppService {
-  override val name = "property"
+  override val name get() = "property"
 }
 
 private class NamedByFunction : AppService {

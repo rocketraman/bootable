@@ -119,7 +119,7 @@ private val Long.startInstant: KotlinInstant get() = KotlinInstant.fromEpochSeco
 private suspend fun traceStart(tracing: ServiceStartTracing, telemetry: InMemoryTelemetry): Pair<KotlinInstant, KotlinInstant> {
   tracing.aroundAppStart(ServiceContext(emptySet(), emptyList(), {}, {}), aSecondAgo()) {
     val pool = object : AppService {
-      override val name = "pool"
+      override val name get() = "pool"
       override suspend fun start() = Unit
     }
     tracing.aroundServiceStart(pool, pool::start)

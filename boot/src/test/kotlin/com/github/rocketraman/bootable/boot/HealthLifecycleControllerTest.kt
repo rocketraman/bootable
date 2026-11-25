@@ -176,7 +176,7 @@ val HealthLifecycleControllerTest by testSuite {
   test("the reports have each service's state") {
     val health = HealthLifecycleController()
     val service = object : AppService {
-      override val name = "pool"
+      override val name get() = "pool"
     }
     runApp(health, setOf(service)) {
       assert(health.liveness().services == mapOf("pool" to ServiceState.Running))
