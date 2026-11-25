@@ -11,6 +11,7 @@ import org.apache.logging.log4j.core.LogEvent
 import org.apache.logging.log4j.core.config.ConfigurationSource
 import org.apache.logging.log4j.core.config.xml.XmlConfiguration
 import org.apache.logging.log4j.core.impl.Log4jLogEvent
+import org.apache.logging.log4j.message.SimpleMessage
 import org.apache.logging.log4j.util.SortedArrayStringMap
 
 /** The layout of the `Console` appender in one of Bootable's base configs, as `loggingInit` would load it. */
@@ -86,5 +87,34 @@ val StructuredMessageLayoutTest by testSuite {
     assert(json["tenant"] == JsonPrimitive("acme"))
     assert("trace_id" !in json && "span_id" !in json && "trace_flags" !in json)
     assert("fields" !in json && "labels" !in json)
+  }
+
+  test("JSON writes an exception as ECS's error fields") {
+    val json = consoleLayout("log4j2-base-json.xml")
+      .renderJson(event(SimpleMessage("failed"), thrown = IllegalStateException("boom")))
+    assert(json["error.type"] == JsonPrimitive("java.lang.IllegalStateException"))
+    assert(json["error.message"] == JsonPrimitive("boom"))
+    assert("trace.id" !in json)
+    assert("log.origin.function" !in json)
+  }
+
+  test("JSON writes the source location as ECS's log.origin fields when it is enabled") {
+    System.setProperty("logging.location.enabled", "true")
+    val layout = try {
+      consoleLayout("log4j2-base-json.xml")
+    } finally {
+      System.clearProperty("logging.location.enabled")
+    }
+    val event = Log4jLogEvent.newBuilder()
+      .setLoggerName("com.example.Orders")
+      .setLevel(Level.INFO)
+      .setMessage(SimpleMessage("placed"))
+      .setSource(StackTraceElement("com.example.Orders", "place", "Orders.kt", 12))
+      .setIncludeLocation(true)
+      .build()
+    val json = layout.renderJson(event)
+    assert(json["log.origin.file.name"] == JsonPrimitive("Orders.kt"))
+    assert(json["log.origin.file.line"] == JsonPrimitive(12))
+    assert(json["log.origin.function"] == JsonPrimitive("place"))
   }
 }
