@@ -23,6 +23,7 @@ Pick a wiring style. Every page on this site shows its code in the style you pic
 - [Logging](https://rocketraman.github.io/bootable/bootable/next/logging/index.html.md) Log4j2, with plain, coloured, JSON, and Google Cloud output.
 - [Database](https://rocketraman.github.io/bootable/bootable/next/database/index.html.md) A lifecycle-managed connection pool, migrations, and Exposed.
 - [Web / HTTP](https://rocketraman.github.io/bootable/bootable/next/http/index.html.md) A Ktor server and clients, with liveness and readiness probes.
+- [gRPC server](https://rocketraman.github.io/bootable/bootable/next/grpc/index.html.md) A gRPC server for services written as coroutines, with the standard health service.
 - [Background work](https://rocketraman.github.io/bootable/bootable/next/background/index.html.md) Periodic loops, leader election, and persistent scheduled tasks.
 - [Telemetry](https://rocketraman.github.io/bootable/bootable/next/telemetry/index.html.md) OpenTelemetry traces and metrics, pushed or pulled.
 - [Testing](https://rocketraman.github.io/bootable/bootable/next/testing/index.html.md) Helpers for fast unit tests, with no application booted.

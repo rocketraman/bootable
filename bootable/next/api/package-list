@@ -50,6 +50,11 @@ module:boot-periodic
 com.github.rocketraman.bootable.periodic
 module:boot-scheduler-db
 com.github.rocketraman.bootable.scheduler.db
+module:boot-server-grpc
+com.github.rocketraman.bootable.server.grpc
+com.github.rocketraman.bootable.server.grpc.grpckotlins
+module:boot-server-grpc-otel
+com.github.rocketraman.bootable.server.grpc
 module:boot-server-http-ktor
 com.github.rocketraman.bootable.server.http.ktor
 module:boot-server-http-ktor-cio
