@@ -3,7 +3,10 @@
   <Appenders>
     <!-- Setting direct to false can cause a race with standard i/o redirection -->
     <Console name="Console" direct="${env:LOGGING_CONSOLE_DIRECT:-${sys:logging.console.direct:-true}}">
-      <JsonTemplateLayout eventTemplateUri="classpath:GcpLayout.json" locationInfoEnabled="${env:LOGGING_LOCATION_ENABLED:-${sys:logging.location.enabled:-false}}"/>
+      <JsonTemplateLayout eventTemplateUri="classpath:GcpLayout.json" locationInfoEnabled="${env:LOGGING_LOCATION_ENABLED:-${sys:logging.location.enabled:-false}}">
+        <!-- a StructuredMessage's fields, or any MapMessage's entries, as top-level fields -->
+        <EventTemplateAdditionalField key="fields" format="JSON" value='{"$resolver": "map", "flatten": true}'/>
+      </JsonTemplateLayout>
     </Console>
   </Appenders>
   <Loggers>

@@ -3,7 +3,20 @@
   <Appenders>
     <!-- Setting direct to false can cause a race with standard i/o redirection -->
     <Console name="Console" direct="${env:LOGGING_CONSOLE_DIRECT:-${sys:logging.console.direct:-true}}">
-      <JsonTemplateLayout locationInfoEnabled="${env:LOGGING_LOCATION_ENABLED:-${sys:logging.location.enabled:-false}}"/>
+      <!--
+        Log4j's Elastic Common Schema template, plus the structured fields, the source location, and the OpenTelemetry
+        trace and span as ECS's trace.id and span.id. An additional field replaces the template's field of the same key:
+        labels replaces the template's, to leave the trace context out of the flattened MDC.
+      -->
+      <JsonTemplateLayout eventTemplateUri="classpath:EcsLayout.json" locationInfoEnabled="${env:LOGGING_LOCATION_ENABLED:-${sys:logging.location.enabled:-false}}">
+        <EventTemplateAdditionalField key="labels" format="JSON" value='{"$resolver": "mdc", "pattern": "^(?!(trace_id|span_id|trace_flags)$).*", "flatten": true, "stringified": true}'/>
+        <EventTemplateAdditionalField key="trace.id" format="JSON" value='{"$resolver": "mdc", "key": "trace_id"}'/>
+        <EventTemplateAdditionalField key="span.id" format="JSON" value='{"$resolver": "mdc", "key": "span_id"}'/>
+        <EventTemplateAdditionalField key="log.origin.file.name" format="JSON" value='{"$resolver": "source", "field": "fileName"}'/>
+        <EventTemplateAdditionalField key="log.origin.file.line" format="JSON" value='{"$resolver": "source", "field": "lineNumber"}'/>
+        <EventTemplateAdditionalField key="log.origin.function" format="JSON" value='{"$resolver": "source", "field": "methodName"}'/>
+        <EventTemplateAdditionalField key="fields" format="JSON" value='{"$resolver": "map", "flatten": true}'/>
+      </JsonTemplateLayout>
     </Console>
   </Appenders>
   <Loggers>

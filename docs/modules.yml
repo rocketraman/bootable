@@ -72,7 +72,7 @@ functions:
     note: comes with `boot`; add it yourself to call its API, such as `LoggingType`
     modules:
     - name: boot-logging-log4j2
-      provides: Log4j2, with layouts for plain, coloured, JSON, and Google Cloud output
+      provides: Log4j2, with layouts for plain, coloured, Elastic Common Schema JSON, and Google Cloud output, and `StructuredMessage` for structured fields
       page: logging:index.adoc
   - title: Core
     choice: implied
