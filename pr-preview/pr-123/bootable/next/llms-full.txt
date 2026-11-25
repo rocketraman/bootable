@@ -1672,11 +1672,13 @@ class Orders {
   }
 }
 
-// an event logged in many places, as a class of its own
-class OrderShipped(id: String, carrier: String) : FieldsMessage(
-  "order $id shipped",
-  "order.id" to id,
-  "order.carrier" to carrier,
+// an event of the application's own type, with its fields taken from the type
+class Shipment(val orderId: String, val carrier: String)
+
+class OrderShipped(shipment: Shipment) : FieldsMessage(
+  "order ${shipment.orderId} shipped",
+  "order.id" to shipment.orderId,
+  "order.carrier" to shipment.carrier,
 )
 ```
 
