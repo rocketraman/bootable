@@ -1034,12 +1034,12 @@ dependencies {
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-config-hoplite-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -1439,12 +1439,12 @@ dependencies {
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-env-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -1921,7 +1921,7 @@ Without telemetry:
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
@@ -1929,7 +1929,7 @@ dependencies {
   implementation("com.github.rocketraman.bootable:boot-db-pool-hikari-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-db-flyway-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-db-exposed-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -1937,7 +1937,7 @@ With telemetry:
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
@@ -1947,7 +1947,7 @@ dependencies {
   implementation("com.github.rocketraman.bootable:boot-db-exposed-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-db-jdbc-otel-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -2645,13 +2645,13 @@ Without telemetry:
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-cio-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -2659,7 +2659,7 @@ With telemetry:
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
@@ -2667,7 +2667,7 @@ dependencies {
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-cio-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-otel-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -2854,13 +2854,13 @@ Without telemetry:
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-cio-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -2868,7 +2868,7 @@ With telemetry:
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
@@ -2876,7 +2876,7 @@ dependencies {
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-cio-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-otel-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -3147,7 +3147,7 @@ dependencies {
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
@@ -3155,7 +3155,7 @@ dependencies {
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-cio-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-otel-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-prometheus-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -3444,13 +3444,13 @@ Without telemetry:
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-client-http-ktor-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-client-http-ktor-cio:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -3458,7 +3458,7 @@ With telemetry:
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
@@ -3466,7 +3466,7 @@ dependencies {
   implementation("com.github.rocketraman.bootable:boot-client-http-ktor-cio:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-client-http-ktor-otel-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -3849,7 +3849,7 @@ dependencies {
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
@@ -3857,7 +3857,7 @@ dependencies {
   implementation("com.github.rocketraman.bootable:boot-client-http-ktor-cio:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-client-http-ktor-otel-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -4075,13 +4075,13 @@ Without telemetry:
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-cio-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -4089,7 +4089,7 @@ With telemetry:
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
@@ -4097,7 +4097,7 @@ dependencies {
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-cio-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-otel-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -4516,12 +4516,12 @@ Without telemetry:
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-server-grpc-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -4529,14 +4529,14 @@ With telemetry:
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-server-grpc-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-server-grpc-otel-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -4822,13 +4822,13 @@ dependencies {
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-server-grpc-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-server-grpc-otel-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -5121,7 +5121,7 @@ Without telemetry:
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
@@ -5132,7 +5132,7 @@ dependencies {
   implementation("com.github.rocketraman.bootable:boot-db-jdbc-sqlite-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-db-pool-hikari-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-db-flyway-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -5140,7 +5140,7 @@ With telemetry:
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
@@ -5154,7 +5154,7 @@ dependencies {
   implementation("com.github.rocketraman.bootable:boot-db-flyway-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-db-jdbc-otel-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -6302,12 +6302,12 @@ dependencies {
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -6703,13 +6703,13 @@ dependencies {
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-prometheus-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-otel-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -6881,12 +6881,12 @@ dependencies {
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-signoz-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -7006,12 +7006,12 @@ dependencies {
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-gcp-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -7126,12 +7126,12 @@ dependencies {
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-micrometer-bridge-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -7288,7 +7288,7 @@ dependencies {
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {

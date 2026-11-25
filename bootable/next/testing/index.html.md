@@ -70,7 +70,7 @@ dependencies {
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
