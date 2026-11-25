@@ -7,6 +7,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.powerassert.gradle.PowerAssertGradleExtension
 import dev.zacsweers.metro.gradle.MetroPluginExtension
+import com.google.protobuf.gradle.ProtobufExtension
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.publish.PublishingExtension
@@ -20,6 +21,7 @@ plugins {
   alias(libs.plugins.jib) apply false
   alias(libs.plugins.kilua) apply false
   alias(libs.plugins.metro) apply false
+  alias(libs.plugins.protobuf) apply false
   alias(libs.plugins.kotlin.compose) apply false
   alias(libs.plugins.kotlin.power.assert) apply false
   alias(libs.plugins.kotlin.serialization) apply false
@@ -1311,6 +1313,38 @@ project("boot-server-http-ktor-otel") {
   sourceSets.named("test") {
     compileClasspath += sourceSets["kodein"].output + sourceSets["koin"].output + sourceSets["metro"].output + sourceSets["inara"].output
     runtimeClasspath += sourceSets["kodein"].output + sourceSets["koin"].output + sourceSets["metro"].output + sourceSets["inara"].output
+  }
+}
+
+/**
+ * kotpb-grpc-codegen's artifact for protoc: its native executable where it publishes one for this platform, and
+ * otherwise its jar, which the protobuf plugin runs on the JVM. The platforms are those its pinned version publishes;
+ * check them at each upgrade.
+ */
+fun Project.kotpbGrpcCodegen(artifact: String): String {
+  val nativePlatforms = setOf("linux-x86_64", "linux-aarch_64", "osx-aarch_64", "windows-x86_64")
+  val platform = extensions.getByType<com.google.gradle.osdetector.OsDetector>().classifier
+  return if (platform in nativePlatforms) artifact else "$artifact:jvm@jar"
+}
+
+/**
+ * Generates the messages, with their Kotlin DSL builders, and the coroutine stubs and server bases, of the test source
+ * set's protos, under src/test/proto, with protoc and kotpb-grpc-codegen, as an application generates its own.
+ */
+fun Project.configureGrpcProtos() {
+  apply(plugin = "com.google.protobuf")
+  dependencies.add("testImplementation", rootProject.libs.protobuf.java)
+  // the messages' Kotlin DSL builders, as an application uses them
+  dependencies.add("testImplementation", rootProject.libs.protobuf.kotlin)
+  extensions.configure<ProtobufExtension> {
+    protoc { artifact = rootProject.libs.protobuf.protoc.get().toString() }
+    plugins { create("grpckt") { artifact = kotpbGrpcCodegen(rootProject.libs.kotpb.grpc.codegen.get().toString()) } }
+    generateProtoTasks {
+      all().configureEach {
+        plugins { create("grpckt") }
+        builtins { create("kotlin") }
+      }
+    }
   }
 }
 

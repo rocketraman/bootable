@@ -6,10 +6,16 @@ exposed = "1.6.0"
 flyway = "13.11.1"
 google-auth = "1.54.0"
 graalvm-buildtools = "0.11.5"
+grpc = "1.85.1"
+# grpc-kotlin's coroutine runtime, which the code kotpb-grpc-codegen generates runs on; built against grpc-java 1.62,
+# and run on the grpc-java above
+grpc-kotlin = "1.5.0"
 hikari = "7.1.0"
 hoplite = "3.0.7"
 # experimental: Kodein's compile-time successor, a KSP processor
 inara = "0.4.0"
+# protoc plugin: Kotlin coroutine stubs and server bases, for grpc-kotlin's runtime, without grpc-java's own plugin
+kotpb = "0.2.3"
 # 4.0.0 is out, but npm tags it next rather than latest, and Ktor's HTMX attributes follow htmx 2
 htmx = "2.0.11"
 jib = "3.5.4"
@@ -34,6 +40,9 @@ opentelemetry-instrumentation-alpha = "2.32.0-alpha"
 postgresql = "42.7.14"
 # the version opentelemetry-exporter-prometheus is built against
 prometheus-metrics = "1.8.0"
+# protobuf-java and protoc, kept in step: generated code needs a runtime at least as new as its protoc
+protobuf = "4.36.2"
+protobuf-plugin = "0.10.1"
 sqlite-jdbc = "3.53.4.0"
 testcontainers = "2.0.5"
 testBalloon = "1.1.0"
@@ -52,6 +61,7 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "vanniktech-publish" }
 metro = { id = "dev.zacsweers.metro", version.ref = "metro" }
+protobuf = { id = "com.google.protobuf", version.ref = "protobuf-plugin" }
 testBalloon = { id = "de.infix.testBalloon", version.ref = "testBalloon" }
 
 [libraries]
@@ -68,6 +78,17 @@ flyway-mysql = { module = "org.flywaydb:flyway-mysql", version.ref = "flyway" }
 google-auth-library-oauth2-http = { module = "com.google.auth:google-auth-library-oauth2-http", version.ref = "google-auth" }
 
 hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
+
+grpc-api = { module = "io.grpc:grpc-api", version.ref = "grpc" }
+grpc-netty-shaded = { module = "io.grpc:grpc-netty-shaded", version.ref = "grpc" }
+grpc-protobuf = { module = "io.grpc:grpc-protobuf", version.ref = "grpc" }
+grpc-services = { module = "io.grpc:grpc-services", version.ref = "grpc" }
+grpc-stub = { module = "io.grpc:grpc-stub", version.ref = "grpc" }
+grpc-kotlin-stub = { module = "io.grpc:grpc-kotlin-stub", version.ref = "grpc-kotlin" }
+kotpb-grpc-codegen = { module = "io.github.kotpb:kotpb-grpc-codegen", version.ref = "kotpb" }
+protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobuf" }
+protobuf-kotlin = { module = "com.google.protobuf:protobuf-kotlin", version.ref = "protobuf" }
+protobuf-protoc = { module = "com.google.protobuf:protoc", version.ref = "protobuf" }
 
 hoplite-core = { module = "com.sksamuel.hoplite:hoplite-core", version.ref = "hoplite" }
 hoplite-hocon = { module = "com.sksamuel.hoplite:hoplite-hocon", version.ref = "hoplite" }
@@ -105,6 +126,7 @@ opentelemetry-exporter-prometheus = { module = "io.opentelemetry:opentelemetry-e
 opentelemetry-exporter-sender-jdk = { module = "io.opentelemetry:opentelemetry-exporter-sender-jdk", version.ref = "opentelemetry" }
 opentelemetry-extension-kotlin = { module = "io.opentelemetry:opentelemetry-extension-kotlin", version.ref = "opentelemetry" }
 opentelemetry-gcp-resources = { module = "io.opentelemetry.contrib:opentelemetry-gcp-resources", version.ref = "opentelemetry-contrib-alpha" }
+opentelemetry-instrumentation-grpc = { module = "io.opentelemetry.instrumentation:opentelemetry-grpc-1.6", version.ref = "opentelemetry-instrumentation-alpha" }
 opentelemetry-instrumentation-hikaricp = { module = "io.opentelemetry.instrumentation:opentelemetry-hikaricp-3.0", version.ref = "opentelemetry-instrumentation-alpha" }
 opentelemetry-instrumentation-jdbc = { module = "io.opentelemetry.instrumentation:opentelemetry-jdbc", version.ref = "opentelemetry-instrumentation-alpha" }
 opentelemetry-instrumentation-ktor = { module = "io.opentelemetry.instrumentation:opentelemetry-ktor-3.0", version.ref = "opentelemetry-instrumentation-alpha" }
