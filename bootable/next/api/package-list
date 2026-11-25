@@ -46,6 +46,8 @@ module:boot-logging
 com.github.rocketraman.bootable.logging
 module:boot-logging-log4j2
 com.github.rocketraman.bootable.logging.log4j2
+module:boot-logging-log4j2-serialization
+com.github.rocketraman.bootable.logging.log4j2.serialization
 module:boot-periodic
 com.github.rocketraman.bootable.periodic
 module:boot-scheduler-db

@@ -14,6 +14,8 @@
 | --- | --- |
 | **Log4j2: comes with `boot`; add it yourself to call its API, such as `LoggingType`** |  |
 | `boot-logging-log4j2` | Log4j2, with layouts for plain, coloured, Elastic Common Schema JSON, and Google Cloud output, and `StructuredMessage` for structured fields |
+| **Serializable fields: optional** |  |
+| `boot-logging-log4j2-serialization` | `structuredMessageOf`, a `StructuredMessage` from a `@Serializable` value |
 | **Core: comes with Log4j2** |  |
 | `boot-logging` | `BootLoggingLevel` |
 
@@ -23,41 +25,110 @@
 
 **Vanilla:**
 
+Without telemetry:
+
 ```kotlin
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+}
+```
+
+With telemetry:
+
+```kotlin
+dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel:3.1.0-SNAPSHOT")
 }
 ```
 
 **Kodein:**
 
+Without telemetry:
+
 ```kotlin
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+}
+```
+
+With telemetry:
+
+```kotlin
+dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-kodein:3.1.0-SNAPSHOT")
 }
 ```
 
 **Koin:**
 
+Without telemetry:
+
 ```kotlin
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+}
+```
+
+With telemetry:
+
+```kotlin
+dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-koin:3.1.0-SNAPSHOT")
 }
 ```
 
 **Metro:**
 
+Without telemetry:
+
 ```kotlin
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
 }
 ```
 
+With telemetry:
+
+```kotlin
+plugins {
+  id("dev.zacsweers.metro") version "1.4.5"
+}
+
+dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-metro:3.1.0-SNAPSHOT")
+}
+```
+
 **Inara:**
+
+Without telemetry:
 
 ```kotlin
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+}
+```
+
+With telemetry:
+
+```kotlin
+plugins {
+  id("com.google.devtools.ksp") version "2.3.14"
+}
+
+dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-inara:3.1.0-SNAPSHOT")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -119,6 +190,66 @@ Name the fields as the backend expects them, such as the [Elastic Common Schema]
 The JSON output types write the entries of any of Log4j’s map messages this way, such as a `StringMapMessage`.
 
 Fields belong to one event; for fields that every event logged during a request should carry, such as a request id, put them in Log4j’s `ThreadContext` instead, with `withLoggingContext` from Log4j’s Kotlin API. `JSON` writes the context’s entries as top-level fields too.
+
+#### From a serializable value
+
+`structuredMessageOf`, in `boot-logging-log4j2-serialization`, makes a `StructuredMessage` from a `@Serializable` value, with each of its properties as a field:
+
+**Vanilla:**
+
+```kotlin
+dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+}
+```
+
+**Kodein:**
+
+```kotlin
+dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+}
+```
+
+**Koin:**
+
+```kotlin
+dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+}
+```
+
+**Metro:**
+
+```kotlin
+dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+}
+```
+
+**Inara:**
+
+```kotlin
+dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+}
+```
+
+```kotlin
+@Serializable
+data class Refund(val orderId: String, val amount: Long, val reason: String)
+
+class Refunds {
+  private val log = logger()
+
+  fun refund(refund: Refund) {
+    // ...
+    log.info(structuredMessageOf("order ${refund.orderId} refunded", refund, prefix = "refund"))
+  }
+}
+```
+
+The event has the fields `refund.orderId`, `refund.amount`, and `refund.reason`. A nested object’s properties are fields too, named with a dot: a `customer` property with an `id` is the field `refund.customer.id`. A list stays a list, which `JSON` writes as an array. The `prefix` is optional; without it, the fields are named for the properties alone. The value is encoded with kotlinx.serialization’s `Json`, or with a `json` of your own, so `@SerialName` names a field.
 
 ## Output types
 
@@ -224,6 +355,7 @@ LOGGING_TYPE=json ./gradlew :examples:wiring-vanilla:run
 - [`LoggingType`](https://rocketraman.github.io/bootable/bootable/next/api/boot-logging-log4j2/com.github.rocketraman.bootable.logging.log4j2/-logging-type/index.html): the output types
 - [`loggingInit`](https://rocketraman.github.io/bootable/bootable/next/api/boot-logging-log4j2/com.github.rocketraman.bootable.logging.log4j2/logging-init.html): initializes logging, as `boot { }` does
 - [`StructuredMessage`](https://rocketraman.github.io/bootable/bootable/next/api/boot-logging-log4j2/com.github.rocketraman.bootable.logging.log4j2/-structured-message/index.html): a message with structured fields
+- [`structuredMessageOf`](https://rocketraman.github.io/bootable/bootable/next/api/boot-logging-log4j2-serialization/com.github.rocketraman.bootable.logging.log4j2.serialization/structured-message-of.html): a `StructuredMessage` from a serializable value
 - [`BootLoggingLevel`](https://rocketraman.github.io/bootable/bootable/next/api/boot-logging/com.github.rocketraman.bootable.logging/-boot-logging-level/index.html): the log levels
 - [Log4j2’s configuration](https://logging.apache.org/log4j/2.x/manual/configuration.html)
 - [Elastic Common Schema’s fields](https://www.elastic.co/guide/en/ecs/current/ecs-field-reference.html)

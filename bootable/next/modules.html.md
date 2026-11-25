@@ -38,6 +38,8 @@ See [Logging (Log4j2)](https://rocketraman.github.io/bootable/bootable/next/logg
 | --- | --- |
 | **Log4j2: comes with `boot`; add it yourself to call its API, such as `LoggingType`** |  |
 | [`boot-logging-log4j2`](https://rocketraman.github.io/bootable/bootable/next/logging/index.html.md) | Log4j2, with layouts for plain, coloured, Elastic Common Schema JSON, and Google Cloud output, and `StructuredMessage` for structured fields |
+| **Serializable fields: optional** |  |
+| [`boot-logging-log4j2-serialization`](https://rocketraman.github.io/bootable/bootable/next/logging/index.html.md#serializable) | `structuredMessageOf`, a `StructuredMessage` from a `@Serializable` value |
 | **Core: comes with Log4j2** |  |
 | `boot-logging` | `BootLoggingLevel` |
 

@@ -294,6 +294,9 @@
     <a class="nav-link" href="../api/boot-logging-log4j2/index.html">boot-logging-log4j2</a>
   </li>
   <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-logging-log4j2-serialization/index.html">boot-logging-log4j2-serialization</a>
+  </li>
+  <li class="nav-item" data-depth="1">
     <a class="nav-link" href="../api/boot-periodic/index.html">boot-periodic</a>
   </li>
   <li class="nav-item" data-depth="1">
@@ -420,6 +423,13 @@ It comes with <code>boot-logging-log4j2</code>.</p>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Log4j2, with layouts for plain, coloured, Elastic Common Schema JSON, and Google Cloud output, and <code>StructuredMessage</code> for structured fields</p></td>
 </tr>
 <tr>
+<th class="tableblock halign-left valign-top" colspan="2"><p class="tableblock">Serializable fields: optional</p></th>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>boot-logging-log4j2-serialization</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>structuredMessageOf</code>, a <code>StructuredMessage</code> from a <code>@Serializable</code> value</p></td>
+</tr>
+<tr>
 <th class="tableblock halign-left valign-top" colspan="2"><p class="tableblock">Core: comes with Log4j2</p></th>
 </tr>
 <tr>
@@ -437,6 +447,8 @@ It comes with <code>boot-logging-log4j2</code>.</p>
 <p><code>boot</code> brings <code>boot-logging-log4j2</code> at runtime, since <code>boot { }</code> initializes it.
 Add it as a dependency to use its API in your code: <code>LoggingType</code>, <code>loggingInit</code>, <code>StructuredMessage</code>, and Log4j&#8217;s Kotlin API.</p>
 </div>
+<div class="openblock install-telemetry">
+<div class="content">
 <div id="_tabs_1" class="openblock tabs is-sync data-sync-group-id=di is-loading">
 <div class="content">
 <div class="ulist tablist">
@@ -459,47 +471,103 @@ Add it as a dependency to use its API in your code: <code>LoggingType</code>, <c
 </ul>
 </div>
 <div id="_tabs_1_vanilla--panel" class="tabpanel" aria-labelledby="_tabs_1_vanilla">
-<div class="listingblock">
+<div class="listingblock install-plain">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
   implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+<div class="listingblock install-otel">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel:3.1.0-SNAPSHOT")
 }</code></pre>
 </div>
 </div>
 </div>
 <div id="_tabs_1_kodein--panel" class="tabpanel" aria-labelledby="_tabs_1_kodein">
-<div class="listingblock">
+<div class="listingblock install-plain">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
   implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+<div class="listingblock install-otel">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-kodein:3.1.0-SNAPSHOT")
 }</code></pre>
 </div>
 </div>
 </div>
 <div id="_tabs_1_koin--panel" class="tabpanel" aria-labelledby="_tabs_1_koin">
-<div class="listingblock">
+<div class="listingblock install-plain">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
   implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+<div class="listingblock install-otel">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-koin:3.1.0-SNAPSHOT")
 }</code></pre>
 </div>
 </div>
 </div>
 <div id="_tabs_1_metro--panel" class="tabpanel" aria-labelledby="_tabs_1_metro">
-<div class="listingblock">
+<div class="listingblock install-plain">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
   implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+<div class="listingblock install-otel">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">plugins {
+  id("dev.zacsweers.metro") version "1.4.5"
+}
+
+dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-metro:3.1.0-SNAPSHOT")
 }</code></pre>
 </div>
 </div>
 </div>
 <div id="_tabs_1_inara--panel" class="tabpanel" aria-labelledby="_tabs_1_inara">
-<div class="listingblock">
+<div class="listingblock install-plain">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
   implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
 }</code></pre>
+</div>
+</div>
+<div class="listingblock install-otel">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">plugins {
+  id("com.google.devtools.ksp") version "2.3.14"
+}
+
+dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+  implementation("com.github.rocketraman.bootable:boot-telemetry-otel-inara:3.1.0-SNAPSHOT")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
+}</code></pre>
+</div>
+</div>
 </div>
 </div>
 </div>
@@ -601,6 +669,102 @@ The output types write these fields:</p>
 <div class="paragraph">
 <p>Fields belong to one event; for fields that every event logged during a request should carry, such as a request id, put them in Log4j&#8217;s <code>ThreadContext</code> instead, with <code>withLoggingContext</code> from Log4j&#8217;s Kotlin API.
 <code>JSON</code> writes the context&#8217;s entries as top-level fields too.</p>
+</div>
+<div class="sect3">
+<h4 id="serializable"><a class="anchor" href="#serializable"></a>From a serializable value</h4>
+<div class="paragraph">
+<p><code>structuredMessageOf</code>, in <code>boot-logging-log4j2-serialization</code>, makes a <code>StructuredMessage</code> from a <code>@Serializable</code> value, with each of its properties as a field:</p>
+</div>
+<div id="_tabs_2" class="openblock tabs is-sync data-sync-group-id=di is-loading">
+<div class="content">
+<div class="ulist tablist">
+<ul>
+<li id="_tabs_2_vanilla" class="tab">
+<p>Vanilla</p>
+</li>
+<li id="_tabs_2_kodein" class="tab">
+<p>Kodein</p>
+</li>
+<li id="_tabs_2_koin" class="tab">
+<p>Koin</p>
+</li>
+<li id="_tabs_2_metro" class="tab">
+<p>Metro</p>
+</li>
+<li id="_tabs_2_inara" class="tab">
+<p>Inara</p>
+</li>
+</ul>
+</div>
+<div id="_tabs_2_vanilla--panel" class="tabpanel" aria-labelledby="_tabs_2_vanilla">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_kodein--panel" class="tabpanel" aria-labelledby="_tabs_2_kodein">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_koin--panel" class="tabpanel" aria-labelledby="_tabs_2_koin">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_metro--panel" class="tabpanel" aria-labelledby="_tabs_2_metro">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+<div id="_tabs_2_inara--panel" class="tabpanel" aria-labelledby="_tabs_2_inara">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">dependencies {
+  implementation("com.github.rocketraman.bootable:boot-logging-log4j2-serialization:3.1.0-SNAPSHOT")
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@Serializable
+data class Refund(val orderId: String, val amount: Long, val reason: String)
+
+class Refunds {
+  private val log = logger()
+
+  fun refund(refund: Refund) {
+    // ...
+    log.info(structuredMessageOf("order ${refund.orderId} refunded", refund, prefix = "refund"))
+  }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The event has the fields <code>refund.orderId</code>, <code>refund.amount</code>, and <code>refund.reason</code>.
+A nested object&#8217;s properties are fields too, named with a dot: a <code>customer</code> property with an <code>id</code> is the field <code>refund.customer.id</code>.
+A list stays a list, which <code>JSON</code> writes as an array.
+The <code>prefix</code> is optional; without it, the fields are named for the properties alone.
+The value is encoded with kotlinx.serialization&#8217;s <code>Json</code>, or with a <code>json</code> of your own, so <code>@SerialName</code> names a field.</p>
+</div>
 </div>
 </div>
 </div>
@@ -840,6 +1004,9 @@ From the repository root, run one with JSON output:</p>
 </li>
 <li>
 <p><a href="../api/boot-logging-log4j2/com.github.rocketraman.bootable.logging.log4j2/-structured-message/index.html" class="kdoc"><code>StructuredMessage</code></a>: a message with structured fields</p>
+</li>
+<li>
+<p><a href="../api/boot-logging-log4j2-serialization/com.github.rocketraman.bootable.logging.log4j2.serialization/structured-message-of.html" class="kdoc"><code>structuredMessageOf</code></a>: a <code>StructuredMessage</code> from a serializable value</p>
 </li>
 <li>
 <p><a href="../api/boot-logging/com.github.rocketraman.bootable.logging/-boot-logging-level/index.html" class="kdoc"><code>BootLoggingLevel</code></a>: the log levels</p>
