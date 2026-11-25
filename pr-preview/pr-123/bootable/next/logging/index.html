@@ -417,7 +417,7 @@ It comes with <code>boot-logging-log4j2</code>.</p>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>boot-logging-log4j2</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Log4j2, with layouts for plain, coloured, Elastic Common Schema JSON, and Google Cloud output, and <code>FieldsMessage</code> for structured fields</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Log4j2, with layouts for plain, coloured, Elastic Common Schema JSON, and Google Cloud output, and <code>StructuredMessage</code> for structured fields</p></td>
 </tr>
 <tr>
 <th class="tableblock halign-left valign-top" colspan="2"><p class="tableblock">Core: comes with Log4j2</p></th>
@@ -435,7 +435,7 @@ It comes with <code>boot-logging-log4j2</code>.</p>
 <div class="sectionbody">
 <div class="paragraph">
 <p><code>boot</code> brings <code>boot-logging-log4j2</code> at runtime, since <code>boot { }</code> initializes it.
-Add it as a dependency to use its API in your code: <code>LoggingType</code>, <code>loggingInit</code>, <code>FieldsMessage</code>, and Log4j&#8217;s Kotlin API.</p>
+Add it as a dependency to use its API in your code: <code>LoggingType</code>, <code>loggingInit</code>, <code>StructuredMessage</code>, and Log4j&#8217;s Kotlin API.</p>
 </div>
 <div id="_tabs_1" class="openblock tabs is-sync data-sync-group-id=di is-loading">
 <div class="content">
@@ -531,7 +531,7 @@ Add it as a dependency to use its API in your code: <code>LoggingType</code>, <c
 <div class="sect2">
 <h3 id="fields"><a class="anchor" href="#fields"></a>Structured fields</h3>
 <div class="paragraph">
-<p>A <code>FieldsMessage</code> is a message with typed fields beside its text, for a backend to index and query, such as an order&#8217;s id and total:</p>
+<p>A <code>StructuredMessage</code> is a message with typed fields beside its text, for a backend to index and query, such as an order&#8217;s id and total:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -540,14 +540,14 @@ Add it as a dependency to use its API in your code: <code>LoggingType</code>, <c
 
   fun place(id: String, total: Long) {
     // ...
-    log.info(FieldsMessage("order $id placed", "order.id" to id, "order.total" to total))
+    log.info(StructuredMessage("order $id placed", "order.id" to id, "order.total" to total))
   }
 }
 
 // an event of the application's own type, with its fields taken from the type
 class Shipment(val orderId: String, val carrier: String)
 
-class OrderShipped(shipment: Shipment) : FieldsMessage(
+class OrderShipped(shipment: Shipment) : StructuredMessage(
   "order ${shipment.orderId} shipped",
   "order.id" to shipment.orderId,
   "order.carrier" to shipment.carrier,
@@ -569,8 +569,32 @@ The text output types write the fields after the text, as <code>{order.id=42, or
 </div>
 <div class="paragraph">
 <p>Name the fields as the backend expects them, such as the <a href="https://www.elastic.co/guide/en/ecs/current/ecs-field-reference.html">Elastic Common Schema</a>'s <code>http.request.method</code> or <code>event.duration</code> for <code>JSON</code>.
-A field mustn&#8217;t have the name of one the output type writes itself, such as <code>message</code>: the event would have the field twice.</p>
+A field must not have the same name as a field the output type already writes, such as <code>message</code>.
+The event would then have two fields with that name.
+The output types write these fields:</p>
 </div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 80%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Output type</th>
+<th class="tableblock halign-left valign-top">Fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>JSON</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>@timestamp</code>, <code>ecs.version</code>, <code>log.level</code>, <code>message</code>, <code>process.thread.name</code>, <code>log.logger</code>, <code>tags</code>, <code>trace.id</code>, <code>span.id</code>, <code>log.origin.file.name</code>, <code>log.origin.file.line</code>, <code>log.origin.function</code>, <code>error.type</code>, <code>error.message</code>, <code>error.stack_trace</code>, and the logging context&#8217;s keys</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>GCLOUD</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>timestampSeconds</code>, <code>timestampNanos</code>, <code>severity</code>, <code>message</code>, <code>logging.googleapis.com/labels</code>, <code>logging.googleapis.com/sourceLocation</code>, <code>logging.googleapis.com/trace</code>, <code>logging.googleapis.com/spanId</code>, <code>logging.googleapis.com/trace_sampled</code>, <code>exception</code>, <code>thread</code>, <code>logger</code></p></td>
+</tr>
+</tbody>
+</table>
 <div class="paragraph">
 <p>The JSON output types write the entries of any of Log4j&#8217;s map messages this way, such as a <code>StringMapMessage</code>.</p>
 </div>
@@ -815,7 +839,7 @@ From the repository root, run one with JSON output:</p>
 <p><a href="../api/boot-logging-log4j2/com.github.rocketraman.bootable.logging.log4j2/logging-init.html" class="kdoc"><code>loggingInit</code></a>: initializes logging, as <code>boot { }</code> does</p>
 </li>
 <li>
-<p><a href="../api/boot-logging-log4j2/com.github.rocketraman.bootable.logging.log4j2/-fields-message/index.html" class="kdoc"><code>FieldsMessage</code></a>: a message with structured fields</p>
+<p><a href="../api/boot-logging-log4j2/com.github.rocketraman.bootable.logging.log4j2/-structured-message/index.html" class="kdoc"><code>StructuredMessage</code></a>: a message with structured fields</p>
 </li>
 <li>
 <p><a href="../api/boot-logging/com.github.rocketraman.bootable.logging/-boot-logging-level/index.html" class="kdoc"><code>BootLoggingLevel</code></a>: the log levels</p>

@@ -13,13 +13,13 @@
 | Module | What it provides |
 | --- | --- |
 | **Log4j2: comes with `boot`; add it yourself to call its API, such as `LoggingType`** |  |
-| `boot-logging-log4j2` | Log4j2, with layouts for plain, coloured, Elastic Common Schema JSON, and Google Cloud output, and `FieldsMessage` for structured fields |
+| `boot-logging-log4j2` | Log4j2, with layouts for plain, coloured, Elastic Common Schema JSON, and Google Cloud output, and `StructuredMessage` for structured fields |
 | **Core: comes with Log4j2** |  |
 | `boot-logging` | `BootLoggingLevel` |
 
 ## Install
 
-`boot` brings `boot-logging-log4j2` at runtime, since `boot { }` initializes it. Add it as a dependency to use its API in your code: `LoggingType`, `loggingInit`, `FieldsMessage`, and Log4j’s Kotlin API.
+`boot` brings `boot-logging-log4j2` at runtime, since `boot { }` initializes it. Add it as a dependency to use its API in your code: `LoggingType`, `loggingInit`, `StructuredMessage`, and Log4j’s Kotlin API.
 
 **Vanilla:**
 
@@ -79,7 +79,7 @@ A library that logs through SLF4J or `java.util.logging` logs through Log4j2 too
 
 ### Structured fields
 
-A `FieldsMessage` is a message with typed fields beside its text, for a backend to index and query, such as an order’s id and total:
+A `StructuredMessage` is a message with typed fields beside its text, for a backend to index and query, such as an order’s id and total:
 
 ```kotlin
 class Orders {
@@ -87,14 +87,14 @@ class Orders {
 
   fun place(id: String, total: Long) {
     // ...
-    log.info(FieldsMessage("order $id placed", "order.id" to id, "order.total" to total))
+    log.info(StructuredMessage("order $id placed", "order.id" to id, "order.total" to total))
   }
 }
 
 // an event of the application's own type, with its fields taken from the type
 class Shipment(val orderId: String, val carrier: String)
 
-class OrderShipped(shipment: Shipment) : FieldsMessage(
+class OrderShipped(shipment: Shipment) : StructuredMessage(
   "order ${shipment.orderId} shipped",
   "order.id" to shipment.orderId,
   "order.carrier" to shipment.carrier,
@@ -109,7 +109,12 @@ The JSON output types write each field as a top-level field of the event, and `m
 
 A number or a boolean stays a JSON number or boolean; any other value is written as its `toString()`. A field whose value is `null` is left out. The text output types write the fields after the text, as `{order.id=42, order.total=1250}`, with the `%fields` pattern converter, which a pattern of your own can use too.
 
-Name the fields as the backend expects them, such as the [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/ecs-field-reference.html)'s `http.request.method` or `event.duration` for `JSON`. A field mustn’t have the name of one the output type writes itself, such as `message`: the event would have the field twice.
+Name the fields as the backend expects them, such as the [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/ecs-field-reference.html)'s `http.request.method` or `event.duration` for `JSON`. A field must not have the same name as a field the output type already writes, such as `message`. The event would then have two fields with that name. The output types write these fields:
+
+| Output type | Fields |
+| --- | --- |
+| `JSON` | `@timestamp`, `ecs.version`, `log.level`, `message`, `process.thread.name`, `log.logger`, `tags`, `trace.id`, `span.id`, `log.origin.file.name`, `log.origin.file.line`, `log.origin.function`, `error.type`, `error.message`, `error.stack_trace`, and the logging context’s keys |
+| `GCLOUD` | `timestampSeconds`, `timestampNanos`, `severity`, `message`, `logging.googleapis.com/labels`, `logging.googleapis.com/sourceLocation`, `logging.googleapis.com/trace`, `logging.googleapis.com/spanId`, `logging.googleapis.com/trace_sampled`, `exception`, `thread`, `logger` |
 
 The JSON output types write the entries of any of Log4j’s map messages this way, such as a `StringMapMessage`.
 
@@ -218,7 +223,7 @@ LOGGING_TYPE=json ./gradlew :examples:wiring-vanilla:run
 
 - [`LoggingType`](https://rocketraman.github.io/bootable/bootable/next/api/boot-logging-log4j2/com.github.rocketraman.bootable.logging.log4j2/-logging-type/index.html): the output types
 - [`loggingInit`](https://rocketraman.github.io/bootable/bootable/next/api/boot-logging-log4j2/com.github.rocketraman.bootable.logging.log4j2/logging-init.html): initializes logging, as `boot { }` does
-- [`FieldsMessage`](https://rocketraman.github.io/bootable/bootable/next/api/boot-logging-log4j2/com.github.rocketraman.bootable.logging.log4j2/-fields-message/index.html): a message with structured fields
+- [`StructuredMessage`](https://rocketraman.github.io/bootable/bootable/next/api/boot-logging-log4j2/com.github.rocketraman.bootable.logging.log4j2/-structured-message/index.html): a message with structured fields
 - [`BootLoggingLevel`](https://rocketraman.github.io/bootable/bootable/next/api/boot-logging/com.github.rocketraman.bootable.logging/-boot-logging-level/index.html): the log levels
 - [Log4j2’s configuration](https://logging.apache.org/log4j/2.x/manual/configuration.html)
 - [Elastic Common Schema’s fields](https://www.elastic.co/guide/en/ecs/current/ecs-field-reference.html)
