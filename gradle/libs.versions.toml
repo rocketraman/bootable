@@ -5,7 +5,7 @@ dokka = "2.2.0"
 exposed = "1.6.0"
 flyway = "13.11.1"
 google-auth = "1.54.0"
-graalvm-buildtools = "0.11.5"
+graalvm-buildtools = "1.1.20"
 grpc = "1.85.1"
 # grpc-kotlin's coroutine runtime, which the code kotpb-grpc-codegen generates runs on; built against grpc-java 1.62,
 # and run on the grpc-java above
