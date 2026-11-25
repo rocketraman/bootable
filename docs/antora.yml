@@ -8,8 +8,8 @@ asciidoc:
     # bootable-version, the release the install snippets show, is set per version by docs/site/extensions/versions.js
     bootable-group: com.github.rocketraman.bootable
     metro-version: 1.4.5
-    ksp-version: 2.3.13
-    inara-version: 0.3.0
+    ksp-version: 2.3.14
+    inara-version: 0.4.0
     # the versions the gRPC page's protoc setup shows, as gradle/libs.versions.toml has them
     protobuf-version: 4.36.2
     protobuf-plugin-version: 0.10.1
