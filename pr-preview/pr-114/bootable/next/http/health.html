@@ -156,6 +156,9 @@
 </ul>
   </li>
   <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../grpc/index.html">gRPC server</a>
+  </li>
+  <li class="nav-item" data-depth="1">
     <button class="nav-item-toggle"></button>
     <a class="nav-link" href="../background/index.html">Background work</a>
 <ul class="nav-list">
@@ -199,6 +202,9 @@
   </li>
   <li class="nav-item" data-depth="1">
     <a class="nav-link" href="../examples/server-ktor-db.html">Server with a database</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../examples/server-grpc.html">gRPC server</a>
   </li>
   <li class="nav-item" data-depth="1">
     <a class="nav-link" href="../examples/start-order.html">Custom start order</a>
@@ -381,7 +387,8 @@
 <div class="paragraph">
 <p><code>HealthLifecycleController</code>, in the core <code>boot</code> module, answers liveness and readiness from where the application is in its lifecycle, such as for Kubernetes&#8217;s probes, a Cloud Run startup probe, or a load balancer&#8217;s health check.
 It is a lifecycle controller, which tracks the application&#8217;s <code>LifecycleState</code> and each service&#8217;s <code>ServiceState</code>, and runs the application&#8217;s readiness checks.
-<code>KtorHealth</code>, from <code>boot-server-http-ktor</code>, serves both over HTTP, as JSON, with the application&#8217;s <a href="#build-info">build info</a>.</p>
+<code>KtorHealth</code>, from <code>boot-server-http-ktor</code>, serves both over HTTP, as JSON, with the application&#8217;s <a href="#build-info">build info</a>.
+<code>GrpcHealth</code>, from <code>boot-server-grpc</code>, serves them as the standard gRPC health service; see <a href="../grpc/index.html#health" class="xref page">grpc:index.adoc#health</a>.</p>
 </div>
 </div>
 </div>

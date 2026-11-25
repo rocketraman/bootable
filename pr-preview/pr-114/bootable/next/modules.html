@@ -156,6 +156,9 @@
 </ul>
   </li>
   <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="grpc/index.html">gRPC server</a>
+  </li>
+  <li class="nav-item" data-depth="1">
     <button class="nav-item-toggle"></button>
     <a class="nav-link" href="background/index.html">Background work</a>
 <ul class="nav-list">
@@ -199,6 +202,9 @@
   </li>
   <li class="nav-item" data-depth="1">
     <a class="nav-link" href="examples/server-ktor-db.html">Server with a database</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="examples/server-grpc.html">gRPC server</a>
   </li>
   <li class="nav-item" data-depth="1">
     <a class="nav-link" href="examples/start-order.html">Custom start order</a>
@@ -658,6 +664,9 @@ A module with <code>-kodein</code>, <code>-koin</code>, <code>-metro</code>, or 
 <div class="sect1">
 <h2 id="_grpc"><a class="anchor" href="#_grpc"></a>gRPC</h2>
 <div class="sectionbody">
+<div class="paragraph">
+<p>See <a href="grpc/index.html" class="xref page">gRPC server</a>.</p>
+</div>
 <table class="tableblock frame-all grid-all stretch modules">
 <colgroup>
 <col style="width: 40%;">
@@ -674,11 +683,14 @@ A module with <code>-kodein</code>, <code>-koin</code>, <code>-metro</code>, or 
 <th class="tableblock halign-left valign-top" colspan="2"><p class="tableblock">Server telemetry: optional</p></th>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>boot-server-grpc-otel</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="grpc/index.html#telemetry" class="xref page"><code>boot-server-grpc-otel</code></a></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Each call traced and measured, with the health service&#8217;s probes left out</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>boot-server-grpc</code></p></td>
+<th class="tableblock halign-left valign-top" colspan="2"><p class="tableblock">Server</p></th>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="grpc/index.html" class="xref page"><code>boot-server-grpc</code></a></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>GrpcServer</code>: a gRPC server, over grpc-java, that starts and stops with the application, for services written as coroutines on the server bases kotpb-grpc-codegen generates, and <code>GrpcHealth</code>, the standard health service, answered from the application&#8217;s health</p></td>
 </tr>
 </tbody>

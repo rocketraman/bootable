@@ -2,7 +2,7 @@
 
 > Liveness and readiness from the application's lifecycle, with readiness checks and a drain at shutdown, and the build info, served as JSON by Ktor.
 
-`HealthLifecycleController`, in the core `boot` module, answers liveness and readiness from where the application is in its lifecycle, such as for Kubernetes’s probes, a Cloud Run startup probe, or a load balancer’s health check. It is a lifecycle controller, which tracks the application’s `LifecycleState` and each service’s `ServiceState`, and runs the application’s readiness checks. `KtorHealth`, from `boot-server-http-ktor`, serves both over HTTP, as JSON, with the application’s [build info](https://rocketraman.github.io/bootable/bootable/next/http/health.html.md#build-info).
+`HealthLifecycleController`, in the core `boot` module, answers liveness and readiness from where the application is in its lifecycle, such as for Kubernetes’s probes, a Cloud Run startup probe, or a load balancer’s health check. It is a lifecycle controller, which tracks the application’s `LifecycleState` and each service’s `ServiceState`, and runs the application’s readiness checks. `KtorHealth`, from `boot-server-http-ktor`, serves both over HTTP, as JSON, with the application’s [build info](https://rocketraman.github.io/bootable/bootable/next/http/health.html.md#build-info). `GrpcHealth`, from `boot-server-grpc`, serves them as the standard gRPC health service; see [grpc:index.adoc#health](https://rocketraman.github.io/bootable/bootable/next/grpc/index.html.md#health).
 
 ## Install
 
