@@ -45,7 +45,7 @@ protobuf = "4.36.2"
 protobuf-plugin = "0.10.1"
 sqlite-jdbc = "3.53.4.0"
 testcontainers = "2.0.5"
-testBalloon = "1.1.0"
+testBalloon = "1.2.0"
 vanniktech-publish = "0.37.0"
 
 [plugins]
