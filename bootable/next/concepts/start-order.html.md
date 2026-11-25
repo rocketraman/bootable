@@ -89,7 +89,7 @@ A `StartOrder.Tiebreaker`, given to `Bootable`, decides how ties are broken:
 
 **`ByName`, the default**
 
-By `name()`, so the start plan, and the logs, are the same on every run and every machine.
+By `name`, so the start plan, and the logs, are the same on every run and every machine.
 
 **`Shuffled`**
 
