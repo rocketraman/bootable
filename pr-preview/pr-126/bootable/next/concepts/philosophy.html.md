@@ -1,0 +1,65 @@
+# No magic
+
+> Bootable is a simple, unopinionated framework for booting and running applications: explicit wiring, typed config, and the libraries underneath used directly.
+
+Bootable is a simple, unopinionated framework for booting and running applications. Your `main` builds the application, from objects you construct or your DI constructs, and hands it to Bootable, which starts it, runs it, and stops it. Nothing happens that the code doesn’t say.
+
+An important element of simplicity is to prefer explicit references and configuration. Spring Boot discovers and configures components at runtime, through annotations and reflection, which is easy, but not simple: to use it, you have to understand the libraries underneath, and Spring Boot’s own annotations and library abstractions on top. Bootable aims to be both [easy and simple](https://www.infoq.com/presentations/Simple-Made-Easy/): a minimal core that runs your application, and modules that integrate common, useful libraries for server-side applications. It provides your application with comprehensive lifecycle control, and includes some optional batteries for common functionality, and then gets out of your way. [Bootable and Spring Boot](https://rocketraman.github.io/bootable/bootable/next/comparison/spring-boot.html.md) compares the two in more detail.
+
+## Two sets, run
+
+Bootable’s core, `Bootable`, takes two sets: your application’s services, and its lifecycle controllers. It starts the services in order, runs until it is asked to stop, and stops them in reverse. See [Lifecycle and services](https://rocketraman.github.io/bootable/bootable/next/concepts/lifecycle.html.md) for more detail.
+
+That is all the core does. In particular, it has:
+
+**No classpath scanning**
+
+Bootable never looks for classes to instantiate. A service runs because it is in the set you pass.
+
+**No annotations that change behaviour**
+
+Nothing in Bootable reads an annotation at runtime. Metro’s annotations, if you wire with Metro, describe the dependency graph and nothing else: they don’t make a method transactional, or a class a service.
+
+**No auto-configuration**
+
+A Bootable module does nothing until you wire it: you construct its service, or import its DI module. The one place a dependency alone adds to the application is Metro’s discovery, which you turn on in your graph, with `additionalScopes = [BootScope::class]`, and which the compiler checks; an explicit graph names every container instead.
+
+**No embedded DI framework**
+
+The core is plain Kotlin, and `Bootable` takes its two sets through an ordinary constructor.
+
+## Your wiring, your choice
+
+How you assemble the two sets is up to you. Wire them by hand, with Kodein, with Koin, with Metro, with Inara, or with any other DI, such as a service loader or Guice.
+
+For convenience, each module that has something to wire ships optional bindings, as separate `-kodein`, `-koin`, `-metro`, and experimental `-inara` artifacts. Each depends on the plain module, so the flavour you depend on is all you choose, module by module. Every page on this site shows its code in each of the five styles; [Choosing a wiring style](https://rocketraman.github.io/bootable/bootable/next/wiring.html.md) helps you pick one.
+
+A small application can list its services by hand. As it grows into modules, each with services that no central code knows about, collecting them into a set is what a DI container’s multibindings do well. For most teams, the authors of Bootable recommend Metro, though Bootable itself has no opinion, which builds and checks the graph at compile time, so a missing binding is a build error rather than a failed start. Kodein has no compile-time checking, and builds the graph at runtime, but its DSL is short and readable; its authors are sunsetting it, so Bootable’s Kodein bindings are deprecated. Inara, Kodein’s compile-time successor from the same authors, is experimental. Koin, like Kodein, builds the graph at runtime, with a DSL much like Kodein’s.
+
+## Typed config, no hidden defaults
+
+Each module reads its config into a typed class, from a section you name when you bind it, such as `db.pool` for the connection pool. A setting’s default is the default of the class’s property, in the code and in its API reference, so what an unset key means is never somewhere else. Config that doesn’t decode fails the start before any service starts.
+
+Bootable doesn’t load per-environment files, such as `application-prod.conf`, chosen by a variable outside the config. A mistyped environment would silently load nothing, and the config would no longer say where a value came from. An application that wants such files adds them to its binder explicitly. See [Configuration](https://rocketraman.github.io/bootable/bootable/next/configuration/index.html.md).
+
+## What Bootable doesn’t do
+
+Bootable provides useful capabilities on top of well-chosen libraries, not an abstraction over them. It deliberately leaves these out:
+
+**Interchangeable libraries**
+
+Bootable doesn’t make the libraries it builds on, such as Hoplite for configuration, or Exposed and HikariCP for databases, interchangeable with others. You use their types and APIs directly, and Bootable exposes them rather than wrapping them. The same goes for DI: Bootable provides bindings for Kodein, Koin, Metro, and Inara, not an abstraction over them.
+
+**Every feature of every library**
+
+Bootable’s modules set up the common case. For anything more, you configure the library itself, through the hooks a module provides, such as a `HikariConfigCustomizer`, or skip Bootable’s module entirely and bring your own code.
+
+**Requiring Bootable’s modules**
+
+You can use Bootable’s modules, integrate a library yourself, or use a different library that fits better. Bootable’s core is application lifecycle management; every other module is optional.
+
+**Booting the application in tests**
+
+Bootable won’t add a way to boot the application in a test. Where one exists, it tends to become the way every test is written, because nobody then has to think about fakes, and the tests become slow and brittle. Construct a class with fakes for what it uses, and check the wiring, and the start plan, without starting anything; see [Testing](https://rocketraman.github.io/bootable/bootable/next/testing/index.html.md).
+
+Contrast this with Spring Boot, which tends to put its own factories and APIs in front of the underlying libraries. That moves the understanding you need from the library to Spring’s abstraction over it. It also makes the unique capabilities of the libraries you use harder, or even impossible, to reach.
