@@ -866,7 +866,7 @@ To start a trace on purpose, such as for a scheduled job or a consumed message, 
 <p><code>Sample.Always</code> samples the trace whatever <code>sampleRatio</code> is, for a trace too rare or too valuable to lose; the default, <code>Sample.BySampler</code>, leaves it to the sampler.</p>
 </div>
 <div class="paragraph">
-<p>Log events within a span carry its <code>trace_id</code> and <code>span_id</code>, which <a href="../logging/index.html" class="xref page"><code>boot-logging-log4j2</code></a>'s layouts print, so a backend can link them to their traces.
+<p>Log events within a span carry its <code>trace_id</code> and <code>span_id</code> in the logging context, which <a href="../logging/index.html" class="xref page"><code>boot-logging-log4j2</code></a>'s layouts print, so a backend can link them to their traces: <code>JSON</code> writes them as the Elastic Common Schema&#8217;s <code>trace.id</code> and <code>span.id</code>, and <code>GCLOUD</code> as Cloud Logging&#8217;s trace and span.
 Logs themselves aren&#8217;t exported over OpenTelemetry: the SDK has no logger provider, so ship them with the platform&#8217;s log collection.</p>
 </div>
 </div>

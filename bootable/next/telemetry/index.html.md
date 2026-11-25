@@ -259,7 +259,7 @@ A span from `withSpan` is expected to have a parent. Without one, it starts a tr
 
 `Sample.Always` samples the trace whatever `sampleRatio` is, for a trace too rare or too valuable to lose; the default, `Sample.BySampler`, leaves it to the sampler.
 
-Log events within a span carry its `trace_id` and `span_id`, which [`boot-logging-log4j2`](https://rocketraman.github.io/bootable/bootable/next/logging/index.html.md)'s layouts print, so a backend can link them to their traces. Logs themselves aren’t exported over OpenTelemetry: the SDK has no logger provider, so ship them with the platform’s log collection.
+Log events within a span carry its `trace_id` and `span_id` in the logging context, which [`boot-logging-log4j2`](https://rocketraman.github.io/bootable/bootable/next/logging/index.html.md)'s layouts print, so a backend can link them to their traces: `JSON` writes them as the Elastic Common Schema’s `trace.id` and `span.id`, and `GCLOUD` as Cloud Logging’s trace and span. Logs themselves aren’t exported over OpenTelemetry: the SDK has no logger provider, so ship them with the platform’s log collection.
 
 ## Trace the start
 

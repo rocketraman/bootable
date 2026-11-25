@@ -174,7 +174,7 @@ The result is a `LogCapture`, closed, with these to assert on:
 - `single(level) { …​ }`: the one event that matches, or an `AssertionError` that lists what was captured.
 - `describe()`: what was captured, one event per line, such as for an assertion’s message.
 
-Each event is Log4j2’s own `LogEvent`, copied, with its level, logger, message, thrown, and context data, such as the trace and span ids that `boot-telemetry-otel` puts there. `fields` has the structured fields of a map message, such as a `StringMapMessage`.
+Each event is Log4j2’s own `LogEvent`, copied, with its level, logger, message, thrown, and context data, such as the trace and span ids that `boot-telemetry-otel` puts there. `fields` has the structured fields of a map message, such as a [`StructuredMessage`](https://rocketraman.github.io/bootable/bootable/next/logging/index.html.md#fields), as strings.
 
 A `LogCapture` captures from when it is created until it is closed, so a test can use it around more than one block. It captures what the logger’s level lets through; a `level` lowers the logger’s level while it captures, such as to `Level.DEBUG`, and its other appenders then get those events too:
 

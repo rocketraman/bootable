@@ -37,7 +37,7 @@ See [Logging (Log4j2)](https://rocketraman.github.io/bootable/bootable/next/logg
 | Module | What it provides |
 | --- | --- |
 | **Log4j2: comes with `boot`; add it yourself to call its API, such as `LoggingType`** |  |
-| [`boot-logging-log4j2`](https://rocketraman.github.io/bootable/bootable/next/logging/index.html.md) | Log4j2, with layouts for plain, coloured, JSON, and Google Cloud output |
+| [`boot-logging-log4j2`](https://rocketraman.github.io/bootable/bootable/next/logging/index.html.md) | Log4j2, with layouts for plain, coloured, Elastic Common Schema JSON, and Google Cloud output, and `StructuredMessage` for structured fields |
 | **Core: comes with Log4j2** |  |
 | `boot-logging` | `BootLoggingLevel` |
 

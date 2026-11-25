@@ -667,7 +667,7 @@ For a monotonic <code>TimeSource</code>, use the standard library&#8217;s <code>
 </div>
 <div class="paragraph">
 <p>Each event is Log4j2&#8217;s own <code>LogEvent</code>, copied, with its level, logger, message, thrown, and context data, such as the trace and span ids that <code>boot-telemetry-otel</code> puts there.
-<code>fields</code> has the structured fields of a map message, such as a <code>StringMapMessage</code>.</p>
+<code>fields</code> has the structured fields of a map message, such as a <a href="../logging/index.html#fields" class="xref page"><code>StructuredMessage</code></a>, as strings.</p>
 </div>
 <div class="paragraph">
 <p>A <code>LogCapture</code> captures from when it is created until it is closed, so a test can use it around more than one block.
