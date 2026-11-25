@@ -10,8 +10,6 @@ Every module Bootable publishes, by function. Within a function, each group’s 
 | --- | --- |
 | `boot` | `Bootable`: the application’s services and lifecycle controllers, run phase by phase, and `Health` |
 | `boot-common` | Small helpers the other modules share |
-| **Clock: optional** |  |
-| [`boot-clock`](https://rocketraman.github.io/bootable/bootable/next/concepts/clock.html.md) | The application’s clock, as a `kotlin.time.Clock` and a `java.time.Clock`, bound once, for a test to replace |
 
 ## Configuration
 
@@ -31,6 +29,14 @@ See [Environment](https://rocketraman.github.io/bootable/bootable/next/environme
 | Module | What it provides |
 | --- | --- |
 | [`boot-env`](https://rocketraman.github.io/bootable/bootable/next/environment/index.html.md) | `environment`: the deployment environment, such as dev or prod, from config |
+
+## Clock
+
+See [Clock](https://rocketraman.github.io/bootable/bootable/next/clock/index.html.md).
+
+| Module | What it provides |
+| --- | --- |
+| [`boot-clock`](https://rocketraman.github.io/bootable/bootable/next/clock/index.html.md) | The application’s clock, as a `kotlin.time.Clock` and a `java.time.Clock`, bound once, for a test to replace |
 
 ## Logging
 

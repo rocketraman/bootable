@@ -107,9 +107,6 @@
   <li class="nav-item" data-depth="1">
     <a class="nav-link" href="concepts/start-order.html">Start order</a>
   </li>
-  <li class="nav-item" data-depth="1">
-    <a class="nav-link" href="concepts/clock.html">The clock</a>
-  </li>
 </ul>
   </li>
   <li class="nav-item" data-depth="0">
@@ -121,6 +118,9 @@
   </li>
   <li class="nav-item" data-depth="1">
     <a class="nav-link" href="environment/index.html">Environment</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="clock/index.html">Clock</a>
   </li>
   <li class="nav-item" data-depth="1">
     <a class="nav-link" href="logging/index.html">Logging (Log4j2)</a>
@@ -423,13 +423,6 @@ A module with <code>-kodein</code>, <code>-koin</code>, <code>-metro</code>, or 
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>boot-common</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Small helpers the other modules share</p></td>
 </tr>
-<tr>
-<th class="tableblock halign-left valign-top" colspan="2"><p class="tableblock">Clock: optional</p></th>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="concepts/clock.html" class="xref page"><code>boot-clock</code></a></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">The application&#8217;s clock, as a <code>kotlin.time.Clock</code> and a <code>java.time.Clock</code>, bound once, for a test to replace</p></td>
-</tr>
 </tbody>
 </table>
 </div>
@@ -491,6 +484,32 @@ A module with <code>-kodein</code>, <code>-koin</code>, <code>-metro</code>, or 
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><a href="environment/index.html" class="xref page"><code>boot-env</code></a></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>environment</code>: the deployment environment, such as dev or prod, from config</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_clock"><a class="anchor" href="#_clock"></a>Clock</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>See <a href="clock/index.html" class="xref page">Clock</a>.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch modules">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Module</th>
+<th class="tableblock halign-left valign-top">What it provides</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="clock/index.html" class="xref page"><code>boot-clock</code></a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The application&#8217;s clock, as a <code>kotlin.time.Clock</code> and a <code>java.time.Clock</code>, bound once, for a test to replace</p></td>
 </tr>
 </tbody>
 </table>

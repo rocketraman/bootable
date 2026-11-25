@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>The clock :: Bootable</title>
+    <title>Clock :: Bootable</title>
     <meta name="description" content="boot-clock: the application's clock, bound once, as a kotlin.time.Clock and a java.time.Clock, for a test to replace with its own.">
     <meta name="generator" content="Antora 3.2.2">
     <link rel="stylesheet" href="../../../_/css/tokens.css">
@@ -20,7 +20,7 @@
 </script>
 <script defer src="../../../_/js/vendor/tabs.js" data-sync-storage-key="bootable-tabs"></script>
 <script defer src="../../../_/js/bootable.js"></script>
-<link rel="alternate" type="text/markdown" href="clock.html.md">
+<link rel="alternate" type="text/markdown" href="index.html.md">
   </head>
   <body class="article">
 <header class="header">
@@ -96,19 +96,16 @@
     <span class="nav-text">Concepts</span>
 <ul class="nav-list">
   <li class="nav-item" data-depth="1">
-    <a class="nav-link" href="index.html">Overview</a>
+    <a class="nav-link" href="../concepts/index.html">Overview</a>
   </li>
   <li class="nav-item" data-depth="1">
-    <a class="nav-link" href="philosophy.html">No magic</a>
+    <a class="nav-link" href="../concepts/philosophy.html">No magic</a>
   </li>
   <li class="nav-item" data-depth="1">
-    <a class="nav-link" href="lifecycle.html">Lifecycle and services</a>
+    <a class="nav-link" href="../concepts/lifecycle.html">Lifecycle and services</a>
   </li>
   <li class="nav-item" data-depth="1">
-    <a class="nav-link" href="start-order.html">Start order</a>
-  </li>
-  <li class="nav-item is-current-page" data-depth="1">
-    <a class="nav-link" href="clock.html">The clock</a>
+    <a class="nav-link" href="../concepts/start-order.html">Start order</a>
   </li>
 </ul>
   </li>
@@ -121,6 +118,9 @@
   </li>
   <li class="nav-item" data-depth="1">
     <a class="nav-link" href="../environment/index.html">Environment</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="1">
+    <a class="nav-link" href="index.html">Clock</a>
   </li>
   <li class="nav-item" data-depth="1">
     <a class="nav-link" href="../logging/index.html">Logging (Log4j2)</a>
@@ -374,13 +374,13 @@
 <nav class="breadcrumbs" aria-label="breadcrumbs">
   <ul>
     <li><a href="../index.html">Bootable</a></li>
-    <li>Concepts</li>
-    <li><a href="clock.html">The clock</a></li>
+    <li>Functions</li>
+    <li><a href="index.html">Clock</a></li>
   </ul>
 </nav>
 <div class="edit-this-page">
-<a href="https://github.com/rocketraman/bootable/edit/master/docs/modules/concepts/pages/clock.adoc">Edit this page</a>
-<a class="page-markdown" href="clock.html.md" type="text/markdown">View as Markdown</a>
+<a href="https://github.com/rocketraman/bootable/edit/master/docs/modules/clock/pages/index.adoc">Edit this page</a>
+<a class="page-markdown" href="index.html.md" type="text/markdown">View as Markdown</a>
 </div>
 </div>
   <div class="content">
@@ -388,7 +388,7 @@
   <div class="toc-menu"></div>
 </aside>
 <article class="doc">
-<h1 class="page">The clock</h1>
+<h1 class="page">Clock</h1>
 <p class="page-lead is-before-toc">boot-clock: the application's clock, bound once, as a kotlin.time.Clock and a java.time.Clock, for a test to replace with its own.</p>
 <div id="preamble">
 <div class="sectionbody">
@@ -398,8 +398,31 @@
 </div>
 <div class="paragraph">
 <p>It binds the clock as a <code>kotlin.time.Clock</code>, which Bootable&#8217;s modules take, and as a <code>java.time.Clock</code>, which many Java libraries take.
-The <code>java.time.Clock</code> is the <code>kotlin.time.Clock</code>, in UTC, so a test that replaces the <code>kotlin.time.Clock</code> replaces both.</p>
+The <code>java.time.Clock</code> wraps the <code>kotlin.time.Clock</code>, in UTC, so a test that replaces the <code>kotlin.time.Clock</code> replaces both.</p>
 </div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_modules"><a class="anchor" href="#_modules"></a>Modules</h2>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch modules">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Module</th>
+<th class="tableblock halign-left valign-top">What it provides</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>boot-clock</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The application&#8217;s clock, as a <code>kotlin.time.Clock</code> and a <code>java.time.Clock</code>, bound once, for a test to replace</p></td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 <div class="sect1">
@@ -491,16 +514,17 @@ dependencies {
 <p>The clock is <code>Clock.System</code>, unless the application or a test gives another, such as boot-test&#8217;s <a href="../testing/index.html#clock" class="xref page"><code>TestClock</code></a>.</p>
 </div>
 <div class="paragraph">
-<p>Its <code>java.time.Clock</code> is <code>asJavaClock()</code> of the <code>kotlin.time.Clock</code>: a view of it, which reads it each time, in UTC unless given another zone.
+<p>Its <code>java.time.Clock</code> is <code>asJavaClock()</code> of the <code>kotlin.time.Clock</code>, in UTC unless given another zone.
+It wraps the <code>kotlin.time.Clock</code> rather than copying its time, so it always tells the time the <code>kotlin.time.Clock</code> does, such as a <code>TestClock</code> a test has moved.
 <code>Clock.System</code> is <code>java.time.Clock.systemUTC()</code>.
-<code>asKotlinClock()</code> is the reverse, for a <code>java.time.Clock</code> a test already has, such as <code>java.time.Clock.fixed(&#8230;&#8203;)</code>.</p>
+<code>asKotlinClock()</code> wraps a <code>java.time.Clock</code> the same way, such as a <code>java.time.Clock.fixed(&#8230;&#8203;)</code> a test already has.</p>
 </div>
 <div class="paragraph">
 <p>The examples on this page wire two classes, one that takes each clock:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">package snippets.concepts
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">package snippets.clock
 
 import java.time.Clock as JClock
 import java.time.Instant as JInstant
@@ -582,7 +606,7 @@ fun appDI(clock: Clock = Clock.System) = DI {
 </div>
 </div>
 <div class="paragraph">
-<p>The <code>java.time.Clock</code> binding reads the <code>kotlin.time.Clock</code> binding, so a binding of a <code>kotlin.time.Clock</code> of your own, with <code>overrides = true</code>, replaces both.</p>
+<p>The <code>java.time.Clock</code> binding wraps the <code>kotlin.time.Clock</code> binding, so a binding of a <code>kotlin.time.Clock</code> of your own, with <code>overrides = true</code>, replaces both.</p>
 </div>
 </div>
 <div id="_tabs_2_koin--panel" class="tabpanel" aria-labelledby="_tabs_2_koin">

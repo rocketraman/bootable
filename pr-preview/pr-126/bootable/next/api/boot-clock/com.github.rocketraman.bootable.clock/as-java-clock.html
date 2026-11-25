@@ -105,9 +105,6 @@
   <li class="nav-item" data-depth="1">
     <a class="nav-link" href="../../../concepts/start-order.html">Start order</a>
   </li>
-  <li class="nav-item" data-depth="1">
-    <a class="nav-link" href="../../../concepts/clock.html">The clock</a>
-  </li>
 </ul>
   </li>
   <li class="nav-item" data-depth="0">
@@ -119,6 +116,9 @@
   </li>
   <li class="nav-item" data-depth="1">
     <a class="nav-link" href="../../../environment/index.html">Environment</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../../../clock/index.html">Clock</a>
   </li>
   <li class="nav-item" data-depth="1">
     <a class="nav-link" href="../../../logging/index.html">Logging (Log4j2)</a>
@@ -251,7 +251,7 @@
   <div class="cover ">
     <h1 class="cover"><span>as</span><wbr><span>Java</span><wbr><span><span>Clock</span></span></h1>
   </div>
-  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":boot-clock/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.time/-clock/index.html">Clock</a><span class="token punctuation">.</span><a href="as-java-clock.html"><span class="token function">asJavaClock</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">zone<span class="token operator">: </span><a href="https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/time/ZoneId.html">ZoneId</a><span class="token operator"> = </span>ZoneOffset.UTC</span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/time/Clock.html">Clock</a></div><p class="paragraph">This clock as a <code class="lang-kotlin">java.time.Clock</code> in <a href="as-java-clock.html">zone</a>, UTC by default, for code that takes one: each reading reads this clock, so a test that moves this clock moves the <code class="lang-kotlin">java.time.Clock</code> too.</p><p class="paragraph"><a href="https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.time/-clock/-system/index.html">Clock.System</a> is <code class="lang-kotlin">java.time.Clock.systemUTC()</code>, or <code class="lang-kotlin">java.time.Clock.system(zone)</code>, and a clock that came from <a href="as-kotlin-clock.html">asKotlinClock</a> is the <code class="lang-kotlin">java.time.Clock</code> it came from, in <a href="as-java-clock.html">zone</a>.</p></div></div>
+  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":boot-clock/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.time/-clock/index.html">Clock</a><span class="token punctuation">.</span><a href="as-java-clock.html"><span class="token function">asJavaClock</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">zone<span class="token operator">: </span><a href="https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/time/ZoneId.html">ZoneId</a><span class="token operator"> = </span>ZoneOffset.UTC</span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/time/Clock.html">Clock</a></div><p class="paragraph">A <code class="lang-kotlin">java.time.Clock</code> in <a href="as-java-clock.html">zone</a>, UTC by default, that wraps this clock, for code that takes one. It wraps this clock rather than copying its time, so it always tells the time this clock does, such as a test clock the test has moved.</p><p class="paragraph"><a href="https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.time/-clock/-system/index.html">Clock.System</a> is <code class="lang-kotlin">java.time.Clock.systemUTC()</code>, or <code class="lang-kotlin">java.time.Clock.system(zone)</code>, and a clock from <a href="as-kotlin-clock.html">asKotlinClock</a>, which wraps a <code class="lang-kotlin">java.time.Clock</code>, is unwrapped: the result is that <code class="lang-kotlin">java.time.Clock</code>, in <a href="as-java-clock.html">zone</a>.</p></div></div>
 </div>
     <div class="footer">
         <div class="footer--container">

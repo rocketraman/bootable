@@ -107,9 +107,6 @@
   <li class="nav-item" data-depth="1">
     <a class="nav-link" href="../concepts/start-order.html">Start order</a>
   </li>
-  <li class="nav-item" data-depth="1">
-    <a class="nav-link" href="../concepts/clock.html">The clock</a>
-  </li>
 </ul>
   </li>
   <li class="nav-item" data-depth="0">
@@ -121,6 +118,9 @@
   </li>
   <li class="nav-item" data-depth="1">
     <a class="nav-link" href="../environment/index.html">Environment</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../clock/index.html">Clock</a>
   </li>
   <li class="nav-item" data-depth="1">
     <a class="nav-link" href="../logging/index.html">Logging (Log4j2)</a>
@@ -632,7 +632,7 @@ It starts at <code>TestClock.DEFAULT_START</code>, 2026-01-01T00:00:00Z, so a te
 </div>
 <div class="paragraph">
 <p>Pass it to whatever takes a <code>Clock</code>, such as <code>OpenTelemetryService</code>, <code>ServiceStartTracing</code>, or <code>PeriodicAppService</code>, or, with Kodein, Koin, or Metro, bind it as the <code>Clock</code>, which they then take their time from; with Inara, which has no optional bindings, pass it to each module&#8217;s builder, such as <code>openTelemetryModule(clock)</code>.
-With <a href="../concepts/clock.html" class="xref page"><code>boot-clock</code></a>, give it to the application in place of the bound clock, which makes it the application&#8217;s <code>java.time.Clock</code> too; <code>asJavaClock()</code> is it as a <code>java.time.Clock</code>, for a class that takes one.
+With <a href="../clock/index.html" class="xref page"><code>boot-clock</code></a>, give it to the application in place of the bound clock, which makes it the application&#8217;s <code>java.time.Clock</code> too; <code>asJavaClock()</code> is it as a <code>java.time.Clock</code>, for a class that takes one.
 For a monotonic <code>TimeSource</code>, use the standard library&#8217;s <code>kotlin.time.TestTimeSource</code>.</p>
 </div>
 </div>

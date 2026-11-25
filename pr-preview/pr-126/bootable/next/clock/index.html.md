@@ -1,10 +1,16 @@
-# The clock
+# Clock
 
 > boot-clock: the application's clock, bound once, as a kotlin.time.Clock and a java.time.Clock, for a test to replace with its own.
 
 Code that reads the time takes a clock, rather than reading the system’s, so that a test can set the time. `boot-clock` binds the application’s clock once, for the application’s code and Bootable’s modules to share, so an application doesn’t bind its own, and a test replaces it in one place.
 
-It binds the clock as a `kotlin.time.Clock`, which Bootable’s modules take, and as a `java.time.Clock`, which many Java libraries take. The `java.time.Clock` is the `kotlin.time.Clock`, in UTC, so a test that replaces the `kotlin.time.Clock` replaces both.
+It binds the clock as a `kotlin.time.Clock`, which Bootable’s modules take, and as a `java.time.Clock`, which many Java libraries take. The `java.time.Clock` wraps the `kotlin.time.Clock`, in UTC, so a test that replaces the `kotlin.time.Clock` replaces both.
+
+## Modules
+
+| Module | What it provides |
+| --- | --- |
+| `boot-clock` | The application’s clock, as a `kotlin.time.Clock` and a `java.time.Clock`, bound once, for a test to replace |
 
 ## Install
 
@@ -61,12 +67,12 @@ dependencies {
 
 The clock is `Clock.System`, unless the application or a test gives another, such as boot-test’s [`TestClock`](https://rocketraman.github.io/bootable/bootable/next/testing/index.html.md#clock).
 
-Its `java.time.Clock` is `asJavaClock()` of the `kotlin.time.Clock`: a view of it, which reads it each time, in UTC unless given another zone. `Clock.System` is `java.time.Clock.systemUTC()`. `asKotlinClock()` is the reverse, for a `java.time.Clock` a test already has, such as `java.time.Clock.fixed(…​)`.
+Its `java.time.Clock` is `asJavaClock()` of the `kotlin.time.Clock`, in UTC unless given another zone. It wraps the `kotlin.time.Clock` rather than copying its time, so it always tells the time the `kotlin.time.Clock` does, such as a `TestClock` a test has moved. `Clock.System` is `java.time.Clock.systemUTC()`. `asKotlinClock()` wraps a `java.time.Clock` the same way, such as a `java.time.Clock.fixed(…​)` a test already has.
 
 The examples on this page wire two classes, one that takes each clock:
 
 ```kotlin
-package snippets.concepts
+package snippets.clock
 
 import java.time.Clock as JClock
 import java.time.Instant as JInstant
@@ -119,7 +125,7 @@ fun appDI(clock: Clock = Clock.System) = DI {
 }
 ```
 
-The `java.time.Clock` binding reads the `kotlin.time.Clock` binding, so a binding of a `kotlin.time.Clock` of your own, with `overrides = true`, replaces both.
+The `java.time.Clock` binding wraps the `kotlin.time.Clock` binding, so a binding of a `kotlin.time.Clock` of your own, with `overrides = true`, replaces both.
 
 **Koin:**
 
