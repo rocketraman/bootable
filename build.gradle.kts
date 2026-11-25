@@ -39,6 +39,7 @@ dependencies {
   dokka(project(":boot-client-http-ktor-cio"))
   dokka(project(":boot-client-http-ktor-java"))
   dokka(project(":boot-client-http-ktor-otel"))
+  dokka(project(":boot-clock"))
   dokka(project(":boot-common"))
   dokka(project(":boot-config-common"))
   dokka(project(":boot-config-hoplite"))
@@ -369,6 +370,36 @@ project("boot-client-http-ktor-otel") {
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "koinElements"))
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "inaraElements"))
     testImplementation(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+    testImplementation(project(":boot-logging-log4j2"))
+  }
+
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["koin"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["koin"].output + sourceSets["metro"].output + sourceSets["inara"].output
+  }
+}
+
+// the application's clock, as a kotlin.time.Clock and a java.time.Clock, bound once for the application and its tests
+project("boot-clock") {
+  configureDiVariants()
+  dependencies {
+    // the metro flavor contributes to boot's BootScope
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+
+    // the tests check that the Bootable modules which take a clock take this one, in each flavor
+    testImplementation(project(":boot-test"))
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "koinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-config-hoplite", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-periodic", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-periodic", configuration = "koinElements"))
+    testImplementation(project(path = ":boot-periodic", configuration = "inaraElements"))
+    testImplementation(project(path = ":boot-periodic", configuration = "metroElements"))
     testImplementation(project(":boot-logging-log4j2"))
   }
 

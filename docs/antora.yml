@@ -66,6 +66,9 @@ ext:
       dir: docs/snippets/metro/background/src/main/kotlin/snippets
       into: modules/ROOT/examples/metro
   - scan:
+      dir: docs/snippets/metro/clock/src/main/kotlin/snippets
+      into: modules/ROOT/examples/metro
+  - scan:
       dir: docs/snippets/metro/testing/src/main/kotlin/snippets
       into: modules/ROOT/examples/metro
   - scan:

@@ -9,6 +9,7 @@ plugins {
 dependencies {
   implementation(project(":docs:snippets:common"))
   implementation(project(path = ":boot", configuration = "inaraElements"))
+  implementation(project(path = ":boot-clock", configuration = "inaraElements"))
   implementation(project(path = ":boot-config-hoplite", configuration = "inaraElements"))
   implementation(project(path = ":boot-env", configuration = "inaraElements"))
   implementation(project(path = ":boot-db-jdbc-sqlite", configuration = "inaraElements"))
