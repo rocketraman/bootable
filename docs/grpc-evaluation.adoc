@@ -1,0 +1,192 @@
+= Evaluation: a gRPC server module
+:toc:
+
+Evaluated 2026-11-23, for a `boot-server-grpc` module: a gRPC server that runs as an `AppService`, with services written as coroutines.
+The question is what to build it on: grpc-kotlin, a community generator over grpc-kotlin's runtime, grpc-java with a Kotlin layer of our own, or kotlinx-rpc.
+A prototype of the recommended approach is in this branch: `boot-server-grpc`, `boot-server-grpc-otel`, and `examples/server-grpc`.
+
+== Recommendation
+
+*Build on grpc-java, with services on the coroutine server bases that https://github.com/Kotpb/kotpb-grpc-codegen[kotpb-grpc-codegen] generates, over grpc-kotlin's runtime, `grpc-kotlin-stub` 1.5.0.*
+Don't use grpc-kotlin's own generator, nor grpc-java's protoc plugin.
+
+* A service extends its generated `FooCoroutineImplBase`, and overrides a `suspend fun` per method, or one that returns a `Flow`, so the compiler checks each method's kind, and its request and response types, against the `.proto`.
+* grpc-kotlin is effectively unmaintained (see <<grpc-kotlin>>), but its runtime is small, and sits on grpc-java's stable `ServerCall` and `ClientCall` APIs, so it runs on grpc-java 1.85.1 unchanged.
+Its generator is the part that has fallen behind: it rejects protobuf editions files, and needs grpc-java's protoc plugin besides.
+* kotpb-grpc-codegen replaces that generator, and only that (see <<kotpb>>).
+Its code is self-contained, supports editions 2023 and 2024, and is small enough, about 900 lines, for us to review, and to fork should it stall.
+* kotlinx-rpc's gRPC support is a preview, published outside Maven Central, with no stability guarantees, and its message types aren't protobuf-java's (see <<kotlinx-rpc>>).
+It is worth another look once it is stable, and a module on grpc-java doesn't stand in its way: the server, its lifecycle, health and telemetry don't depend on how the services are written.
+
+[source,kotlin]
+----
+class GreeterService : GreeterGrpcKt.GreeterCoroutineImplBase() {
+  override suspend fun sayHello(request: HelloRequest) = helloReply { message = "Hello, ${request.name}" }
+  override fun streamHellos(request: HelloRequest): Flow<HelloReply> = flow { /* emit replies */ }
+}
+----
+
+As with grpc-java's and grpc-kotlin's generated bases, each method is `open`, with a default that answers `UNIMPLEMENTED`, so a method the service doesn't override still compiles.
+An option to generate the base with `abstract` methods would make that a compile error too; it would be a small change to kotpb-grpc-codegen's `ServerBaseGenerator`, requested in https://github.com/Kotpb/kotpb-grpc-codegen/issues/48[kotpb-grpc-codegen#48].
+A method stubbed with `TODO()` answers `UNIMPLEMENTED` too, rather than the `UNKNOWN` grpc-kotlin gives any other exception: `boot-server-grpc` maps Kotlin's `NotImplementedError` (see <<prototype>>).
+
+=== Decisions
+
+. Depend on kotpb-grpc-codegen, pinned, and review each upgrade, rather than fork it.
+. Run its native executable where it publishes one for the platform, and its `jvm` jar everywhere else (see <<kotpb>>).
+. Ask kotpb-grpc-codegen upstream for an `abstract` methods option, so a method left unimplemented is a compile error: https://github.com/Kotpb/kotpb-grpc-codegen/issues/48[kotpb-grpc-codegen#48].
+
+[[kotpb]]
+== kotpb-grpc-codegen
+
+A protoc plugin that generates the same API as grpc-kotlin's, `FooGrpcKt` with `FooCoroutineImplBase` and `FooCoroutineStub`, for grpc-kotlin's runtime, without grpc-java's generated `FooGrpc` class.
+
+* *Maintenance.*
+Created 2026-05-02, by one maintainer, Ramiro Aparicio.
+Five releases, 0.1.1 (2026-05-04) to 0.2.3 (2026-11-08), cut by release-please, with dependabot keeping its dependencies current: its main branch builds against grpc-java 1.85.1, protobuf 4.36.2 and Kotlin 2.4.21, the versions Bootable uses.
+Two open issues, a CI CodeQL failure and a feature request, and two open dependabot PRs.
+One star on GitHub, so few, if any, other users.
+* *Size.*
+The generator is 899 lines of Kotlin in 18 files, plus a 7-line `main`, emitting its code with KotlinPoet.
+It reads protoc's `CodeGeneratorRequest` from stdin and writes the response to stdout, with no file, network or reflective access of its own.
+* *Tests.*
+103 tests: generator unit tests, and end-to-end tests that run protoc and call each kind of method in process, for proto2, proto3 and editions 2023 and 2024, single and multiple files, and name collisions.
+CI checks that each native binary generates byte-identical output to the JVM build before it is published.
+* *Generated code.*
+The method and service descriptors are built in the generated file itself, from protobuf-java's descriptors, so grpc-java's protoc plugin isn't needed, and one plugin, `grpckt`, is all a build configures.
+It needs `grpc-kotlin-stub`, `grpc-protobuf` and `protobuf-java` at runtime, as grpc-kotlin's own does.
+* *Distribution.*
+Maven Central, Apache 2.0, with a native executable for Linux x86_64 and aarch64, macOS aarch64 and Windows x86_64, and a `jvm` jar.
+The protobuf Gradle plugin picks the native executable for the host's platform, and fails on a platform kotpb-grpc-codegen doesn't publish one for, such as macOS x86_64.
+So the build lists those four platforms, and on any other it names the `jvm` jar instead, which the plugin runs on the JVM through a wrapper script.
+The list belongs to the pinned version, and is checked at each upgrade.
+* *Risk.*
+If it stalls, its output for a given version doesn't change, so pinned, it keeps working until protoc changes in a way that breaks it.
+It is small enough to fork, and to maintain.
+
+[[grpc-kotlin]]
+== Is grpc-kotlin maintained?
+
+*No, not in any meaningful sense.*
+
+* *Releases.*
+The latest is 1.5.0, from 2025-09-16, with nothing in the 14 months since.
+Before it: 1.4.1 in 2023-12, a 1.4.2 GitHub release in 2024-07 whose artifacts never reached Maven Central, and a 1.4.3 on Maven Central in 2025-04 with no GitHub release (https://github.com/grpc/grpc-kotlin/issues/644[#644]).
+Maven Central's metadata for both artifacts lists a git SHA as the latest release, so a tool that resolves `latest.release` gets a bogus version.
+* *Commits.*
+The last commit on master is from dependabot, on 2025-11-24, and the last human commit is from 2025-09-11.
+The last 20 commits are dependabot's, and release and Bazel work from a contributor who describes themself as a temporary maintainer, "not a real one".
+None of the maintainers listed in `MAINTAINERS.md` has committed in that time.
+* *Backlog.*
+There are 86 open issues and 27 open PRs.
+Community PRs from 2022 to 2025 wait for review, and one that bumps grpc-java and protobuf (https://github.com/grpc/grpc-kotlin/pull/744[#744]) is approved but unmerged since 2025-11.
+* *The pulse check.*
+https://github.com/grpc/grpc-kotlin/issues/758[#758], opened 2026-07-28, asks whether the project is alive.
+A community member answers that most maintainers have left Google, and the one remaining, on grpc-java, is focused elsewhere.
+The temporary maintainer says the real maintainer is "very busy", and offers to ask whether others could help, with "no guarantee".
+Pings for "proof of life" through 2026-10-13 get no answer from a listed maintainer.
+A grpc-java issue about the unreviewed PRs (https://github.com/grpc/grpc-java/issues/12875[grpc-java#12875]) was answered "raised it to the concerned POC", and closed, with nothing visible since.
+* *Compatibility.*
+1.5.0 is built with Kotlin 2.2.20, coroutines 1.10.2, grpc-java 1.62.2 and protobuf 3.25.3, for Java 17.
+Its runtime has no protobuf dependency, so protobuf 4.x itself isn't a problem, and no open issue reports one.
+But its generator rejects protobuf editions files (https://github.com/grpc/grpc-kotlin/issues/625[#625], open since 2024-09), and a patch release that bumped dependency versions caused `NoSuchMethodError` (https://github.com/grpc/grpc-kotlin/issues/645[#645]).
+Consumers need an explicit, newer `grpc-stub` to run code from a newer protoc-gen-grpc-java (https://github.com/grpc/grpc-kotlin/issues/633[#633]).
+
+It still works: the runtime is a thin layer over grpc-java's stable `ServerCall` and `ClientCall` APIs, which is why the stale grpc-java pin hasn't broken it.
+The risk is in what happens next, such as a grpc-java API change, editions in common use, or a Kotlin metadata change, none of which anyone upstream will fix.
+
+[[kotlinx-rpc]]
+== Is kotlinx-rpc's gRPC support usable?
+
+*Not yet, for us.*
+
+* The stable line, 0.10.4 (2026-09-18), is kRPC, its own protocol, not gRPC.
+* gRPC ships as separate dev builds, the latest 0.11.0-grpc-190 (2026-09-18), the first from 2026-03-12.
+They are published to a JetBrains repository rather than Maven Central, and the docs promise "no stability guarantees" for the Gradle DSL, the generated code or migration (https://kotlin.github.io/kotlinx-rpc/grpc-configuration.html).
+grpc-190 already broke generated names.
+* It generates code with its own protoc plugins, through the Buf CLI, its own Gradle plugin, and a Kotlin compiler plugin; it can't share a module with the `com.google.protobuf` plugin, and IntelliJ needs a plugin of its own.
+* On the JVM it runs on grpc-java 1.79 and Netty, so it speaks standard gRPC on the wire.
+But its message types are its own, not protobuf-java's, so they don't work with Java libraries that take protobuf-java messages without a round trip through bytes.
+* Its documented limitations (https://kotlin.github.io/kotlinx-rpc/grpc-limitations.html) include no descriptors, so no server reflection and no protovalidate, no proto3 JSON, and only global interceptors.
+* It targets Kotlin Multiplatform: JVM, Android, Apple and Linux.
+* The docs give no dated roadmap.
+
+It is the likely long-term successor, and the one to revisit when its gRPC support is stable and on Maven Central.
+
+== Other options
+
+* *Armeria* (1.43.1, active) and *Spring gRPC* (1.1.2, active) are server runtimes that serve grpc-java and grpc-kotlin generated services.
+Neither generates code, so neither replaces grpc-kotlin's generator, and each is a framework of its own to bring into a Bootable application.
+* *Wire* (Square) is active, but its gRPC server moved to https://github.com/square/wire-grpc-server[its own repository], whose latest artifact is 1.0.0-alpha04, from 2024-05.
+* *connect-kotlin* is a client only.
+* *A builder over grpc-java's method descriptors*, with a coroutine runtime of our own of about 150 lines, binding a handler to each `MethodDescriptor` that grpc-java's protoc plugin generates.
+It needs no Kotlin generator at all, but a handler bound with the wrong kind of method, or to a method of another service, fails only when the service is bound, at startup, not at compile time.
+* *grpc-kotlin's generator, pinned at 1.5.0*, with grpc-java's protoc plugin besides.
+It generates the same API as kotpb-grpc-codegen, but is frozen, with no editions support (https://github.com/grpc/grpc-kotlin/issues/625[#625]).
+
+[[runtime]]
+== grpc-kotlin's runtime
+
+`grpc-kotlin-stub` is the one part of grpc-kotlin this depends on.
+Its main sources are 908 lines in 9 files, under the Apache 2.0 license: `AbstractCoroutineServerImpl`, `ServerCalls` and `ClientCalls`, over grpc-java's `ServerCall` and `ClientCall`.
+
+* It depends on grpc-java 1.62.2's `grpc-stub`; `boot-server-grpc` depends on 1.85.1's, which Gradle resolves in its place.
+It has no protobuf dependency.
+* Each call runs in a coroutine of its own, with grpc-java's `Context` current on whichever thread it resumes, and cancelled when the client cancels it, or its deadline passes.
+* A `CoroutineContextServerInterceptor` adds elements to that coroutine's context, which `boot-server-grpc` uses for the caller's OpenTelemetry span and the call's headers.
+* A `StatusException` or `StatusRuntimeException` fails the call with its status; any other exception is `UNKNOWN`, with no details for the client.
+It doesn't log that exception, so `boot-server-grpc` does, in an interceptor.
+
+If grpc-java changes the APIs it uses, or a Kotlin release breaks it, nobody upstream will fix it.
+Then, a module of ours with a copy of it, in its package, `io.grpc.kotlin`, would take its place, since the generated code names its classes.
+That copy would clash with the real `grpc-kotlin-stub`, should anything else on the classpath bring it in, so an application could have only one of them.
+
+[[prototype]]
+== The prototype
+
+`boot-server-grpc`::
+* `GrpcServer`, an `AppService` in the `Serving` phase, which serves grpc-java `BindableService`s, usually generated `*CoroutineImplBase` subclasses, on grpc-java's shaded Netty transport, so it can't clash with an application's own Netty.
+It binds its `GrpcServerConfig`'s `hostPort` (default `:50051`).
+Its shutdown is graceful: it stops taking calls, waits `shutdownGracePeriod` (10s) for those in flight, then cancels the rest and waits `shutdownTimeout` (2s).
+It optionally serves server reflection, both v1 and the v1alpha that older tools still ask for.
+`GrpcServerCustomizer`s adjust the server builder, such as to add an interceptor.
+* `GrpcHealth`, the standard `grpc.health.v1.Health` service, answered from the application's `HealthLifecycleController`, rather than with grpc-java's `HealthStatusManager`, which would need its statuses pushed to it.
+Its server base is generated like an application's, by kotpb-grpc-codegen, from the `health.proto` that grpc-services ships.
+The build moves the proto's Java package to `com.github.rocketraman.bootable.server.grpc.health`, so the generated classes don't clash with grpc-services' Java classes for the same proto.
+The service is the same on the wire.
+The empty service name, the name `readiness`, and each service the server serves are readiness, with its checks; the name `liveness` is liveness.
+A Kubernetes gRPC probe names the one it wants.
+A `Watch` ends when shutdown begins, after sending the status, so a watcher doesn't hold the graceful shutdown for its whole grace period.
+* A `grpckotlins` package, which fills gaps in grpc-kotlin's runtime library, `grpc-kotlin-stub`.
+kotpb-grpc-codegen replaces only grpc-kotlin's code generator: the server bases it generates still run on that runtime.
+The package is expected to shrink, or go, as grpc-kotlin, or a replacement such as kotlinx-rpc, fills the gaps:
+** `grpcRequestHeaders()` reads the call's headers, which the runtime gives a service no way to read.
+** The caller's OpenTelemetry span is current in the call's coroutine; the runtime passes only the gRPC `Context` to the coroutine.
+** A method that calls Kotlin's `TODO()` answers `UNIMPLEMENTED`, not `UNKNOWN`.
+** A method that throws any other exception is logged, since its client gets no details of it.
+* Koin, Metro and Inara flavors, which add the `GrpcServer` to the app services, over the application's ``BindableService``s and ``GrpcServerCustomizer``s.
+In Inara, they are the members marked `@GrpcServices` and `@GrpcServerCustomizers`.
+* A Kodein flavor, deprecated like the other modules' Kodein flavors.
+
+`boot-server-grpc-otel`::
+`GrpcTelemetry`, a `GrpcServerCustomizer` that adds OpenTelemetry's gRPC library instrumentation, `opentelemetry-grpc-1.6`, which traces each call and records the RPC server metrics.
+It leaves the health service out, unless `telemetry.grpc.traceHealth` is set, as boot-server-http-ktor-otel leaves out the health routes.
+grpc-java's own `grpc-opentelemetry` module is the alternative, but it is `@ExperimentalApi`, and only metrics can be switched on through its public API.
+
+`examples/server-grpc`::
+A vanilla-wired application with a unary and a server-streaming method, on the generated server base, using protoc's built-in Kotlin message builders, and a test that boots it and calls both with the generated coroutine stub, and its health.
+
+Not in the prototype:
+
+* A health listener of its own, on a port of its own, as `KtorHealth` can have; the health service is on the application's server, so it is unanswered until the server starts.
+* TLS settings in `GrpcServerConfig`; a `GrpcServerCustomizer`, or `configureServer`, can set them on the builder.
+* A client module; the generated coroutine stubs work over a grpc-java `Channel` as they are.
+* A docs site page.
+* GraalVM native-image metadata, which grpc-java's Netty transport needs.
+
+=== Versions
+
+* grpc-java 1.85.1, with grpc-kotlin's runtime, `grpc-kotlin-stub`, 1.5.0, and kotpb-grpc-codegen 0.2.3.
+grpc-java's own artifacts still depend on protobuf-java 3.25, but run on 4.x; the prototype pins protobuf-java and protoc at 4.36.2, so that generated code and its runtime match.
+* The Gradle plugin `com.google.protobuf` 0.10.1, which works with Gradle 9.8 and the Kotlin 2.4 plugin.
+* `opentelemetry-grpc-1.6` at the version of the other instrumentation libraries, 2.32.0-alpha.
