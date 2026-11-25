@@ -64,6 +64,9 @@ fun interface GrpcServerCustomizer {
  *   defaultLifecycleControllers().withHealthLifecycleController(health),
  * )
  * ```
+ *
+ * This module's Koin, Metro, and Inara flavors, and its deprecated Kodein flavor, add one to the application's services,
+ * over the application's [BindableService]s and [GrpcServerCustomizer]s.
  */
 open class GrpcServer(
   val config: GrpcServerConfig,

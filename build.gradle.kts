@@ -1320,6 +1320,7 @@ project("boot-server-http-ktor-otel") {
 // A gRPC server over grpc-java, as an AppService, for services written as coroutines, on the server bases that
 // kotpb-grpc-codegen generates, over grpc-kotlin's runtime
 project("boot-server-grpc") {
+  configureDiVariants()
   configureGrpcProtos()
   dependencies {
     // GrpcServer is an AppService, so boot is part of this module's API
@@ -1346,8 +1347,18 @@ project("boot-server-grpc") {
     // the caller's span, current in each call's coroutine
     implementation(rootProject.libs.opentelemetry.extension.kotlin)
     implementation(rootProject.libs.bundles.log4j.api)
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot", configuration = "kodeinElements"))
+    "koinApi"(project(path = ":boot", configuration = "koinElements"))
+    // the inara flavor requires boot's BootableModule, for its HealthLifecycleController and config
+    "inaraApi"(project(path = ":boot", configuration = "inaraElements"))
 
     testImplementation(project(":boot-test"))
+    // the tests exercise this module's kodein, koin, metro, and inara flavors too, wired up as a consumer would
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "koinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
   }
 
   // the standard health service's proto, as grpc-services ships it, with its java_package moved to this module's, so
@@ -1361,6 +1372,14 @@ project("boot-server-grpc") {
     into(layout.buildDirectory.dir("health-proto"))
   }
   (sourceSets["main"].extensions["proto"] as SourceDirectorySet).srcDir(healthProto)
+
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["koin"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["koin"].output + sourceSets["metro"].output + sourceSets["inara"].output
+  }
 }
 
 /**
