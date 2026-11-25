@@ -62,6 +62,7 @@ dependencies {
   dokka(project(":boot-server-http-ktor-cio"))
   dokka(project(":boot-server-http-ktor-netty"))
   dokka(project(":boot-server-grpc"))
+  dokka(project(":boot-server-grpc-otel"))
   dokka(project(":boot-server-http-ktor-otel"))
   dokka(project(":boot-telemetry-otel"))
   dokka(project(":boot-telemetry-otel-common"))
@@ -1372,6 +1373,50 @@ project("boot-server-grpc") {
     into(layout.buildDirectory.dir("health-proto"))
   }
   (sourceSets["main"].extensions["proto"] as SourceDirectorySet).srcDir(healthProto)
+
+  // the tests compose the inara flavor into a module of their own, as an application does
+  configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
+  dependencies { "kspTest"(rootProject.libs.inara.processor) }
+  sourceSets.named("test") {
+    compileClasspath += sourceSets["kodein"].output + sourceSets["koin"].output + sourceSets["metro"].output + sourceSets["inara"].output
+    runtimeClasspath += sourceSets["kodein"].output + sourceSets["koin"].output + sourceSets["metro"].output + sourceSets["inara"].output
+  }
+}
+
+// traces and measures each call through the application's OpenTelemetry, as a GrpcServerCustomizer
+project("boot-server-grpc-otel") {
+  configureDiVariants()
+  configureGrpcProtos()
+  dependencies {
+    api(project(":boot-server-grpc"))
+    api(project(":boot-telemetry-otel"))
+    api(rootProject.libs.opentelemetry.instrumentation.grpc)
+    "metroApi"(project(path = ":boot", configuration = "metroElements"))
+    "metroApi"(project(path = ":boot-telemetry-otel", configuration = "metroElements"))
+    "kodeinApi"(project(path = ":boot", configuration = "kodeinElements"))
+    "kodeinApi"(project(path = ":boot-telemetry-otel", configuration = "kodeinElements"))
+    "koinApi"(project(path = ":boot", configuration = "koinElements"))
+    "koinApi"(project(path = ":boot-telemetry-otel", configuration = "koinElements"))
+    // the kodein and koin flavors bind their config with config-common's helpers
+    "kodeinApi"(project(path = ":boot-config-common", configuration = "kodeinElements"))
+    "koinApi"(project(path = ":boot-config-common", configuration = "koinElements"))
+    "inaraApi"(project(path = ":boot-telemetry-otel", configuration = "inaraElements"))
+    // the inara flavor adds its telemetry to the GrpcServerCustomizers of boot-server-grpc's GrpcServerModule
+    "inaraApi"(project(path = ":boot-server-grpc", configuration = "inaraElements"))
+
+    testImplementation(rootProject.libs.grpc.netty.shaded)
+    testImplementation(rootProject.libs.opentelemetry.sdk.testing)
+    testImplementation(project(":boot-test"))
+    // the tests exercise this module's kodein, koin, metro, and inara flavors too, wired up as a consumer would, over
+    // an OpenTelemetry of their own, so not boot-telemetry-otel's flavors
+    testImplementation(project(path = ":boot", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot", configuration = "koinElements"))
+    testImplementation(project(path = ":boot", configuration = "inaraElements"))
+    testImplementation(project(path = ":boot", configuration = "metroElements"))
+    testImplementation(project(path = ":boot-server-grpc", configuration = "kodeinElements"))
+    testImplementation(project(path = ":boot-server-grpc", configuration = "koinElements"))
+    testImplementation(project(path = ":boot-server-grpc", configuration = "metroElements"))
+  }
 
   // the tests compose the inara flavor into a module of their own, as an application does
   configurations["testImplementation"].extendsFrom(configurations["inaraApi"])
