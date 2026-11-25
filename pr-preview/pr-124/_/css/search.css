@@ -1,0 +1,161 @@
+/*
+ * The docs search's results, in place of the Lunr extension's own stylesheet (its search-ui.js loads this): a panel
+ * below the header's search field, a page per group, each with its matching sections, then the API's matching types
+ * and functions, which bootable.js adds.
+ */
+
+.search-result-dropdown-menu {
+  position: absolute;
+  z-index: 100;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(560px, calc(100vw - 32px));
+}
+
+.search-result-dataset {
+  max-height: min(70vh, calc(100vh - var(--header-height) - 32px));
+  overflow: auto;
+  padding: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.12), 0 2px 6px rgb(0 0 0 / 0.06);
+  color: var(--text-body);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+}
+
+/* there's one component, so its heading says nothing */
+.search-result-component-header {
+  display: none;
+}
+
+.search-result-item {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+}
+
+.search-result-item + .search-result-item {
+  border-top: 1px solid var(--border);
+}
+
+.search-result-document-title {
+  padding: 8px 10px 2px;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.search-result-document-hit {
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.search-result-document-hit > a {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.search-result-document-hit > a:hover,
+.search-result-document-hit > a:focus,
+.search-result-document-hit > a.is-active {
+  background: var(--bg-hover);
+  outline: 0;
+}
+
+.search-result-document-hit .search-result-section-title {
+  margin-bottom: 2px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.search-result-highlight {
+  padding: 0 1px;
+  border-radius: 3px;
+  background: var(--accent-subtle);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.search-result-document-hit .search-result-keywords {
+  margin-top: 2px;
+}
+
+.search-result-document-hit .search-result-keywords-field-label {
+  font-weight: 600;
+}
+
+/* the result the arrow keys picked (bootable.js), which Enter opens */
+.search-result-document-hit > a.is-active {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* the API's results (bootable.js): a type or function's name, its package, and its signature */
+.search-result-api .search-result-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.search-result-api-name {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+}
+
+.search-result-api-package {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-faint);
+  font-size: 12px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* scoped to the panel, ahead of the API pages' own code styles */
+.search-result-dataset .search-result-api-signature {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: none;
+  border: 0;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-result-dataset .search-result-api-name {
+  color: var(--text);
+}
+
+/* "no results" */
+.search-result-item strong {
+  display: block;
+  padding: 12px 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+@media (max-width: 640px) {
+  .search-result-dropdown-menu {
+    position: fixed;
+    top: calc(var(--header-height) + 8px);
+    left: 16px;
+    right: 16px;
+    width: auto;
+  }
+}
