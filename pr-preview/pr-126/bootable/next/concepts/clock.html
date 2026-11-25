@@ -300,6 +300,9 @@
     <a class="nav-link" href="../api/boot-logging-log4j2/index.html">boot-logging-log4j2</a>
   </li>
   <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="../api/boot-logging-log4j2-serialization/index.html">boot-logging-log4j2-serialization</a>
+  </li>
+  <li class="nav-item" data-depth="1">
     <a class="nav-link" href="../api/boot-periodic/index.html">boot-periodic</a>
   </li>
   <li class="nav-item" data-depth="1">
@@ -499,6 +502,8 @@ dependencies {
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">package snippets.concepts
 
+import java.time.Clock as JClock
+import java.time.Instant as JInstant
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -510,8 +515,8 @@ class Invoices(private val clock: Clock) {
 }
 
 /** A class, such as a library's, which takes a `java.time.Clock`. */
-class TokenSigner(private val clock: java.time.Clock) {
-  fun expiry(): java.time.Instant = clock.instant().plusSeconds(3600)
+class TokenSigner(private val clock: JClock) {
+  fun expiry(): JInstant = clock.instant().plusSeconds(3600)
 }</code></pre>
 </div>
 </div>
@@ -614,7 +619,7 @@ interface InvoicesGraph {
 object InvoicesBindings {
   // boot-clock-metro provides both clocks
   @Provides fun invoices(clock: Clock): Invoices = Invoices(clock)
-  @Provides fun tokenSigner(clock: java.time.Clock): TokenSigner = TokenSigner(clock)
+  @Provides fun tokenSigner(clock: JClock): TokenSigner = TokenSigner(clock)
 }</code></pre>
 </div>
 </div>

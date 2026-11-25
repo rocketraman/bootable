@@ -68,6 +68,8 @@ The examples on this page wire two classes, one that takes each clock:
 ```kotlin
 package snippets.concepts
 
+import java.time.Clock as JClock
+import java.time.Instant as JInstant
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -79,8 +81,8 @@ class Invoices(private val clock: Clock) {
 }
 
 /** A class, such as a library's, which takes a `java.time.Clock`. */
-class TokenSigner(private val clock: java.time.Clock) {
-  fun expiry(): java.time.Instant = clock.instant().plusSeconds(3600)
+class TokenSigner(private val clock: JClock) {
+  fun expiry(): JInstant = clock.instant().plusSeconds(3600)
 }
 ```
 
@@ -149,7 +151,7 @@ interface InvoicesGraph {
 object InvoicesBindings {
   // boot-clock-metro provides both clocks
   @Provides fun invoices(clock: Clock): Invoices = Invoices(clock)
-  @Provides fun tokenSigner(clock: java.time.Clock): TokenSigner = TokenSigner(clock)
+  @Provides fun tokenSigner(clock: JClock): TokenSigner = TokenSigner(clock)
 }
 ```
 
