@@ -3,6 +3,7 @@
 * xref:wiring.adoc[Wiring styles]
 * xref:server-ktor.adoc[Ktor server]
 * xref:server-ktor-db.adoc[Server with a database]
+* xref:server-grpc.adoc[gRPC server]
 * xref:start-order.adoc[Custom start order]
 * xref:compose-html.adoc[Web app with Compose HTML]
 * xref:htmx.adoc[Web app with htmx]

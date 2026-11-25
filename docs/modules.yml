@@ -188,6 +188,7 @@ functions:
 
 - id: grpc
   title: gRPC
+  page: grpc:index.adoc
   groups:
   - title: Server telemetry
     choice: optional
@@ -195,9 +196,12 @@ functions:
     - name: boot-server-grpc-otel
       extends: boot-server-grpc
       provides: Each call traced and measured, with the health service's probes left out
-  - modules:
+      page: grpc:index.adoc#telemetry
+  - title: Server
+    modules:
     - name: boot-server-grpc
       provides: '`GrpcServer`: a gRPC server, over grpc-java, that starts and stops with the application, for services written as coroutines on the server bases kotpb-grpc-codegen generates, and `GrpcHealth`, the standard health service, answered from the application''s health'
+      page: grpc:index.adoc
 
 - id: background
   title: Background work

@@ -27,6 +27,8 @@ dependencies {
   implementation(project(path = ":boot-periodic", configuration = "koinElements"))
   implementation(project(path = ":boot-leader-k8s", configuration = "koinElements"))
   implementation(project(path = ":boot-scheduler-db", configuration = "koinElements"))
+  implementation(project(path = ":boot-server-grpc", configuration = "koinElements"))
+  implementation(project(path = ":boot-server-grpc-otel", configuration = "koinElements"))
   // modules without DI flavours
   implementation(project(":boot-server-http-ktor-cio"))
   // the engine of the probes' and the scrape's own listeners

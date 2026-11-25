@@ -10,6 +10,10 @@ asciidoc:
     metro-version: 1.4.5
     ksp-version: 2.3.13
     inara-version: 0.3.0
+    # the versions the gRPC page's protoc setup shows, as gradle/libs.versions.toml has them
+    protobuf-version: 4.36.2
+    protobuf-plugin-version: 0.10.1
+    kotpb-version: 0.2.3
     source-language: kotlin
     # remember the reader's choice in a synced tab set, e.g. their DI, across pages and visits
     tabs-sync-option: ''
@@ -42,6 +46,9 @@ ext:
       into: modules/ROOT/examples/inara
   - scan:
       dir: docs/snippets/metro/database/src/main/kotlin/snippets
+      into: modules/ROOT/examples/metro
+  - scan:
+      dir: docs/snippets/metro/grpc/src/main/kotlin/snippets
       into: modules/ROOT/examples/metro
   - scan:
       dir: docs/snippets/metro/http/src/main/kotlin/snippets

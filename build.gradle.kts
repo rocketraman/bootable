@@ -1427,6 +1427,11 @@ project("boot-server-grpc-otel") {
   }
 }
 
+// the gRPC snippets' greeter, generated as an application generates its own
+project(":docs:snippets:common") {
+  configureGrpcProtos()
+}
+
 /**
  * kotpb-grpc-codegen's artifact for protoc: its native executable where it publishes one for this platform, and
  * otherwise its jar, which the protobuf plugin runs on the JVM. The platforms are those its pinned version publishes;
@@ -1439,8 +1444,9 @@ fun Project.kotpbGrpcCodegen(artifact: String): String {
 }
 
 /**
- * Generates the messages, with their Kotlin DSL builders, and the coroutine stubs and server bases, of the test source
- * set's protos, under src/test/proto, with protoc and kotpb-grpc-codegen, as an application generates its own.
+ * Generates the messages, with their Kotlin DSL builders, and the coroutine stubs and server bases, of the project's
+ * protos, such as the test source set's, under src/test/proto, with protoc and kotpb-grpc-codegen, as an application
+ * generates its own.
  */
 fun Project.configureGrpcProtos() {
   apply(plugin = "com.google.protobuf")

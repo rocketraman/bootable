@@ -7,6 +7,7 @@ Run any of them from the repository root with Gradle; they are services, so they
 * xref:wiring.adoc[Wiring styles]: the smallest application, one service that logs a greeting from config, wired five ways (vanilla, Kodein, Koin, Metro, and Inara).
 * xref:server-ktor.adoc[Ktor server]: a Ktor server on Netty with typed config, which can also be built as a GraalVM native image; vanilla wiring.
 * xref:server-ktor-db.adoc[Server with a database]: a key/value store over HTTP with the database, telemetry, an HTTP client, health probes, and background work, wired five ways (vanilla, Kodein, Koin, Metro, and Inara), with a container image that has a JVM AOT cache.
+* xref:server-grpc.adoc[gRPC server]: a gRPC server with a unary and a server-streaming method, and the standard health service, to call with `grpcurl`; vanilla wiring.
 * xref:start-order.adoc[Custom start order]: a Ktor server and a ready file, with a custom lifecycle phase; vanilla wiring.
 * xref:compose-html.adoc[Web app with Compose HTML]: a todo list with a Compose HTML browser client and a Ktor server, sharing their models; vanilla wiring.
 * xref:htmx.adoc[Web app with htmx]: the same todo list, rendered on the server with kotlinx.html and made interactive with htmx; vanilla wiring.

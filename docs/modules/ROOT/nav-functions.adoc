@@ -11,6 +11,7 @@
 ** xref:http:server.adoc[Server (Ktor)]
 ** xref:http:client.adoc[Client (Ktor)]
 ** xref:http:health.adoc[Health]
+* xref:grpc:index.adoc[gRPC server]
 * xref:background:index.adoc[Background work]
 ** xref:background:periodic.adoc[Periodic work]
 ** xref:background:leader.adoc[Leader election]
