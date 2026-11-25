@@ -108,7 +108,7 @@ There is deliberately no priority number to break ties, since a number would be 
 A `StartOrder.Tiebreaker`, given to `Bootable`, decides how ties are broken:
 
 `ByName`, the default::
-By `name()`, so the start plan, and the logs, are the same on every run and every machine.
+By `name`, so the start plan, and the logs, are the same on every run and every machine.
 `Shuffled`::
 At random, from a seed that is logged with the plan, so a missing milestone that a fixed order would hide shows up, and `Shuffled(seed)` replays the order.
 

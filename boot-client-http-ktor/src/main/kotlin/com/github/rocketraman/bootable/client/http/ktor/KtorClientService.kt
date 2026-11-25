@@ -80,7 +80,7 @@ class KtorClientService(
   /** The client named [name], if there is one, or else the [default] client. */
   fun getOrDefault(name: String): HttpClient = clients[name] ?: default
 
-  override fun name() = "KtorClientService"
+  override val name get() = "KtorClientService"
 
   override suspend fun shutdown() = close()
 

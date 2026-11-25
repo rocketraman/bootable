@@ -92,12 +92,11 @@ private fun inaraStartTracingModule(clock: Clock = Clock.System) = InaraStartTra
 
 /** Does traced work as it starts, as a migration's queries would be, and fails to start if [fail]. */
 private class WorkingService(
-  private val name: String,
+  override val name: String,
   private val phase: DefaultPhase,
   private val openTelemetry: OpenTelemetry,
   private val fail: Boolean = false,
 ) : AppService {
-  override fun name() = name
   override fun ordering() = Ordering(phase)
 
   override suspend fun start() {
@@ -120,7 +119,7 @@ private val Long.startInstant: KotlinInstant get() = KotlinInstant.fromEpochSeco
 private suspend fun traceStart(tracing: ServiceStartTracing, telemetry: InMemoryTelemetry): Pair<KotlinInstant, KotlinInstant> {
   tracing.aroundAppStart(ServiceContext(emptySet(), emptyList(), {}, {}), aSecondAgo()) {
     val pool = object : AppService {
-      override fun name() = "pool"
+      override val name get() = "pool"
       override suspend fun start() = Unit
     }
     tracing.aroundServiceStart(pool, pool::start)

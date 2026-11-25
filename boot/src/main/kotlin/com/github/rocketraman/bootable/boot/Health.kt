@@ -237,7 +237,7 @@ class HealthLifecycleController(
   }
 
   private fun services(): Map<String, ServiceState> =
-    serviceStates?.value?.entries?.associate { (service, state) -> service.name() to state }.orEmpty()
+    serviceStates?.value?.entries?.associate { (service, state) -> service.name to state }.orEmpty()
 
   override suspend fun aroundAppStart(
     serviceContext: ServiceContext,

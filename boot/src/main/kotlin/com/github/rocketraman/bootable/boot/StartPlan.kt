@@ -30,11 +30,11 @@ internal class PhasePlan(val phase: Phase, val services: List<AppService>)
 /** The plan, as logged: each non-empty phase with its services, e.g. `Infrastructure[JdbcDataSourceService] …`. */
 internal fun List<PhasePlan>.describe(): String =
   filter { it.services.isNotEmpty() }.joinToString(" ") { plan ->
-    "${plan.phase.name}[${plan.services.joinToString { it.name() }}]"
+    "${plan.phase.name}[${plan.services.joinToString { it.name }}]"
   }
 
 private class Node(val service: AppService, val ordering: Ordering, val phase: Phase, val phaseIndex: Int) {
-  val name: String get() = service.name()
+  val name: String get() = service.name
 }
 
 /** [provider] must start before the dependent, because the dependent is [relation] its [milestone]. */
@@ -62,7 +62,7 @@ internal fun phasedStartPlan(
     val phase = ordering.phase ?: startOrder.defaultPhase
     val phaseIndex = phases.indexOf(phase)
     if (phaseIndex < 0) {
-      problems += "${service.name()} is in phase ${phase.name}, which is not one of the start order's phases: " +
+      problems += "${service.name} is in phase ${phase.name}, which is not one of the start order's phases: " +
         "$phaseNames. Pass Bootable a StartOrder that includes ${phase.name}."
       null
     } else {

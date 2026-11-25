@@ -24,7 +24,7 @@ sealed class ScopeFailurePolicy {
     override val supervise get() = false
 
     override fun onFailure(bootable: Bootable, service: AppService, coroutine: String?, failure: Throwable) {
-      log.error(failure) { "==> Service ${service.name()} failed… stopping the application." }
+      log.error(failure) { "==> Service ${service.name} failed… stopping the application." }
       bootable.serviceFailed(service)
       bootable.stop(exitCode)
     }
@@ -40,7 +40,7 @@ sealed class ScopeFailurePolicy {
 
     override fun onFailure(bootable: Bootable, service: AppService, coroutine: String?, failure: Throwable) {
       log.error(failure) {
-        "==> Coroutine ${coroutine ?: "(unnamed)"} of service ${service.name()} failed… the service carries on."
+        "==> Coroutine ${coroutine ?: "(unnamed)"} of service ${service.name} failed… the service carries on."
       }
     }
   }

@@ -73,7 +73,7 @@ open class GrpcServer(
   private val services: Set<BindableService>,
   private val health: GrpcHealth? = null,
   private val customizers: Set<GrpcServerCustomizer> = emptySet(),
-  private val name: String = "grpc",
+  override val name: String = "grpc",
 ) : AppService {
 
   lateinit var server: Server
@@ -81,8 +81,6 @@ open class GrpcServer(
 
   /** The port the server listens on, once started: the one it was given, or the free one it took for port 0. */
   val port: Int get() = server.port
-
-  override fun name() = name
 
   /** In the [DefaultPhase.Serving] phase, so the server starts once the services it uses have, and stops first. */
   override fun ordering() = Ordering(DefaultPhase.Serving)

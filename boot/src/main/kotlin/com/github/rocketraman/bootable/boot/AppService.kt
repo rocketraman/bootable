@@ -46,8 +46,19 @@ interface AppService {
   val scopeFailurePolicy: ScopeFailurePolicy get() = ScopeFailurePolicy.StopApplication()
 
   /**
-   * The service name, which defaults to the simple java class name.
+   * The service name, in the logs, the start plan, and the health reports, which defaults to the simple java class
+   * name.
    */
+  @Suppress("DEPRECATION")
+  val name: String get() = name()
+
+  /**
+   * The service name, which defaults to the simple java class name. Override the [name] property instead.
+   *
+   * Bootable reads the property, which, unless it is overridden, calls this. So a service that overrides this
+   * function still has its name, but one that overrides the property doesn't change what this returns.
+   */
+  @Deprecated("Override the name property instead", ReplaceWith("name"))
   fun name(): String = javaClass.simpleName
 
   /**

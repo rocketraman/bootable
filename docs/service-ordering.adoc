@@ -198,7 +198,7 @@ data class Ordering(
 
 interface AppService {
   fun ordering(): Ordering = Ordering()
-  // name(), start(), shutdown() unchanged; priority() is removed (see Migration)
+  // name, start(), shutdown() unchanged; priority() is removed (see Migration)
 }
 
 /** The phases, and how each service's ordering is read. */
@@ -431,7 +431,7 @@ object AppStartOrder : StartOrder by DefaultStartOrder {
     "LegacyCacheService" to Ordering(DefaultPhase.Initialization, after = setOf(DbMilestones.SchemaMigrated)),
   )
 
-  override fun orderingOf(service: AppService) = overrides[service.name()] ?: service.ordering()
+  override fun orderingOf(service: AppService) = overrides[service.name] ?: service.ordering()
 }
 ----
 
@@ -451,7 +451,7 @@ is foundational" is a phase, and "after that one" is a milestone, which for an a
 
 How ties are actually broken is a `StartOrder.Tiebreaker`, given to `Bootable`:
 
-* `ByName` (the default) orders them by `name()`, so the start plan, and the logs, are the same on every run and
+* `ByName` (the default) orders them by `name`, so the start plan, and the logs, are the same on every run and
   every machine. That matters when debugging production.
 * `Shuffled` orders them randomly. A deterministic order can hide a missing milestone, as an app can work by
   alphabetical accident; shuffling flushes that out, as JUnit's random test order does for tests. The seed is

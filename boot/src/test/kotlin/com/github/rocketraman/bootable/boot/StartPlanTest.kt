@@ -6,8 +6,7 @@ import com.github.rocketraman.bootable.boot.DefaultPhase.Initialization
 import com.github.rocketraman.bootable.boot.DefaultPhase.Serving
 import de.infix.testBalloon.framework.core.testSuite
 
-private class Service(private val name: String, private val ordering: Ordering = Ordering()) : AppService {
-  override fun name() = name
+private class Service(override val name: String, private val ordering: Ordering = Ordering()) : AppService {
   override fun ordering() = ordering
   override fun toString() = name
 }
@@ -18,7 +17,7 @@ private val Migrated = milestone("migrated")
 private fun Collection<AppService>.plan(
   startOrder: StartOrder = DefaultStartOrder,
   tiebreaker: StartOrder.Tiebreaker = StartOrder.Tiebreaker.ByName,
-) = startPlan(this, startOrder, tiebreaker).map { it.name() }
+) = startPlan(this, startOrder, tiebreaker).map { it.name }
 
 private fun Collection<AppService>.problems(startOrder: StartOrder = DefaultStartOrder): List<String> =
   (runCatching { startPlan(this, startOrder) }.exceptionOrNull() as StartOrderException).problems
@@ -190,7 +189,7 @@ val StartPlanTest by testSuite {
   test("an app can read orderings from elsewhere") {
     val overrides = object : StartOrder by DefaultStartOrder {
       override fun orderingOf(service: AppService) =
-        if (service.name() == "legacy") Ordering(Infrastructure) else service.ordering()
+        if (service.name == "legacy") Ordering(Infrastructure) else service.ordering()
     }
     assert(setOf(Service("app"), Service("legacy")).plan(overrides) == listOf("legacy", "app"))
   }

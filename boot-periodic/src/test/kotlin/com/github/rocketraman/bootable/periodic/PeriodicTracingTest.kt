@@ -73,11 +73,11 @@ private val loopConfig = PeriodicConfig(interval = 10.milliseconds)
 private suspend fun traceRuns(loop: AppService, spans: InMemorySpans): List<SpanData> {
   loop.start(CoroutineScope(SupervisorJob()))
   try {
-    eventually { spans.spans.count { it.name == "periodic ${loop.name()}" } >= 2 }
+    eventually { spans.spans.count { it.name == "periodic ${loop.name}" } >= 2 }
   } finally {
     loop.shutdown()
   }
-  return spans.spans.filter { it.name == "periodic ${loop.name()}" }
+  return spans.spans.filter { it.name == "periodic ${loop.name}" }
 }
 
 private fun telemetryService(spans: InMemorySpans) =
