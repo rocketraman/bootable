@@ -8,6 +8,7 @@ import org.apache.logging.log4j.message.MapMessage
  * Bootable's JSON layouts write each field as a top-level field of the event, alongside `message`, which holds
  * only the [message].
  * A number or a boolean stays a JSON number or boolean; any other value is written as its `toString()`.
+ * The text layouts write the fields after the text, as `{key=value, ...}`.
  *
  * A field whose value is `null` is left out.
  * Name the fields after the backend's schema, such as the
@@ -62,7 +63,7 @@ open class StructuredMessage(
 
   // JsonTemplateLayout's message resolver, and PatternLayout's %m, format a StringBuilderFormattable message, which a
   // MapMessage is, with formatTo rather than getFormattedMessage: both must give the text alone. The JSON layouts' map
-  // resolver writes the fields from the MapMessage's entries.
+  // resolver writes the fields from the MapMessage's entries, and the text layouts' %fields converter from [fields].
   override fun formatTo(buffer: StringBuilder) {
     buffer.append(message)
   }

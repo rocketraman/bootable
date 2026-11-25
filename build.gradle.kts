@@ -1063,7 +1063,16 @@ project("boot-logging-log4j2") {
     api(rootProject.libs.kotlin.reflect)
     implementation(platform(rootProject.libs.log4j.bom))
     implementation(rootProject.libs.bundles.log4j.impl)
+    // registers FieldsPatternConverter as a Log4j plugin, with its GraalVM native metadata
+    annotationProcessor(rootProject.libs.log4j.core)
     testImplementation(rootProject.libs.kotlinx.serialization.json)
+  }
+
+  tasks.named<JavaCompile>("compileJava") {
+    options.compilerArgs.addAll(listOf(
+      "-Alog4j.graalvm.groupId=${project.group}",
+      "-Alog4j.graalvm.artifactId=${project.name}",
+    ))
   }
 }
 

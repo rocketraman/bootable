@@ -12,6 +12,7 @@ import org.apache.logging.log4j.core.config.ConfigurationSource
 import org.apache.logging.log4j.core.config.xml.XmlConfiguration
 import org.apache.logging.log4j.core.impl.Log4jLogEvent
 import org.apache.logging.log4j.message.SimpleMessage
+import org.apache.logging.log4j.message.StringMapMessage
 import org.apache.logging.log4j.util.SortedArrayStringMap
 
 /** The layout of the `Console` appender in one of Bootable's base configs, as `loggingInit` would load it. */
@@ -116,5 +117,18 @@ val StructuredMessageLayoutTest by testSuite {
     assert(json["log.origin.file.name"] == JsonPrimitive("Orders.kt"))
     assert(json["log.origin.file.line"] == JsonPrimitive(12))
     assert(json["log.origin.function"] == JsonPrimitive("place"))
+  }
+
+  test("the text layouts write the fields after the text, and nothing more for other messages") {
+    for (resource in listOf("log4j2-base.xml", "log4j2-base-plain.xml")) {
+      val layout = consoleLayout(resource)
+      val line = layout.render(event(orderPlaced)).trimEnd()
+      assert(line.endsWith(" order 42 placed {order.id=42, order.total=1250, order.gift=true}"))
+      val plain = layout.render(event(SimpleMessage("hello"))).trimEnd()
+      assert(plain.endsWith(" hello"))
+      // a map message's %m is its entries already: they aren't written twice
+      val map = layout.render(event(StringMapMessage().with("http.status", "200"))).trimEnd()
+      assert(map.endsWith(""" http.status="200""""))
+    }
   }
 }
