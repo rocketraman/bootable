@@ -110,13 +110,13 @@ Without telemetry:
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-cio-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
@@ -124,7 +124,7 @@ With telemetry:
 
 ```kotlin
 plugins {
-  id("com.google.devtools.ksp") version "2.3.13"
+  id("com.google.devtools.ksp") version "2.3.14"
 }
 
 dependencies {
@@ -132,7 +132,7 @@ dependencies {
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-cio-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-server-http-ktor-otel-inara:3.1.0-SNAPSHOT")
   implementation("com.github.rocketraman.bootable:boot-telemetry-otel-inara:3.1.0-SNAPSHOT")
-  ksp("org.kodein.di.inara:inara-processor:0.3.0")
+  ksp("org.kodein.di.inara:inara-processor:0.4.0")
 }
 ```
 
