@@ -58,7 +58,7 @@ Each install snippet lists the dependencies for each wiring style, and, where a 
 
 ## Comparison
 
-- [Spring Boot](https://rocketraman.github.io/bootable/bootable/next/comparison/spring-boot.html.md): Why you might use Bootable rather than Spring Boot, when Spring Boot is the better choice, and how Spring Boot's concepts map onto Bootable's.
+- [Spring Boot](https://rocketraman.github.io/bootable/bootable/next/comparison/spring-boot.html.md): Why we prefer Bootable to Spring Boot, and how Spring Boot's concepts map onto Bootable's.
 
 ## Optional
 

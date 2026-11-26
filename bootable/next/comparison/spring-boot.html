@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Bootable and Spring Boot :: Bootable</title>
-    <meta name="description" content="Why you might use Bootable rather than Spring Boot, when Spring Boot is the better choice, and how Spring Boot's concepts map onto Bootable's.">
+    <meta name="description" content="Why we prefer Bootable to Spring Boot, and how Spring Boot's concepts map onto Bootable's.">
     <meta name="generator" content="Antora 3.2.2">
     <link rel="stylesheet" href="../../../_/css/tokens.css">
     <link rel="stylesheet" href="../../../_/css/header.css">
@@ -389,7 +389,7 @@
 </aside>
 <article class="doc">
 <h1 class="page">Bootable and Spring Boot</h1>
-<p class="page-lead is-before-toc">Why you might use Bootable rather than Spring Boot, when Spring Boot is the better choice, and how Spring Boot's concepts map onto Bootable's.</p>
+<p class="page-lead is-before-toc">Why we prefer Bootable to Spring Boot, and how Spring Boot's concepts map onto Bootable's.</p>
 <div id="preamble">
 <div class="sectionbody">
 <div class="paragraph">
@@ -424,22 +424,22 @@ Annotations then change what the code does: <code>@Transactional</code> makes a 
 This is easy to start with, but not simple: what runs, and why, is decided by rules outside your code, and a mistake can do nothing at all, silently, such as <code>@Transactional</code> on a <code>private</code> method, which the proxy never sees.</p>
 </div>
 <div class="paragraph">
-<p>Even deciding what a "bean" is and "configuration" is difficult to understand.
+<p>Even understanding what code is actually running is hard.
 <code>@Component</code>, <code>@Service</code>, and <code>@RestController</code> make a class a bean, but only if a <code>@ComponentScan</code> finds it.
-<code>@Configuration</code> classes declare beans with <code>@Bean</code> methods, but the same method on a plain <code>@Component</code> is something different.
-<code>@AutoConfiguration</code> classes add beans for you, but complicates this with all sorts of conditions: <code>@ConditionalOnClass</code>, <code>@ConditionalOnMissingBean</code>, and so on.
+<code>@Configuration</code> classes declare beans with <code>@Bean</code> methods, but the same method on a plain <code>@Component</code> is a "lite" Bean.
+<code>@AutoConfiguration</code> adds classes add beans for you at runtime, subject to conditions like <code>@ConditionalOnClass</code>, <code>@ConditionalOnMissingBean</code>, and so on.
 Just importing a dependency changes your application in ways that it is impossible to understand.
 Easy, but definitely not simple.
-<code>@Profile</code>, <code>@Primary</code>, <code>@Qualifier</code>, and <code>@Lazy</code> change which of multiple beans is chosen, and when it is created.
+<code>@Profile</code>, <code>@Primary</code>, <code>@Qualifier</code>, and <code>@Lazy</code> and probably others all change injection and lifecycle.
 <code>@ConfigurationProperties</code> binds config, but only once something enables it, and <code>@ConstructorBinding</code> decides whether it binds through the constructor or through setters, a rule that changed between Spring Boot 2 and 3.
-<code>@Configurable</code> even injects into objects created with <code>new</code>, through AspectJ weaving.
+<code>@Configurable</code> injects into objects created with <code>new</code>, through AspectJ weaving.
 Which beans exist, and which one is injected where, is the sum of all of these, at runtime, and often visible only in the conditions report, or the debugger.</p>
 </div>
 <div class="paragraph">
-<p>Bootable runs what your <code>main</code> gives it.
+<p>By contrast, Bootable runs what your <code>main</code> gives it and that is it.
 There is no scanning, no auto-configuration, and no annotation that changes behaviour; a module does nothing until you wire it.
 The application is two sets, its services and its lifecycle controllers, which you build by hand, or with a DI container such as Kodein, Koin, Metro, or Inara.
-With Metro, the graph is checked at compile time, so a missing binding is a build error rather than a failed start.
+With Metro and Inara, the graph is checked at compile time, so a missing binding is a build error rather than a failed start.
 See <a href="../concepts/philosophy.html" class="xref page">No magic</a>.</p>
 </div>
 </div>
@@ -462,13 +462,12 @@ Where a module doesn&#8217;t fit, leave it out, and integrate the library, or an
 <h2 id="lifecycle"><a class="anchor" href="#lifecycle"></a>A lifecycle you can read</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Startup ordering not expressed inherently via dependencies are managed via <code>SmartLifecycle</code> beans and phase numbers,
- <code>@DependsOn</code>, or an <code>@Order</code> value relative to everyone else&#8217;s.
-Spring introduced order coupling in annotations, in order to avoid it in code.
-But annotations are code, and the coupling introduced is real.</p>
+<p>Startup ordering not expressed inherently via constructor dependencies are managed via <code>SmartLifecycle</code> beans and phase numbers,
+ <code>@DependsOn</code>, or a global <code>@Order</code> value.
+These annotations are code, and the global ordering creates unnecessary coupling between unrelated things.</p>
 </div>
 <div class="paragraph">
-<p>Bootable <a href="../concepts/start-order.html" class="xref page">starts services</a> in named phases and milestones so there is no coupling via global ordering.
+<p>Bootable <a href="../concepts/start-order.html" class="xref page">starts services</a> in named phases and milestones, eliminating coupling via global ordering.
 A test can check the plan, under many orders of the services left unordered, without starting anything.
 See <a href="../concepts/lifecycle.html" class="xref page">Lifecycle and services</a> and <a href="../concepts/start-order.html" class="xref page">Start order</a>.</p>
 </div>
@@ -501,15 +500,16 @@ See <a href="../testing/index.html" class="xref page">Testing</a>.</p>
 A stack trace from a Spring Boot application is often mostly Spring&#8217;s frames, before it reaches the application&#8217;s own classes, which adds overhead, makes it harder to understand runtime behavior, and makes debugging more complex.</p>
 </div>
 <div class="paragraph">
-<p>Bootable adds no proxies and no interceptors, and isn&#8217;t in the path of a request at all.</p>
+<p>Bootable adds no proxies and no interceptors.
+It isn&#8217;t in the path of a request at all.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="spring-boot"><a class="anchor" href="#spring-boot"></a>When Spring Boot is the better choice</h2>
+<h2 id="common-objections"><a class="anchor" href="#common-objections"></a>Common Objections to Migrating</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>The usual reasons to choose Spring Boot mostly come down to familiarity, and familiarity has costs of its own.</p>
+<p>The usual reasons to choose Spring Boot mostly come down to familiarity, but familiar isn&#8217;t necessarily better.</p>
 </div>
 <div class="dlist">
 <dl>
@@ -523,17 +523,18 @@ An application that keeps each library behind a port of its own, isolated and te
 <dt class="hdlist1">"Our team already knows Spring."</dt>
 <dd>
 <p>That is a real cost of switching, and worth weighing.
-But much of knowing Spring well is knowing its rules and workarounds, while knowing the language and the libraries directly is more useful fundamental knowledge.</p>
+But consider using a framework that doesn&#8217;t require much knowledge at all.
+Rather, spend your time understanding the language and libraries you work with directly.</p>
 </dd>
 <dt class="hdlist1">"Spring has a large community, extensive documentation, and commercial support."</dt>
 <dd>
 <p>Spring&#8217;s community is well earned: it pioneered ideas, such as dependency injection, that every framework now takes for granted.
-But its documentation is extensive because Spring is large and complex.
+But its documentation is extensive, because Spring is large and complex.
 Bootable is small enough to read in an afternoon, or for an AI to hold in a single conversation and answer from, and a framework you can understand is one you need little support for.</p>
 </dd>
 <dt class="hdlist1">"Our application is in Java, and will stay that way."</dt>
 <dd>
-<p>Then Spring Boot, or another Java framework, is the better choice: Bootable, and Ktor and Exposed beneath it, are written for Kotlin.</p>
+<p>In this case, Spring Boot, or another Java framework, is indeed the better choice: Bootable is written for Kotlin users.</p>
 </dd>
 </dl>
 </div>
