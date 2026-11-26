@@ -3,6 +3,8 @@ package snippets.grpc
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.clock.ClockModule
+import com.github.rocketraman.bootable.clock.clockModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.server.grpc.GrpcServerModule
@@ -36,13 +38,14 @@ fun main() = boot {
 // tag::telemetry[]
 @DIModule(composed = true)
 interface TracedGrpcAppModule :
-  ConfigModule, BootableModule, OpenTelemetryModule, GrpcServerModule, GrpcTelemetryModule {
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, GrpcServerModule, GrpcTelemetryModule {
   @GrpcServices val greeterService: GreeterService
 }
 
 fun tracedGrpcAppModule() = TracedGrpcAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),  // the application's OpenTelemetry, from boot-telemetry-otel
   grpcServerModule = grpcServerModule(),
   grpcTelemetryModule = grpcTelemetryModule(),  // GrpcTelemetry, from telemetry.grpc, one of the server's customizers

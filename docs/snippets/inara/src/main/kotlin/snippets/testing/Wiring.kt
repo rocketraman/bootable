@@ -5,6 +5,8 @@ import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.boot.bootableModule
 import com.github.rocketraman.bootable.boot.setOfAppServices
+import com.github.rocketraman.bootable.clock.ClockModule
+import com.github.rocketraman.bootable.clock.clockModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryApiModule
@@ -15,28 +17,28 @@ import com.github.rocketraman.bootable.test.checkShuffledStartPlans
 import com.github.rocketraman.bootable.test.indexOfService
 import org.kodein.di.inara.Binding
 import org.kodein.di.inara.DIModule
-import kotlin.time.Clock
 
 // tag::app[]
 /** The application's own module, which `main` and the tests share. */
 @DIModule
-interface SessionsModule : @DIModule.Required OpenTelemetryApiModule {
+interface SessionsModule : @DIModule.Required OpenTelemetryApiModule, @DIModule.Required ClockModule {
   val sessions: Sessions
   @AppServices val sessionReaper: SessionReaper
 }
 
-/** The clock is a setting: a parameter, which a test passes. */
-fun sessionsModule(clock: Clock = Clock.System) = SessionsModulePart(
+/** The clock is the application's, from the `ClockModule`, which a test replaces. */
+fun sessionsModule() = SessionsModulePart(
   sessions = Binding.single { Sessions(clock, openTelemetry) },
   sessionReaper = Binding.single { SessionReaper(sessions) },
 )
 
 @DIModule(composed = true)
-interface AppModule : ConfigModule, BootableModule, OpenTelemetryModule, SessionsModule
+interface AppModule : ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, SessionsModule
 
 fun appModule() = AppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   sessionsModule = sessionsModule(),
 )

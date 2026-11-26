@@ -2,12 +2,12 @@
 
 package com.github.rocketraman.bootable.periodic
 
+import com.github.rocketraman.bootable.clock.ClockModule
 import com.github.rocketraman.bootable.leader.LeaderElectionModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryApiModule
 import org.kodein.di.inara.Binding
 import org.kodein.di.inara.DIModule
 import org.kodein.di.inara.DISet
-import kotlin.time.Clock
 
 /** Marks a module member as one of the [PeriodicRunInterceptor]s of the application's periodic services. */
 @DISet(of = PeriodicRunInterceptor::class)
@@ -23,6 +23,7 @@ annotation class PeriodicRunInterceptors
  * - each run is traced, with [periodicTracing], through the OpenTelemetry of the [OpenTelemetryApiModule] it requires,
  *   which with the `NoopOpenTelemetryModule` records nothing.
  * - their interceptors are the tracing, outermost, then the members marked [PeriodicRunInterceptors].
+ * - they're timed by the clock of the [ClockModule] it requires.
  *
  * Add each loop to the application's services:
  *
@@ -32,13 +33,15 @@ annotation class PeriodicRunInterceptors
  * ```
  */
 @DIModule(sets = [PeriodicRunInterceptors::class])
-interface PeriodicModule : @DIModule.Required LeaderElectionModule, @DIModule.Required OpenTelemetryApiModule {
+interface PeriodicModule :
+  @DIModule.Required LeaderElectionModule,
+  @DIModule.Required OpenTelemetryApiModule,
+  @DIModule.Required ClockModule {
   val periodicServices: PeriodicServices
 }
 
-/** A [PeriodicModule] on [clock], with each run traced as [tracingOptions] says. */
+/** A [PeriodicModule], with each run traced as [tracingOptions] says. */
 fun periodicModule(
-  clock: Clock = Clock.System,
   tracingOptions: PeriodicTracingOptions = PeriodicTracingOptions(),
 ): PeriodicModulePart = PeriodicModulePart(
   periodicServices = Binding.single {

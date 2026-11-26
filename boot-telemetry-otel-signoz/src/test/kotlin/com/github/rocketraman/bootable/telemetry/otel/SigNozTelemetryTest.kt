@@ -7,6 +7,8 @@ import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
 import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
+import com.github.rocketraman.bootable.clock.ClockModule
+import com.github.rocketraman.bootable.clock.clockModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.Masked
@@ -149,7 +151,7 @@ interface TestGraph : BootableGraph {
 
 /** An application's module, composed as an Inara application composes it. */
 @DIModule(composed = true)
-interface InaraTestModule : ConfigModule, BootableModule, OpenTelemetryModule, SigNozTelemetryModule
+interface InaraTestModule : ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, SigNozTelemetryModule
 
 private val expectedConfig = SigNozTelemetryConfig(ingestionKey = Masked("wiring-key"), temporality = MetricsTemporality.Delta)
 
@@ -197,6 +199,7 @@ val SigNozTelemetryWiringTest by testSuite {
       val module = InaraTestModule(
         configModule = hopliteConfigModule(),
         bootableModule = bootableModule(),
+        clockModule = clockModule(),
         openTelemetryModule = openTelemetryModule(),
         sigNozTelemetryModule = sigNozTelemetryModule(),
       )

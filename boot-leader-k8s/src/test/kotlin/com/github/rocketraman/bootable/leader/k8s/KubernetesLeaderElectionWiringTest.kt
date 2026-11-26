@@ -14,6 +14,8 @@ import com.github.rocketraman.bootable.client.http.ktor.KtorClientService
 import com.github.rocketraman.bootable.client.http.ktor.koin.ktorClientModule as koinKtorClientModule
 import com.github.rocketraman.bootable.client.http.ktor.ktorClientModule
 import com.github.rocketraman.bootable.client.http.ktor.setOfNamedClientDefaults
+import com.github.rocketraman.bootable.clock.ClockModule
+import com.github.rocketraman.bootable.clock.clockModule
 import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
 import com.github.rocketraman.bootable.leader.k8s.koin.kubernetesLeaderElectionModule as koinKubernetesLeaderElectionModule
 import dev.zacsweers.metro.BindingContainer
@@ -59,7 +61,7 @@ object EngineBindings {
 
 /** An application's module, composed as an Inara application composes it. */
 @DIModule(composed = true)
-interface InaraTestModule : ConfigModule, BootableModule, KtorClientModule, KubernetesLeaderElectionModule
+interface InaraTestModule : ConfigModule, BootableModule, ClockModule, KtorClientModule, KubernetesLeaderElectionModule
 
 /** The election stops, releasing its Lease, before the HTTP clients close. */
 private suspend fun checkOrder(services: Set<AppService>) {
@@ -147,6 +149,7 @@ val KubernetesLeaderElectionWiringTest by testSuite {
       val module = InaraTestModule(
         configModule = hopliteConfigModule(),
         bootableModule = bootableModule(),
+        clockModule = clockModule(),
         ktorClientModule = ktorClientModule(JavaClientEngine()),
         kubernetesLeaderElectionModule = kubernetesLeaderElectionModule(),
       )

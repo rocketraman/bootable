@@ -4,12 +4,12 @@ package com.github.rocketraman.bootable.telemetry.otel
 
 import com.github.rocketraman.bootable.boot.AppServices
 import com.github.rocketraman.bootable.boot.LifecycleControllers
+import com.github.rocketraman.bootable.clock.ClockModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import io.opentelemetry.api.OpenTelemetry
 import org.kodein.di.inara.Binding
 import org.kodein.di.inara.DIModule
 import org.kodein.di.inara.DISet
-import kotlin.time.Clock
 
 /** Marks a module member as one of the [OpenTelemetryCustomizer]s of the application's OpenTelemetry SDK. */
 @DISet(of = OpenTelemetryCustomizer::class)
@@ -33,15 +33,19 @@ annotation class MetricsSnapshotProviders
  * ```
  *
  * The scrape endpoints of pulled metrics backends are its [MetricsSnapshotProviders], for an HTTP integration to serve.
+ *
+ * The SDK's clock is the clock of the [ClockModule] it requires. A test sets the time of the telemetry with a
+ * `clockModule(testClock)`.
  */
 @DIModule(sets = [OpenTelemetryCustomizers::class, MetricsSnapshotProviders::class])
-interface OpenTelemetryModule : OpenTelemetryApiModule, @DIModule.Required ConfigModule {
+interface OpenTelemetryModule :
+  OpenTelemetryApiModule, @DIModule.Required ConfigModule, @DIModule.Required ClockModule {
   val telemetryConfig: TelemetryConfig
   @AppServices val openTelemetryService: OpenTelemetryService
 }
 
-/** An [OpenTelemetryModule], whose SDK's clock is [clock]: pass a fixed clock in a test to set the time of the telemetry. */
-fun openTelemetryModule(clock: Clock = Clock.System): OpenTelemetryModulePart = OpenTelemetryModulePart(
+/** An [OpenTelemetryModule]. */
+fun openTelemetryModule(): OpenTelemetryModulePart = OpenTelemetryModulePart(
   // qualified: the telemetryConfig member shadows the top-level function
   telemetryConfig = Binding.single { com.github.rocketraman.bootable.telemetry.otel.telemetryConfig(configBinder) },
   openTelemetryService = Binding.single {
@@ -56,10 +60,10 @@ fun openTelemetryModule(clock: Clock = Clock.System): OpenTelemetryModulePart = 
  * [OpenTelemetryApiModule] it requires.
  */
 @DIModule
-interface ServiceStartTracingModule : @DIModule.Required OpenTelemetryApiModule {
+interface ServiceStartTracingModule : @DIModule.Required OpenTelemetryApiModule, @DIModule.Required ClockModule {
   @LifecycleControllers val serviceStartTracing: ServiceStartTracing
 }
 
-/** A [ServiceStartTracingModule], whose spans are timed by [clock], as [openTelemetryModule]'s are. */
-fun serviceStartTracingModule(clock: Clock = Clock.System): ServiceStartTracingModulePart =
+/** A [ServiceStartTracingModule], whose spans are timed by the clock of the [ClockModule] it requires. */
+fun serviceStartTracingModule(): ServiceStartTracingModulePart =
   ServiceStartTracingModulePart(serviceStartTracing = Binding.single { ServiceStartTracing(openTelemetry, clock) })

@@ -10,6 +10,8 @@ import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
 import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfAppServices
+import com.github.rocketraman.bootable.clock.ClockModule
+import com.github.rocketraman.bootable.clock.clockModule
 import com.github.rocketraman.bootable.config.ConfigBinder
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.bindConfig
@@ -84,7 +86,7 @@ object TestBindings {
 /** An application's module, composed as an Inara application composes it, with the loop the wiring creates. */
 @DIModule(composed = true)
 interface InaraWiringModule :
-  ConfigModule, BootableModule, LeaderElectionModule, OpenTelemetryApiModule, PeriodicModule {
+  ConfigModule, BootableModule, ClockModule, LeaderElectionModule, OpenTelemetryApiModule, PeriodicModule {
   val counter: Counter
   @AppServices val counterLoop: PeriodicAppService
 }
@@ -92,6 +94,7 @@ interface InaraWiringModule :
 private fun inaraWiringModule(leaderElectionModule: LeaderElectionModule) = InaraWiringModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   leaderElectionModule = leaderElectionModule,
   openTelemetryApiModule = NoopOpenTelemetryModule,
   periodicModule = periodicModule(),

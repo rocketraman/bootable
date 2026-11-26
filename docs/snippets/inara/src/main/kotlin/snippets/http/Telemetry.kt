@@ -8,6 +8,8 @@ import com.github.rocketraman.bootable.client.http.ktor.HttpClientTelemetryModul
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientModule
 import com.github.rocketraman.bootable.client.http.ktor.httpClientTelemetryModule
 import com.github.rocketraman.bootable.client.http.ktor.ktorClientModule
+import com.github.rocketraman.bootable.clock.ClockModule
+import com.github.rocketraman.bootable.clock.clockModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigModule
@@ -27,7 +29,7 @@ import org.kodein.di.inara.DIModule
 // tag::server[]
 @DIModule(composed = true)
 interface TracedServerAppModule :
-  ConfigModule, BootableModule, OpenTelemetryModule, PrometheusTelemetryModule,
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, PrometheusTelemetryModule,
   KtorServerEngineModule, KtorTelemetryModule, KtorHealthModule {
   val serverConfig: ServerConfig
   @AppServices val tracedServer: TracedGreetingServer
@@ -36,6 +38,7 @@ interface TracedServerAppModule :
 fun tracedServerAppModule() = TracedServerAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),              // the application's OpenTelemetry, from boot-telemetry-otel
   prometheusTelemetryModule = prometheusTelemetryModule(),  // a pulled backend, to scrape
   ktorTelemetryModule = ktorTelemetryModule(),              // KtorTelemetry, from telemetry.ktor
@@ -50,11 +53,13 @@ fun tracedServerAppModule() = TracedServerAppModule(
 // tag::client[]
 @DIModule(composed = true)
 interface TracedClientAppModule :
-  ConfigModule, BootableModule, OpenTelemetryModule, KtorClientModule, ClientModule, HttpClientTelemetryModule
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, KtorClientModule, ClientModule,
+  HttpClientTelemetryModule
 
 fun tracedClientAppModule() = TracedClientAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   ktorClientModule = ktorClientModule(CioClientEngine()),
   clientModule = clientModule(),

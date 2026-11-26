@@ -3,6 +3,7 @@
 package com.github.rocketraman.bootable.leader.k8s
 
 import com.github.rocketraman.bootable.boot.AppServices
+import com.github.rocketraman.bootable.clock.ClockModule
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientDefaults
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientModule
 import com.github.rocketraman.bootable.client.http.ktor.NamedClientDefaults
@@ -10,7 +11,6 @@ import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.leader.LeaderElectionModule
 import org.kodein.di.inara.Binding
 import org.kodein.di.inara.DIModule
-import kotlin.time.Clock
 
 /**
  * The Inara module that provides the application's `LeaderElection`, as a [LeaderElectionModule], with a
@@ -22,17 +22,20 @@ import kotlin.time.Clock
  * by default, or else the default client, of the [KtorClientModule] it requires. In a cluster, that client trusts the
  * API server with no TLS config of the application's: see [kubernetesClientDefaults].
  *
+ * Its leases are timed by the clock of the [ClockModule] it requires.
+ *
  * `periodicModule()` (from boot-periodic) gates the application's periodic services on it.
  */
 @DIModule
-interface KubernetesLeaderElectionModule : LeaderElectionModule, @DIModule.Required KtorClientModule {
+interface KubernetesLeaderElectionModule :
+  LeaderElectionModule, @DIModule.Required KtorClientModule, @DIModule.Required ClockModule {
   val kubernetesLeaderElectionConfig: KubernetesLeaderElectionConfig
   @AppServices val kubernetesLeaderElection: KubernetesLeaderElection
   @NamedClientDefaults val kubernetesClientDefaults: KtorClientDefaults
 }
 
-/** A [KubernetesLeaderElectionModule], whose leases are timed by [clock]. */
-fun kubernetesLeaderElectionModule(clock: Clock = Clock.System): KubernetesLeaderElectionModulePart =
+/** A [KubernetesLeaderElectionModule]. */
+fun kubernetesLeaderElectionModule(): KubernetesLeaderElectionModulePart =
   KubernetesLeaderElectionModulePart(
     kubernetesLeaderElectionConfig = config("leader.kubernetes"),
     kubernetesLeaderElection = Binding.single {

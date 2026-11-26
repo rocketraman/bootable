@@ -936,6 +936,8 @@ project("boot-leader-k8s") {
     "koinApi"(project(path = ":boot-client-http-ktor", configuration = "koinElements"))
     "inaraApi"(project(path = ":boot-client-http-ktor", configuration = "inaraElements"))
     "inaraApi"(project(path = ":boot-leader-common", configuration = "inaraElements"))
+    // the inara flavor requires the ClockModule, for the application's clock
+    "inaraApi"(project(path = ":boot-clock", configuration = "inaraElements"))
 
     // the election runs against a fake API server, through the Java engine
     testImplementation(project(":boot-client-http-ktor-java"))
@@ -981,6 +983,8 @@ project("boot-periodic") {
     // the inara flavor requires a LeaderElectionModule and an OpenTelemetryApiModule
     "inaraApi"(project(path = ":boot-leader-common", configuration = "inaraElements"))
     "inaraApi"(project(path = ":boot-telemetry-otel-common", configuration = "inaraElements"))
+    // the inara flavor requires the ClockModule, for the application's clock
+    "inaraApi"(project(path = ":boot-clock", configuration = "inaraElements"))
 
     // the tests exercise this module's kodein, koin, metro, and inara flavors too, wired up as a consumer would
     testImplementation(project(path = ":boot", configuration = "kodeinElements"))
@@ -1031,6 +1035,8 @@ project("boot-scheduler-db") {
     "koinApi"(project(path = ":boot-db-jdbc", configuration = "koinElements"))
     "inaraApi"(project(path = ":boot-db-jdbc", configuration = "inaraElements"))
     "inaraApi"(project(path = ":boot-telemetry-otel-common", configuration = "inaraElements"))
+    // the inara flavor requires the ClockModule, for the application's clock
+    "inaraApi"(project(path = ":boot-clock", configuration = "inaraElements"))
 
     // the tests run the scheduler against real databases, migrated by Flyway with this module's migrations: SQLite,
     // and PostgreSQL and MySQL in containers, which are skipped where Docker is unavailable, outside CI
@@ -1222,6 +1228,8 @@ project("boot-telemetry-otel") {
     "inaraApi"(project(path = ":boot", configuration = "inaraElements"))
     "inaraApi"(project(path = ":boot-config-common", configuration = "inaraElements"))
     "inaraApi"(project(path = ":boot-telemetry-otel-common", configuration = "inaraElements"))
+    // the inara flavor requires the ClockModule, for the application's clock
+    "inaraApi"(project(path = ":boot-clock", configuration = "inaraElements"))
 
     testImplementation(rootProject.libs.opentelemetry.sdk.testing)
     // to check that log events in a span get its trace and span ids, as Bootable's layouts expect

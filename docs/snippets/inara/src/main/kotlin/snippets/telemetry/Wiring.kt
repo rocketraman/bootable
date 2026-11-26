@@ -3,6 +3,8 @@ package snippets.telemetry
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.boot
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.clock.ClockModule
+import com.github.rocketraman.bootable.clock.clockModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryModule
@@ -13,13 +15,14 @@ import org.kodein.di.inara.DIModule
 
 // tag::wire[]
 @DIModule(composed = true)
-interface AppModule : ConfigModule, BootableModule, OpenTelemetryModule, ServiceStartTracingModule {
+interface AppModule : ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, ServiceStartTracingModule {
   // ... and the services that record telemetry, given openTelemetry
 }
 
 fun appModule() = AppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),              // the SDK, from telemetry.sdk, as the openTelemetry member
   serviceStartTracingModule = serviceStartTracingModule(),  // the start, as one trace
 )

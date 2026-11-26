@@ -12,6 +12,8 @@ import com.github.rocketraman.bootable.boot.setOfAppServices
 import com.github.rocketraman.bootable.boot.startPlan
 import com.github.rocketraman.bootable.client.http.ktor.koin.httpClientTelemetryModule as koinHttpClientTelemetryModule
 import com.github.rocketraman.bootable.client.http.ktor.koin.ktorClientModule as koinKtorClientModule
+import com.github.rocketraman.bootable.clock.ClockModule
+import com.github.rocketraman.bootable.clock.clockModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.common.HostPort
@@ -261,6 +263,7 @@ object TestTelemetryBindings {
 interface InaraTestModule :
   ConfigModule,
   BootableModule,
+  ClockModule,
   OpenTelemetryModule,
   KtorClientModule,
   HttpClientTelemetryModule {
@@ -339,6 +342,7 @@ val HttpClientTelemetryWiringTest by testSuite {
       val module = InaraTestModule(
         configModule = hopliteConfigModule(),
         bootableModule = bootableModule(),
+        clockModule = clockModule(),
         openTelemetryModule = openTelemetryModule(),
         ktorClientModule = ktorClientModule(Downstream()),
         httpClientTelemetryModule = httpClientTelemetryModule(),

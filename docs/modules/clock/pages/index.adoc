@@ -88,7 +88,7 @@ Compose `clockModule(clock)`, a `ClockModule` that provides both clocks, `Clock.
 include::ROOT:example$inara/clock/Clock.kt[tag=wire]
 ----
 +
-Inara has no optional bindings, so Bootable's Inara modules take their clock as a builder parameter, such as `periodicModule(clock)`: pass them the same clock.
+Bootable's Inara modules that need a clock, such as `periodicModule()`, require the `ClockModule` too, so they take their time from the same clock.
 ======
 
 == Test

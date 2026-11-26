@@ -6,13 +6,13 @@ import com.github.kagkarlsson.scheduler.Scheduler
 import com.github.kagkarlsson.scheduler.SchedulerClient
 import com.github.rocketraman.bootable.boot.AppServices
 import com.github.rocketraman.bootable.boot.HealthChecks
+import com.github.rocketraman.bootable.clock.ClockModule
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.db.jdbc.JdbcDataSourceModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryApiModule
 import org.kodein.di.inara.Binding
 import org.kodein.di.inara.DIModule
 import org.kodein.di.inara.DISet
-import kotlin.time.Clock
 
 /** Marks a module member as one of the [DbSchedulerTaskProvider]s, the application's db-scheduler tasks. */
 @DISet(of = DbSchedulerTaskProvider::class)
@@ -29,22 +29,25 @@ annotation class DbSchedulerCustomizers
  * matches the `JdbcConfig`'s URL.
  *
  * Each execution is traced, with [dbSchedulerTracing], through the OpenTelemetry of the [OpenTelemetryApiModule] it
- * requires, which with the `NoopOpenTelemetryModule` records nothing.
+ * requires, which with the `NoopOpenTelemetryModule` records nothing. It's timed by the clock of the [ClockModule] it
+ * requires.
  *
  * Add the application's tasks, recurring and one-time, with members marked [DbSchedulerTaskProviders], and adjust
  * db-scheduler beyond [DbSchedulerConfig] with members marked [DbSchedulerCustomizers].
  */
 @DIModule(sets = [DbSchedulerTaskProviders::class, DbSchedulerCustomizers::class])
-interface DbSchedulerModule : @DIModule.Required JdbcDataSourceModule, @DIModule.Required OpenTelemetryApiModule {
+interface DbSchedulerModule :
+  @DIModule.Required JdbcDataSourceModule,
+  @DIModule.Required OpenTelemetryApiModule,
+  @DIModule.Required ClockModule {
   val dbSchedulerConfig: DbSchedulerConfig
   @AppServices val dbSchedulerService: DbSchedulerService
   val scheduler: Scheduler get() = dbSchedulerService.scheduler
   val schedulerClient: SchedulerClient get() = scheduler
 }
 
-/** A [DbSchedulerModule] on [clock], with each execution traced as [tracingOptions] says. */
+/** A [DbSchedulerModule], with each execution traced as [tracingOptions] says. */
 fun dbSchedulerModule(
-  clock: Clock = Clock.System,
   tracingOptions: DbSchedulerTracingOptions = DbSchedulerTracingOptions(),
 ): DbSchedulerModulePart = DbSchedulerModulePart(
   dbSchedulerConfig = config("db.scheduler"),

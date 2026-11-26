@@ -151,6 +151,8 @@ Compose `periodicModule()`, which provides `PeriodicServices`, and mark each loo
 ----
 include::ROOT:example$inara/background/Periodic.kt[tag=wire]
 ----
++
+Its clock is that of the `ClockModule` it requires, from xref:clock:index.adoc[`boot-clock`].
 ======
 
 A loop that needs another gate passes it to `create`, in place of the shared one.
