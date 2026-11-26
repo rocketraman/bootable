@@ -1,5 +1,5 @@
 = Bootable and Spring Boot
-:description: Why you might use Bootable rather than Spring Boot, when Spring Boot is the better choice, and how Spring Boot's concepts map onto Bootable's.
+:description: Why we prefer Bootable to Spring Boot, and how Spring Boot's concepts map onto Bootable's.
 
 Spring Boot is the best-known way to boot and run a server-side application on the JVM, so the first question about Bootable is usually: why not Spring Boot?
 At root, both start an application, configure it, run it, and stop it cleanly.
@@ -24,21 +24,21 @@ It scans the classpath for annotated components, and its auto-configuration adds
 Annotations then change what the code does: `@Transactional` makes a method transactional through a proxy, and `@Scheduled` runs it on a timer.
 This is easy to start with, but not simple: what runs, and why, is decided by rules outside your code, and a mistake can do nothing at all, silently, such as `@Transactional` on a `private` method, which the proxy never sees.
 
-Even deciding what a "bean" is and "configuration" is difficult to understand.
+Even understanding what code is actually running is hard.
 `@Component`, `@Service`, and `@RestController` make a class a bean, but only if a `@ComponentScan` finds it.
-`@Configuration` classes declare beans with `@Bean` methods, but the same method on a plain `@Component` is something different.
-`@AutoConfiguration` classes add beans for you, but complicates this with all sorts of conditions: `@ConditionalOnClass`, `@ConditionalOnMissingBean`, and so on.
+`@Configuration` classes declare beans with `@Bean` methods, but the same method on a plain `@Component` is a "lite" Bean.
+`@AutoConfiguration` adds classes add beans for you at runtime, subject to conditions like `@ConditionalOnClass`, `@ConditionalOnMissingBean`, and so on.
 Just importing a dependency changes your application in ways that it is impossible to understand.
 Easy, but definitely not simple.
-`@Profile`, `@Primary`, `@Qualifier`, and `@Lazy` change which of multiple beans is chosen, and when it is created.
+`@Profile`, `@Primary`, `@Qualifier`, and `@Lazy` and probably others all change injection and lifecycle.
 `@ConfigurationProperties` binds config, but only once something enables it, and `@ConstructorBinding` decides whether it binds through the constructor or through setters, a rule that changed between Spring Boot 2 and 3.
-`@Configurable` even injects into objects created with `new`, through AspectJ weaving.
+`@Configurable` injects into objects created with `new`, through AspectJ weaving.
 Which beans exist, and which one is injected where, is the sum of all of these, at runtime, and often visible only in the conditions report, or the debugger.
 
-Bootable runs what your `main` gives it.
+By contrast, Bootable runs what your `main` gives it and that is it.
 There is no scanning, no auto-configuration, and no annotation that changes behaviour; a module does nothing until you wire it.
 The application is two sets, its services and its lifecycle controllers, which you build by hand, or with a DI container such as Kodein, Koin, Metro, or Inara.
-With Metro, the graph is checked at compile time, so a missing binding is a build error rather than a failed start.
+With Metro and Inara, the graph is checked at compile time, so a missing binding is a build error rather than a failed start.
 See xref:concepts:philosophy.adoc[].
 
 [#libraries]
@@ -54,12 +54,11 @@ Where a module doesn't fit, leave it out, and integrate the library, or another 
 [#lifecycle]
 == A lifecycle you can read
 
-Startup ordering not expressed inherently via dependencies are managed via `SmartLifecycle` beans and phase numbers,
- `@DependsOn`, or an `@Order` value relative to everyone else's.
-Spring introduced order coupling in annotations, in order to avoid it in code.
-But annotations are code, and the coupling introduced is real.
+Startup ordering not expressed inherently via constructor dependencies are managed via `SmartLifecycle` beans and phase numbers,
+ `@DependsOn`, or a global `@Order` value.
+These annotations are code, and the global ordering creates unnecessary coupling between unrelated things.
 
-Bootable xref:concepts:start-order.adoc[starts services] in named phases and milestones so there is no coupling via global ordering.
+Bootable xref:concepts:start-order.adoc[starts services] in named phases and milestones, eliminating coupling via global ordering.
 A test can check the plan, under many orders of the services left unordered, without starting anything.
 See xref:concepts:lifecycle.adoc[] and xref:concepts:start-order.adoc[].
 
@@ -83,12 +82,13 @@ With no scanning, no reflection-driven configuration, and no proxies, a Bootable
 Each of Spring's layers is in the call stack too: its proxies, interceptors, filter chains, and dispatchers, for transactions, security, and the rest of what its annotations auto-magically add.
 A stack trace from a Spring Boot application is often mostly Spring's frames, before it reaches the application's own classes, which adds overhead, makes it harder to understand runtime behavior, and makes debugging more complex.
 
-Bootable adds no proxies and no interceptors, and isn't in the path of a request at all.
+Bootable adds no proxies and no interceptors.
+It isn't in the path of a request at all.
 
-[#spring-boot]
-== When Spring Boot is the better choice
+[#common-objections]
+== Common Objections to Migrating
 
-The usual reasons to choose Spring Boot mostly come down to familiarity, and familiarity has costs of its own.
+The usual reasons to choose Spring Boot mostly come down to familiarity, but familiar isn't necessarily better.
 
 "Its ecosystem integrates everything: Spring Security, Spring Data, Spring Integration, Spring Cloud."::
 The libraries underneath already offer abstractions, designed by the people who know them best.
@@ -98,15 +98,16 @@ An application that keeps each library behind a port of its own, isolated and te
 
 "Our team already knows Spring."::
 That is a real cost of switching, and worth weighing.
-But much of knowing Spring well is knowing its rules and workarounds, while knowing the language and the libraries directly is more useful fundamental knowledge.
+But consider using a framework that doesn't require much knowledge at all.
+Rather, spend your time understanding the language and libraries you work with directly.
 
 "Spring has a large community, extensive documentation, and commercial support."::
 Spring's community is well earned: it pioneered ideas, such as dependency injection, that every framework now takes for granted.
-But its documentation is extensive because Spring is large and complex.
+But its documentation is extensive, because Spring is large and complex.
 Bootable is small enough to read in an afternoon, or for an AI to hold in a single conversation and answer from, and a framework you can understand is one you need little support for.
 
 "Our application is in Java, and will stay that way."::
-Then Spring Boot, or another Java framework, is the better choice: Bootable, and Ktor and Exposed beneath it, are written for Kotlin.
+In this case, Spring Boot, or another Java framework, is indeed the better choice: Bootable is written for Kotlin users.
 
 [#mapping]
 == From Spring Boot to Bootable
