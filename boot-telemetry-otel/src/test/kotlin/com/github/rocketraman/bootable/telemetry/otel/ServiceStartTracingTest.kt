@@ -15,6 +15,8 @@ import com.github.rocketraman.bootable.boot.StartupTimeline
 import com.github.rocketraman.bootable.boot.bootableModule
 import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfLifecycleControllers
+import com.github.rocketraman.bootable.clock.ClockModule
+import com.github.rocketraman.bootable.clock.clockModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
@@ -78,15 +80,17 @@ object ClockedTestBindings {
 
 /** An application's module, composed as an Inara application composes it, tracing its start. */
 @DIModule(composed = true)
-interface InaraStartTracingModule : ConfigModule, BootableModule, OpenTelemetryModule, ServiceStartTracingModule {
+interface InaraStartTracingModule :
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, ServiceStartTracingModule {
   @OpenTelemetryCustomizers val inMemoryTelemetry: InMemoryTelemetry
 }
 
 private fun inaraStartTracingModule(clock: Clock = Clock.System) = InaraStartTracingModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
-  openTelemetryModule = openTelemetryModule(clock),
-  serviceStartTracingModule = serviceStartTracingModule(clock),
+  clockModule = clockModule(clock),
+  openTelemetryModule = openTelemetryModule(),
+  serviceStartTracingModule = serviceStartTracingModule(),
   inMemoryTelemetry = Binding.single { InMemoryTelemetry() },
 )
 

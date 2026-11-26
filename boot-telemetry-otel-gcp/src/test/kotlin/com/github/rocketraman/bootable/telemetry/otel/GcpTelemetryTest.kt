@@ -7,6 +7,8 @@ import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
 import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
+import com.github.rocketraman.bootable.clock.ClockModule
+import com.github.rocketraman.bootable.clock.clockModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.config
@@ -145,7 +147,7 @@ interface TestGraph : BootableGraph {
 
 /** An application's module, composed as an Inara application composes it. */
 @DIModule(composed = true)
-interface InaraTestModule : ConfigModule, BootableModule, OpenTelemetryModule, GcpTelemetryModule
+interface InaraTestModule : ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, GcpTelemetryModule
 
 private val expectedConfig = GcpTelemetryConfig(detectResource = false, projectId = "wiring-project")
 
@@ -193,6 +195,7 @@ val GcpTelemetryWiringTest by testSuite {
       val module = InaraTestModule(
         configModule = hopliteConfigModule(),
         bootableModule = bootableModule(),
+        clockModule = clockModule(),
         openTelemetryModule = openTelemetryModule(),
         gcpTelemetryModule = gcpTelemetryModule(),
       )

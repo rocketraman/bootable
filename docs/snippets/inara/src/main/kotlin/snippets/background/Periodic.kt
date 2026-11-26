@@ -3,6 +3,8 @@ package snippets.background
 import com.github.rocketraman.bootable.boot.AppServices
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.clock.ClockModule
+import com.github.rocketraman.bootable.clock.clockModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.config
 import com.github.rocketraman.bootable.config.hopliteConfigModule
@@ -19,7 +21,7 @@ import org.kodein.di.inara.DIModule
 // tag::wire[]
 @DIModule(composed = true)
 interface PeriodicAppModule :
-  ConfigModule, BootableModule, LeaderElectionModule, OpenTelemetryApiModule, PeriodicModule {
+  ConfigModule, BootableModule, ClockModule, LeaderElectionModule, OpenTelemetryApiModule, PeriodicModule {
   val notifications: Notifications
   @AppServices val notificationsLoop: PeriodicAppService
 }
@@ -27,6 +29,7 @@ interface PeriodicAppModule :
 fun periodicAppModule() = PeriodicAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   leaderElectionModule = AlwaysLeaderModule,         // required: every instance runs the loops
   openTelemetryApiModule = NoopOpenTelemetryModule,  // required: no tracing of the runs
   periodicModule = periodicModule(),                 // periodicServices, gated on the leaderElection

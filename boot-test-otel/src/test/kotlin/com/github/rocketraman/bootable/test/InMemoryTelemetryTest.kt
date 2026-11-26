@@ -7,6 +7,8 @@ import com.github.rocketraman.bootable.boot.BootableGraph
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
 import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
+import com.github.rocketraman.bootable.clock.ClockModule
+import com.github.rocketraman.bootable.clock.clockModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
@@ -52,7 +54,8 @@ internal interface TelemetryGraph : BootableGraph {
 
 /** A test's module, composed as an Inara application composes it, with the in-memory telemetry. */
 @DIModule(composed = true)
-internal interface InaraTelemetryModule : ConfigModule, BootableModule, OpenTelemetryModule, InMemoryTelemetryModule
+internal interface InaraTelemetryModule :
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, InMemoryTelemetryModule
 
 val InMemoryTelemetryTest by testSuite {
   test("collects the spans and metrics of the SDK it customizes, timed by the SDK's clock") {
@@ -119,7 +122,8 @@ val InMemoryTelemetryTest by testSuite {
     val module = InaraTelemetryModule(
       configModule = hopliteConfigModule(),
       bootableModule = bootableModule(),
-      openTelemetryModule = openTelemetryModule(TestClock()),
+      clockModule = clockModule(TestClock()),
+      openTelemetryModule = openTelemetryModule(),
       inMemoryTelemetryModule = inMemoryTelemetryModule(),
     )
 

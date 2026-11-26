@@ -8,9 +8,9 @@ import org.kodein.di.inara.DIModule
 import kotlin.time.Clock
 
 /**
- * The Inara module that provides the application's clock, as a `kotlin.time.Clock` and as a `java.time.Clock`, for
- * the application's own modules to require. Compose [clockModule], with `Clock.System`, or, in a test, with a clock
- * of its own.
+ * The Inara module that provides the application's clock, as a `kotlin.time.Clock` and as a `java.time.Clock`. The
+ * Bootable modules that need a clock require it, such as `PeriodicModule`, and so can the application's own modules.
+ * Compose [clockModule], with `Clock.System`, or, in a test, with a clock of its own.
  */
 @DIModule
 interface ClockModule {

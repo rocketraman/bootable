@@ -2,6 +2,8 @@ package snippets.background
 
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.clock.ClockModule
+import com.github.rocketraman.bootable.clock.clockModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.db.flyway.FlywayMigrationModule
@@ -22,7 +24,7 @@ import org.kodein.di.inara.DIModule
 // tag::wire[]
 @DIModule(composed = true)
 interface SchedulerAppModule :
-  ConfigModule, BootableModule, JdbcDataSourceModule, HikariPoolModule, FlywayMigrationModule,
+  ConfigModule, BootableModule, ClockModule, JdbcDataSourceModule, HikariPoolModule, FlywayMigrationModule,
   OpenTelemetryApiModule, DbSchedulerModule {
   val notifications: Notifications
   @DbSchedulerTaskProviders val reminders: Reminders  // its tasks, to the scheduler
@@ -33,6 +35,7 @@ interface SchedulerAppModule :
 fun schedulerAppModule() = SchedulerAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   jdbcDataSourceModule = jdbcDataSourceModule(SqliteConfigSource),
   hikariPoolModule = hikariPoolModule(),
   flywayMigrationModule = flywayMigrationModule(),   // migrates the scheduler's table

@@ -7,6 +7,8 @@ import com.github.rocketraman.bootable.client.http.ktor.HttpClientTelemetryModul
 import com.github.rocketraman.bootable.client.http.ktor.KtorClientModule
 import com.github.rocketraman.bootable.client.http.ktor.httpClientTelemetryModule
 import com.github.rocketraman.bootable.client.http.ktor.ktorClientModule
+import com.github.rocketraman.bootable.clock.ClockModule
+import com.github.rocketraman.bootable.clock.clockModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.config
@@ -93,6 +95,7 @@ fun entriesModule(): EntriesModulePart = EntriesModulePart(
 interface AppModule :
   ConfigModule,
   BootableModule,
+  ClockModule,
   OpenTelemetryModule,
   ServiceStartTracingModule,
   PrometheusTelemetryModule,
@@ -145,6 +148,7 @@ interface AppModule :
 fun appModule(): AppModule = AppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   serviceStartTracingModule = serviceStartTracingModule(),
   prometheusTelemetryModule = prometheusTelemetryModule(),

@@ -118,6 +118,7 @@ See Clock in the https://rocketraman.github.io/bootable/[documentation].
 * `boot-clock` binds the application's clock once, as a `kotlin.time.Clock` and a `java.time.Clock`.
 * The `java.time.Clock` wraps the `kotlin.time.Clock`, in UTC, so a test that replaces one replaces both.
 * The modules that take a `kotlin.time.Clock` binding, if there is one, take this one.
+* The Inara `PeriodicModule`, `KubernetesLeaderElectionModule`, `DbSchedulerModule`, `OpenTelemetryModule`, and `ServiceStartTracingModule` require the `ClockModule`, in place of a clock parameter of their builders.
 * `asJavaClock()` and `asKotlinClock()` wrap either clock as the other.
 * Koin, Metro, and Inara flavors, and a deprecated Kodein flavor.
 

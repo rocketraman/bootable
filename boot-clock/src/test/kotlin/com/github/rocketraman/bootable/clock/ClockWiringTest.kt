@@ -52,18 +52,16 @@ class TestClockBindings(private val clock: TestClock) {
 @DIModule(composed = true)
 interface ClockAppModule : ClockModule, LeaderElectionModule, OpenTelemetryApiModule, PeriodicModule
 
-// a call resolves to the Kodein flavor's clockModule, of the same signature; a reference of this type to Inara's
+// the Kodein and Inara flavors' clockModule have the same signature: a reference of each type picks one
+private val kodeinClockModule: (Clock) -> DI.Module = ::clockModule
 private val inaraClockModule: (Clock) -> ClockModule = ::clockModule
 
-private fun clockAppModule(clock: Clock = Clock.System): ClockAppModule {
-  val clockModule = inaraClockModule(clock)
-  return ClockAppModule(
-    clockModule = clockModule,
-    leaderElectionModule = AlwaysLeaderModule,
-    openTelemetryApiModule = NoopOpenTelemetryModule,
-    periodicModule = periodicModule(clockModule.clock),
-  )
-}
+private fun clockAppModule(clock: Clock = Clock.System) = ClockAppModule(
+  clockModule = inaraClockModule(clock),
+  leaderElectionModule = AlwaysLeaderModule,
+  openTelemetryApiModule = NoopOpenTelemetryModule,
+  periodicModule = periodicModule(),
+)
 
 /** Checks [javaClock] wraps [clock], by moving [clock]. */
 private fun checkWraps(javaClock: JClock, clock: TestClock) {
@@ -77,7 +75,7 @@ val ClockWiringTest by testSuite {
     test("binds the system clock, as both clocks, for the modules that take a clock") {
       val di = DI {
         import(bootableModule)
-        import(clockModule())
+        import(kodeinClockModule(Clock.System))
         import(periodicModule)
       }.direct
       assert(di.instance<Clock>() == Clock.System)
@@ -89,7 +87,7 @@ val ClockWiringTest by testSuite {
       val testClock = TestClock()
       val di = DI {
         import(bootableModule)
-        import(clockModule())
+        import(kodeinClockModule(Clock.System))
         import(periodicModule)
         bindSingleton<Clock>(overrides = true) { testClock }
       }.direct
@@ -100,7 +98,7 @@ val ClockWiringTest by testSuite {
 
     test("binds the clock it is given") {
       val testClock = TestClock()
-      val di = DI { import(clockModule(testClock)) }.direct
+      val di = DI { import(kodeinClockModule(testClock)) }.direct
       assert(di.instance<Clock>() === testClock)
       checkWraps(di.instance(), testClock)
     }

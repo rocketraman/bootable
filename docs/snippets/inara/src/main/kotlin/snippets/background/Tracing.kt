@@ -2,6 +2,8 @@ package snippets.background
 
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.clock.ClockModule
+import com.github.rocketraman.bootable.clock.clockModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.db.jdbc.HikariPoolModule
@@ -26,11 +28,12 @@ import org.kodein.di.inara.DIModule
 @DIModule(composed = true)
 interface TracedPeriodicAppModule :
   // OpenTelemetryModule in place of OpenTelemetryApiModule: it is one, with the SDK
-  ConfigModule, BootableModule, LeaderElectionModule, OpenTelemetryModule, PeriodicModule
+  ConfigModule, BootableModule, ClockModule, LeaderElectionModule, OpenTelemetryModule, PeriodicModule
 
 fun tracedPeriodicAppModule() = TracedPeriodicAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   leaderElectionModule = AlwaysLeaderModule,
   // the application's OpenTelemetry, from boot-telemetry-otel: periodicModule traces each run
   openTelemetryModule = openTelemetryModule(),
@@ -41,6 +44,7 @@ fun tracedPeriodicAppModule() = TracedPeriodicAppModule(
 fun alwaysSampledPeriodicAppModule() = TracedPeriodicAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   leaderElectionModule = AlwaysLeaderModule,
   openTelemetryModule = openTelemetryModule(),
   // tag::periodic-options[]
@@ -53,11 +57,13 @@ fun alwaysSampledPeriodicAppModule() = TracedPeriodicAppModule(
 @DIModule(composed = true)
 interface TracedSchedulerAppModule :
   // OpenTelemetryModule in place of OpenTelemetryApiModule: it is one, with the SDK
-  ConfigModule, BootableModule, JdbcDataSourceModule, HikariPoolModule, OpenTelemetryModule, DbSchedulerModule
+  ConfigModule, BootableModule, ClockModule, JdbcDataSourceModule, HikariPoolModule, OpenTelemetryModule,
+  DbSchedulerModule
 
 fun tracedSchedulerAppModule() = TracedSchedulerAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   jdbcDataSourceModule = jdbcDataSourceModule(SqliteConfigSource),
   hikariPoolModule = hikariPoolModule(),
   openTelemetryModule = openTelemetryModule(),  // dbSchedulerModule traces each execution
@@ -68,6 +74,7 @@ fun tracedSchedulerAppModule() = TracedSchedulerAppModule(
 fun alwaysSampledSchedulerAppModule() = TracedSchedulerAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   jdbcDataSourceModule = jdbcDataSourceModule(SqliteConfigSource),
   hikariPoolModule = hikariPoolModule(),
   openTelemetryModule = openTelemetryModule(),

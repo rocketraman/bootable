@@ -2,6 +2,8 @@ package snippets.testing
 
 import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
+import com.github.rocketraman.bootable.clock.ClockModule
+import com.github.rocketraman.bootable.clock.clockModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.telemetry.otel.OpenTelemetryModule
@@ -14,15 +16,16 @@ import org.kodein.di.inara.DIModule
 // tag::telemetry[]
 @DIModule(composed = true)
 interface SessionsTestModule :
-  ConfigModule, BootableModule, OpenTelemetryModule, InMemoryTelemetryModule, SessionsModule
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, InMemoryTelemetryModule, SessionsModule
 
 fun openingASessionIsTracedAndCounted() {
   val module = SessionsTestModule(
     configModule = hopliteConfigModule(),
     bootableModule = bootableModule(),
+    clockModule = clockModule(TestClock()),               // the SDK's clock, and the sessions'
     openTelemetryModule = openTelemetryModule(),
     inMemoryTelemetryModule = inMemoryTelemetryModule(),  // one of the SDK's customizers
-    sessionsModule = sessionsModule(clock = TestClock()),
+    sessionsModule = sessionsModule(),
   )
   val telemetry = module.inMemoryTelemetry
 

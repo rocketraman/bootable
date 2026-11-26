@@ -9,6 +9,8 @@ import com.github.rocketraman.bootable.boot.BootableModule
 import com.github.rocketraman.bootable.boot.bootableModule
 import com.github.rocketraman.bootable.boot.koin.bootableModule as koinBootableModule
 import com.github.rocketraman.bootable.boot.setOfAppServices
+import com.github.rocketraman.bootable.clock.ClockModule
+import com.github.rocketraman.bootable.clock.clockModule
 import com.github.rocketraman.bootable.config.ConfigModule
 import com.github.rocketraman.bootable.config.hopliteConfigModule
 import com.github.rocketraman.bootable.config.koin.hopliteConfigModule as koinHopliteConfigModule
@@ -119,6 +121,7 @@ object TestBindings {
 interface InaraTestModule :
   ConfigModule,
   BootableModule,
+  ClockModule,
   OpenTelemetryModule,
   JdbcDataSourceModule,
   HikariPoolModule,
@@ -130,6 +133,7 @@ interface InaraTestModule :
 private fun inaraTestModule() = InaraTestModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   jdbcDataSourceModule = jdbcDataSourceModule(JdbcGenericConfigSource),
   hikariPoolModule = hikariPoolModule(),
