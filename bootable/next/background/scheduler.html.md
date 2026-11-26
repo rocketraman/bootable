@@ -200,7 +200,7 @@ Compose `dbSchedulerModule()`, which provides the `Scheduler` and the `Scheduler
 ```kotlin
 @DIModule(composed = true)
 interface SchedulerAppModule :
-  ConfigModule, BootableModule, JdbcDataSourceModule, HikariPoolModule, FlywayMigrationModule,
+  ConfigModule, BootableModule, ClockModule, JdbcDataSourceModule, HikariPoolModule, FlywayMigrationModule,
   OpenTelemetryApiModule, DbSchedulerModule {
   val notifications: Notifications
   @DbSchedulerTaskProviders val reminders: Reminders  // its tasks, to the scheduler
@@ -211,6 +211,7 @@ interface SchedulerAppModule :
 fun schedulerAppModule() = SchedulerAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   jdbcDataSourceModule = jdbcDataSourceModule(SqliteConfigSource),
   hikariPoolModule = hikariPoolModule(),
   flywayMigrationModule = flywayMigrationModule(),   // migrates the scheduler's table
@@ -275,11 +276,13 @@ The tracing’s interceptor is outermost, before those of the `DbSchedulerCustom
 @DIModule(composed = true)
 interface TracedSchedulerAppModule :
   // OpenTelemetryModule in place of OpenTelemetryApiModule: it is one, with the SDK
-  ConfigModule, BootableModule, JdbcDataSourceModule, HikariPoolModule, OpenTelemetryModule, DbSchedulerModule
+  ConfigModule, BootableModule, ClockModule, JdbcDataSourceModule, HikariPoolModule, OpenTelemetryModule,
+  DbSchedulerModule
 
 fun tracedSchedulerAppModule() = TracedSchedulerAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   jdbcDataSourceModule = jdbcDataSourceModule(SqliteConfigSource),
   hikariPoolModule = hikariPoolModule(),
   openTelemetryModule = openTelemetryModule(),  // dbSchedulerModule traces each execution

@@ -201,7 +201,7 @@ Compose `periodicModule()`, which provides `PeriodicServices`, and mark each loo
 ```kotlin
 @DIModule(composed = true)
 interface PeriodicAppModule :
-  ConfigModule, BootableModule, LeaderElectionModule, OpenTelemetryApiModule, PeriodicModule {
+  ConfigModule, BootableModule, ClockModule, LeaderElectionModule, OpenTelemetryApiModule, PeriodicModule {
   val notifications: Notifications
   @AppServices val notificationsLoop: PeriodicAppService
 }
@@ -209,6 +209,7 @@ interface PeriodicAppModule :
 fun periodicAppModule() = PeriodicAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   leaderElectionModule = AlwaysLeaderModule,         // required: every instance runs the loops
   openTelemetryApiModule = NoopOpenTelemetryModule,  // required: no tracing of the runs
   periodicModule = periodicModule(),                 // periodicServices, gated on the leaderElection
@@ -218,6 +219,8 @@ fun periodicAppModule() = PeriodicAppModule(
   },
 )
 ```
+
+Its clock is that of the `ClockModule` it requires, from [`boot-clock`](https://rocketraman.github.io/bootable/bootable/next/clock/index.html.md).
 
 A loop that needs another gate passes it to `create`, in place of the shared one.
 
@@ -270,11 +273,12 @@ The tracing is the outermost interceptor, around those of the `PeriodicRunInterc
 @DIModule(composed = true)
 interface TracedPeriodicAppModule :
   // OpenTelemetryModule in place of OpenTelemetryApiModule: it is one, with the SDK
-  ConfigModule, BootableModule, LeaderElectionModule, OpenTelemetryModule, PeriodicModule
+  ConfigModule, BootableModule, ClockModule, LeaderElectionModule, OpenTelemetryModule, PeriodicModule
 
 fun tracedPeriodicAppModule() = TracedPeriodicAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   leaderElectionModule = AlwaysLeaderModule,
   // the application's OpenTelemetry, from boot-telemetry-otel: periodicModule traces each run
   openTelemetryModule = openTelemetryModule(),

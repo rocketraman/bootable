@@ -189,7 +189,7 @@ fun clockAppModule(clock: Clock = Clock.System) = ClockAppModule(
 )
 ```
 
-Inara has no optional bindings, so Bootable’s Inara modules take their clock as a builder parameter, such as `periodicModule(clock)`: pass them the same clock.
+Bootable’s Inara modules that need a clock, such as `periodicModule()`, require the `ClockModule` too, so they take their time from the same clock.
 
 ## Test
 

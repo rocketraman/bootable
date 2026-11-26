@@ -275,7 +275,7 @@ Compose `kubernetesLeaderElectionModule()`, which provides the `LeaderElection` 
 ```kotlin
 @DIModule(composed = true)
 interface LeaderAppModule :
-  ConfigModule, BootableModule, KtorClientModule, KubernetesLeaderElectionModule, OpenTelemetryApiModule,
+  ConfigModule, BootableModule, ClockModule, KtorClientModule, KubernetesLeaderElectionModule, OpenTelemetryApiModule,
   PeriodicModule {
   // ... and the loops
 }
@@ -283,6 +283,7 @@ interface LeaderAppModule :
 fun leaderAppModule() = LeaderAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   ktorClientModule = ktorClientModule(CioClientEngine()),  // the HTTP clients, from http.client, on that engine
   // the LeaderElectionModule, from leader.kubernetes; it requires the KtorClientModule, to call the API server
   kubernetesLeaderElectionModule = kubernetesLeaderElectionModule(),

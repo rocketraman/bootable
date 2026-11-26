@@ -1780,7 +1780,7 @@ fun clockAppModule(clock: Clock = Clock.System) = ClockAppModule(
 )
 ```
 
-Inara has no optional bindings, so Bootable’s Inara modules take their clock as a builder parameter, such as `periodicModule(clock)`: pass them the same clock.
+Bootable’s Inara modules that need a clock, such as `periodicModule()`, require the `ClockModule` too, so they take their time from the same clock.
 
 ## Test
 
@@ -2624,12 +2624,13 @@ The `-metro` modules contribute the tracing wrapper and the pool’s metrics on 
 ```kotlin
 @DIModule(composed = true)
 interface TracedAppModule :
-  ConfigModule, BootableModule, JdbcDataSourceModule, HikariPoolModule,
+  ConfigModule, BootableModule, ClockModule, JdbcDataSourceModule, HikariPoolModule,
   OpenTelemetryModule, JdbcTracingModule, HikariPoolMetricsModule
 
 fun tracedAppModule() = TracedAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   jdbcDataSourceModule = jdbcDataSourceModule(SqliteConfigSource),
   hikariPoolModule = hikariPoolModule(),
   openTelemetryModule = openTelemetryModule(),          // the application's OpenTelemetry, from boot-telemetry-otel
@@ -3743,7 +3744,7 @@ Compose `ktorTelemetryModule()`, which requires `openTelemetryModule()`, and an 
 ```kotlin
 @DIModule(composed = true)
 interface TracedServerAppModule :
-  ConfigModule, BootableModule, OpenTelemetryModule, PrometheusTelemetryModule,
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, PrometheusTelemetryModule,
   KtorServerEngineModule, KtorTelemetryModule, KtorHealthModule {
   val serverConfig: ServerConfig
   @AppServices val tracedServer: TracedGreetingServer
@@ -3752,6 +3753,7 @@ interface TracedServerAppModule :
 fun tracedServerAppModule() = TracedServerAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),              // the application's OpenTelemetry, from boot-telemetry-otel
   prometheusTelemetryModule = prometheusTelemetryModule(),  // a pulled backend, to scrape
   ktorTelemetryModule = ktorTelemetryModule(),              // KtorTelemetry, from telemetry.ktor
@@ -4382,11 +4384,13 @@ Compose `httpClientTelemetryModule()`, which requires the client’s and the Ope
 ```kotlin
 @DIModule(composed = true)
 interface TracedClientAppModule :
-  ConfigModule, BootableModule, OpenTelemetryModule, KtorClientModule, ClientModule, HttpClientTelemetryModule
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, KtorClientModule, ClientModule,
+  HttpClientTelemetryModule
 
 fun tracedClientAppModule() = TracedClientAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   ktorClientModule = ktorClientModule(CioClientEngine()),
   clientModule = clientModule(),
@@ -5358,13 +5362,14 @@ Compose `grpcTelemetryModule()`, which requires an `OpenTelemetryApiModule`, suc
 ```kotlin
 @DIModule(composed = true)
 interface TracedGrpcAppModule :
-  ConfigModule, BootableModule, OpenTelemetryModule, GrpcServerModule, GrpcTelemetryModule {
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, GrpcServerModule, GrpcTelemetryModule {
   @GrpcServices val greeterService: GreeterService
 }
 
 fun tracedGrpcAppModule() = TracedGrpcAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),  // the application's OpenTelemetry, from boot-telemetry-otel
   grpcServerModule = grpcServerModule(),
   grpcTelemetryModule = grpcTelemetryModule(),  // GrpcTelemetry, from telemetry.grpc, one of the server's customizers
@@ -5868,7 +5873,7 @@ Compose `periodicModule()`, which provides `PeriodicServices`, and mark each loo
 ```kotlin
 @DIModule(composed = true)
 interface PeriodicAppModule :
-  ConfigModule, BootableModule, LeaderElectionModule, OpenTelemetryApiModule, PeriodicModule {
+  ConfigModule, BootableModule, ClockModule, LeaderElectionModule, OpenTelemetryApiModule, PeriodicModule {
   val notifications: Notifications
   @AppServices val notificationsLoop: PeriodicAppService
 }
@@ -5876,6 +5881,7 @@ interface PeriodicAppModule :
 fun periodicAppModule() = PeriodicAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   leaderElectionModule = AlwaysLeaderModule,         // required: every instance runs the loops
   openTelemetryApiModule = NoopOpenTelemetryModule,  // required: no tracing of the runs
   periodicModule = periodicModule(),                 // periodicServices, gated on the leaderElection
@@ -5885,6 +5891,8 @@ fun periodicAppModule() = PeriodicAppModule(
   },
 )
 ```
+
+Its clock is that of the `ClockModule` it requires, from [`boot-clock`](https://rocketraman.github.io/bootable/bootable/next/clock/index.html.md).
 
 A loop that needs another gate passes it to `create`, in place of the shared one.
 
@@ -5937,11 +5945,12 @@ The tracing is the outermost interceptor, around those of the `PeriodicRunInterc
 @DIModule(composed = true)
 interface TracedPeriodicAppModule :
   // OpenTelemetryModule in place of OpenTelemetryApiModule: it is one, with the SDK
-  ConfigModule, BootableModule, LeaderElectionModule, OpenTelemetryModule, PeriodicModule
+  ConfigModule, BootableModule, ClockModule, LeaderElectionModule, OpenTelemetryModule, PeriodicModule
 
 fun tracedPeriodicAppModule() = TracedPeriodicAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   leaderElectionModule = AlwaysLeaderModule,
   // the application's OpenTelemetry, from boot-telemetry-otel: periodicModule traces each run
   openTelemetryModule = openTelemetryModule(),
@@ -6293,7 +6302,7 @@ Compose `kubernetesLeaderElectionModule()`, which provides the `LeaderElection` 
 ```kotlin
 @DIModule(composed = true)
 interface LeaderAppModule :
-  ConfigModule, BootableModule, KtorClientModule, KubernetesLeaderElectionModule, OpenTelemetryApiModule,
+  ConfigModule, BootableModule, ClockModule, KtorClientModule, KubernetesLeaderElectionModule, OpenTelemetryApiModule,
   PeriodicModule {
   // ... and the loops
 }
@@ -6301,6 +6310,7 @@ interface LeaderAppModule :
 fun leaderAppModule() = LeaderAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   ktorClientModule = ktorClientModule(CioClientEngine()),  // the HTTP clients, from http.client, on that engine
   // the LeaderElectionModule, from leader.kubernetes; it requires the KtorClientModule, to call the API server
   kubernetesLeaderElectionModule = kubernetesLeaderElectionModule(),
@@ -6526,7 +6536,7 @@ Compose `dbSchedulerModule()`, which provides the `Scheduler` and the `Scheduler
 ```kotlin
 @DIModule(composed = true)
 interface SchedulerAppModule :
-  ConfigModule, BootableModule, JdbcDataSourceModule, HikariPoolModule, FlywayMigrationModule,
+  ConfigModule, BootableModule, ClockModule, JdbcDataSourceModule, HikariPoolModule, FlywayMigrationModule,
   OpenTelemetryApiModule, DbSchedulerModule {
   val notifications: Notifications
   @DbSchedulerTaskProviders val reminders: Reminders  // its tasks, to the scheduler
@@ -6537,6 +6547,7 @@ interface SchedulerAppModule :
 fun schedulerAppModule() = SchedulerAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   jdbcDataSourceModule = jdbcDataSourceModule(SqliteConfigSource),
   hikariPoolModule = hikariPoolModule(),
   flywayMigrationModule = flywayMigrationModule(),   // migrates the scheduler's table
@@ -6601,11 +6612,13 @@ The tracing’s interceptor is outermost, before those of the `DbSchedulerCustom
 @DIModule(composed = true)
 interface TracedSchedulerAppModule :
   // OpenTelemetryModule in place of OpenTelemetryApiModule: it is one, with the SDK
-  ConfigModule, BootableModule, JdbcDataSourceModule, HikariPoolModule, OpenTelemetryModule, DbSchedulerModule
+  ConfigModule, BootableModule, ClockModule, JdbcDataSourceModule, HikariPoolModule, OpenTelemetryModule,
+  DbSchedulerModule
 
 fun tracedSchedulerAppModule() = TracedSchedulerAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   jdbcDataSourceModule = jdbcDataSourceModule(SqliteConfigSource),
   hikariPoolModule = hikariPoolModule(),
   openTelemetryModule = openTelemetryModule(),  // dbSchedulerModule traces each execution
@@ -6892,13 +6905,14 @@ fun main() = boot {
 
 ```kotlin
 @DIModule(composed = true)
-interface AppModule : ConfigModule, BootableModule, OpenTelemetryModule, ServiceStartTracingModule {
+interface AppModule : ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, ServiceStartTracingModule {
   // ... and the services that record telemetry, given openTelemetry
 }
 
 fun appModule() = AppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),              // the SDK, from telemetry.sdk, as the openTelemetry member
   serviceStartTracingModule = serviceStartTracingModule(),  // the start, as one trace
 )
@@ -6908,7 +6922,7 @@ fun main() = boot {
 }
 ```
 
-A `kotlin.time.Clock`, if one is given to `OpenTelemetryService` and `ServiceStartTracing`, or bound with Kodein, Koin, or Metro, or given to the Inara modules' builders, is the time of the spans and measurements, such as a fixed clock in a test; otherwise it is `Clock.System`.
+A `kotlin.time.Clock`, if one is given to `OpenTelemetryService` and `ServiceStartTracing`, or bound with Kodein, Koin, or Metro, or composed with `clockModule(clock)` with Inara, is the time of the spans and measurements, such as a fixed clock in a test; otherwise it is `Clock.System`.
 
 When the OpenTelemetry Java agent is attached, it has already built and registered the process’s SDK: `openTelemetry` is then the agent’s, the config and customizers are ignored, and the agent owns the SDK’s lifecycle.
 
@@ -7266,7 +7280,7 @@ Compose `prometheusTelemetryModule()` and `ktorTelemetryModule()`, which require
 ```kotlin
 @DIModule(composed = true)
 interface PrometheusAppModule :
-  ConfigModule, BootableModule, OpenTelemetryModule, PrometheusTelemetryModule,
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, PrometheusTelemetryModule,
   KtorServerEngineModule, KtorTelemetryModule {
   val statusServerConfig: StatusServerConfig
   @AppServices val statusServer: StatusServer  // serves the scrape at /metrics
@@ -7275,6 +7289,7 @@ interface PrometheusAppModule :
 fun prometheusAppModule() = PrometheusAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   prometheusTelemetryModule = prometheusTelemetryModule(),  // registers its reader, and provides the scrape
   ktorTelemetryModule = ktorTelemetryModule(),              // KtorTelemetry, which serves it; no traces of the scrapes
@@ -7403,11 +7418,12 @@ Compose `sigNozTelemetryModule()`, which requires `openTelemetryModule()`:
 
 ```kotlin
 @DIModule(composed = true)
-interface SigNozAppModule : ConfigModule, BootableModule, OpenTelemetryModule, SigNozTelemetryModule
+interface SigNozAppModule : ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, SigNozTelemetryModule
 
 fun sigNozAppModule() = SigNozAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   sigNozTelemetryModule = sigNozTelemetryModule(),  // from telemetry.signoz
 )
@@ -7526,11 +7542,12 @@ Compose `gcpTelemetryModule()`, which requires `openTelemetryModule()`:
 
 ```kotlin
 @DIModule(composed = true)
-interface GcpAppModule : ConfigModule, BootableModule, OpenTelemetryModule, GcpTelemetryModule
+interface GcpAppModule : ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, GcpTelemetryModule
 
 fun gcpAppModule() = GcpAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   gcpTelemetryModule = gcpTelemetryModule(),  // from telemetry.gcp
 )
@@ -7642,13 +7659,15 @@ module {
 
 ```kotlin
 @DIModule(composed = true)
-interface MicrometerBridgeAppModule : ConfigModule, BootableModule, OpenTelemetryModule, MicrometerBridgeModule {
+interface MicrometerBridgeAppModule :
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, MicrometerBridgeModule {
   val workExecutor: ExecutorService
 }
 
 fun micrometerBridgeAppModule() = MicrometerBridgeAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   micrometerBridgeModule = micrometerBridgeModule(),  // a meterRegistry member, over the application's OpenTelemetry
   // e.g. a library's Micrometer binder: the executor's metrics, exported with the rest
@@ -7819,7 +7838,7 @@ fun sessionsExpire() {
 }
 ```
 
-Pass it to whatever takes a `Clock`, such as `OpenTelemetryService`, `ServiceStartTracing`, or `PeriodicAppService`, or, with Kodein, Koin, or Metro, bind it as the `Clock`, which they then take their time from; with Inara, which has no optional bindings, pass it to each module’s builder, such as `openTelemetryModule(clock)`. With [`boot-clock`](https://rocketraman.github.io/bootable/bootable/next/clock/index.html.md), give it to the application in place of the bound clock, which makes it the application’s `java.time.Clock` too; `asJavaClock()` is it as a `java.time.Clock`, for a class that takes one. For a monotonic `TimeSource`, use the standard library’s `kotlin.time.TestTimeSource`.
+Pass it to whatever takes a `Clock`, such as `OpenTelemetryService`, `ServiceStartTracing`, or `PeriodicAppService`, or, with Kodein, Koin, or Metro, bind it as the `Clock`, which they then take their time from; with Inara, compose `clockModule(clock)`, from `boot-clock`, which the modules that need a clock require. With [`boot-clock`](https://rocketraman.github.io/bootable/bootable/next/clock/index.html.md), give it to the application in place of the bound clock, which makes it the application’s `java.time.Clock` too; `asJavaClock()` is it as a `java.time.Clock`, for a class that takes one. For a monotonic `TimeSource`, use the standard library’s `kotlin.time.TestTimeSource`.
 
 ### Logs
 
@@ -7974,23 +7993,24 @@ A partial module of the application’s own members, with a builder function, an
 ```kotlin
 /** The application's own module, which `main` and the tests share. */
 @DIModule
-interface SessionsModule : @DIModule.Required OpenTelemetryApiModule {
+interface SessionsModule : @DIModule.Required OpenTelemetryApiModule, @DIModule.Required ClockModule {
   val sessions: Sessions
   @AppServices val sessionReaper: SessionReaper
 }
 
-/** The clock is a setting: a parameter, which a test passes. */
-fun sessionsModule(clock: Clock = Clock.System) = SessionsModulePart(
+/** The clock is the application's, from the `ClockModule`, which a test replaces. */
+fun sessionsModule() = SessionsModulePart(
   sessions = Binding.single { Sessions(clock, openTelemetry) },
   sessionReaper = Binding.single { SessionReaper(sessions) },
 )
 
 @DIModule(composed = true)
-interface AppModule : ConfigModule, BootableModule, OpenTelemetryModule, SessionsModule
+interface AppModule : ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, SessionsModule
 
 fun appModule() = AppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   sessionsModule = sessionsModule(),
 )
@@ -8202,15 +8222,16 @@ Compose `inMemoryTelemetryModule()`, which marks the `InMemoryTelemetry` as one 
 ```kotlin
 @DIModule(composed = true)
 interface SessionsTestModule :
-  ConfigModule, BootableModule, OpenTelemetryModule, InMemoryTelemetryModule, SessionsModule
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, InMemoryTelemetryModule, SessionsModule
 
 fun openingASessionIsTracedAndCounted() {
   val module = SessionsTestModule(
     configModule = hopliteConfigModule(),
     bootableModule = bootableModule(),
+    clockModule = clockModule(TestClock()),               // the SDK's clock, and the sessions'
     openTelemetryModule = openTelemetryModule(),
     inMemoryTelemetryModule = inMemoryTelemetryModule(),  // one of the SDK's customizers
-    sessionsModule = sessionsModule(clock = TestClock()),
+    sessionsModule = sessionsModule(),
   )
   val telemetry = module.inMemoryTelemetry
 
@@ -8227,7 +8248,7 @@ With Kodein, Koin, Metro, and Inara, the SDK’s config comes from the test’s 
 - `resetSpans()`: forgets the spans ended so far, such as those of what the test set up, so it sees only its own.
 - `spanExporter` and `metricReader`: OpenTelemetry’s in-memory exporter and reader, for anything else.
 
-A `TestClock`, passed to `OpenTelemetryService` or bound as the `Clock`, is the SDK’s clock, so the spans' and measurements' times are the test’s. See [telemetry:index.adoc#customizers](https://rocketraman.github.io/bootable/bootable/next/telemetry/index.html.md#customizers) for the SDK’s customizers.
+A `TestClock`, passed to `OpenTelemetryService`, bound as the `Clock`, or, with Inara, composed with `clockModule(clock)`, is the SDK’s clock, so the spans' and measurements' times are the test’s. See [telemetry:index.adoc#customizers](https://rocketraman.github.io/bootable/bootable/next/telemetry/index.html.md#customizers) for the SDK’s customizers.
 
 ## Example
 

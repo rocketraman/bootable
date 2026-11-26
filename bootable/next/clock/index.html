@@ -679,7 +679,7 @@ fun clockAppModule(clock: Clock = Clock.System) = ClockAppModule(
 </div>
 </div>
 <div class="paragraph">
-<p>Inara has no optional bindings, so Bootable&#8217;s Inara modules take their clock as a builder parameter, such as <code>periodicModule(clock)</code>: pass them the same clock.</p>
+<p>Bootable&#8217;s Inara modules that need a clock, such as <code>periodicModule()</code>, require the <code>ClockModule</code> too, so they take their time from the same clock.</p>
 </div>
 </div>
 </div>

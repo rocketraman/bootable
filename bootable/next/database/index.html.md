@@ -400,12 +400,13 @@ The `-metro` modules contribute the tracing wrapper and the pool’s metrics on 
 ```kotlin
 @DIModule(composed = true)
 interface TracedAppModule :
-  ConfigModule, BootableModule, JdbcDataSourceModule, HikariPoolModule,
+  ConfigModule, BootableModule, ClockModule, JdbcDataSourceModule, HikariPoolModule,
   OpenTelemetryModule, JdbcTracingModule, HikariPoolMetricsModule
 
 fun tracedAppModule() = TracedAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   jdbcDataSourceModule = jdbcDataSourceModule(SqliteConfigSource),
   hikariPoolModule = hikariPoolModule(),
   openTelemetryModule = openTelemetryModule(),          // the application's OpenTelemetry, from boot-telemetry-otel

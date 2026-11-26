@@ -161,7 +161,7 @@ Compose `prometheusTelemetryModule()` and `ktorTelemetryModule()`, which require
 ```kotlin
 @DIModule(composed = true)
 interface PrometheusAppModule :
-  ConfigModule, BootableModule, OpenTelemetryModule, PrometheusTelemetryModule,
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, PrometheusTelemetryModule,
   KtorServerEngineModule, KtorTelemetryModule {
   val statusServerConfig: StatusServerConfig
   @AppServices val statusServer: StatusServer  // serves the scrape at /metrics
@@ -170,6 +170,7 @@ interface PrometheusAppModule :
 fun prometheusAppModule() = PrometheusAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   prometheusTelemetryModule = prometheusTelemetryModule(),  // registers its reader, and provides the scrape
   ktorTelemetryModule = ktorTelemetryModule(),              // KtorTelemetry, which serves it; no traces of the scrapes
@@ -298,11 +299,12 @@ Compose `sigNozTelemetryModule()`, which requires `openTelemetryModule()`:
 
 ```kotlin
 @DIModule(composed = true)
-interface SigNozAppModule : ConfigModule, BootableModule, OpenTelemetryModule, SigNozTelemetryModule
+interface SigNozAppModule : ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, SigNozTelemetryModule
 
 fun sigNozAppModule() = SigNozAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   sigNozTelemetryModule = sigNozTelemetryModule(),  // from telemetry.signoz
 )
@@ -421,11 +423,12 @@ Compose `gcpTelemetryModule()`, which requires `openTelemetryModule()`:
 
 ```kotlin
 @DIModule(composed = true)
-interface GcpAppModule : ConfigModule, BootableModule, OpenTelemetryModule, GcpTelemetryModule
+interface GcpAppModule : ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, GcpTelemetryModule
 
 fun gcpAppModule() = GcpAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   gcpTelemetryModule = gcpTelemetryModule(),  // from telemetry.gcp
 )
@@ -537,13 +540,15 @@ module {
 
 ```kotlin
 @DIModule(composed = true)
-interface MicrometerBridgeAppModule : ConfigModule, BootableModule, OpenTelemetryModule, MicrometerBridgeModule {
+interface MicrometerBridgeAppModule :
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, MicrometerBridgeModule {
   val workExecutor: ExecutorService
 }
 
 fun micrometerBridgeAppModule() = MicrometerBridgeAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   micrometerBridgeModule = micrometerBridgeModule(),  // a meterRegistry member, over the application's OpenTelemetry
   // e.g. a library's Micrometer binder: the executor's metrics, exported with the rest

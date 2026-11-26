@@ -631,7 +631,7 @@ It starts at <code>TestClock.DEFAULT_START</code>, 2026-01-01T00:00:00Z, so a te
 </div>
 </div>
 <div class="paragraph">
-<p>Pass it to whatever takes a <code>Clock</code>, such as <code>OpenTelemetryService</code>, <code>ServiceStartTracing</code>, or <code>PeriodicAppService</code>, or, with Kodein, Koin, or Metro, bind it as the <code>Clock</code>, which they then take their time from; with Inara, which has no optional bindings, pass it to each module&#8217;s builder, such as <code>openTelemetryModule(clock)</code>.
+<p>Pass it to whatever takes a <code>Clock</code>, such as <code>OpenTelemetryService</code>, <code>ServiceStartTracing</code>, or <code>PeriodicAppService</code>, or, with Kodein, Koin, or Metro, bind it as the <code>Clock</code>, which they then take their time from; with Inara, compose <code>clockModule(clock)</code>, from <code>boot-clock</code>, which the modules that need a clock require.
 With <a href="../clock/index.html" class="xref page"><code>boot-clock</code></a>, give it to the application in place of the bound clock, which makes it the application&#8217;s <code>java.time.Clock</code> too; <code>asJavaClock()</code> is it as a <code>java.time.Clock</code>, for a class that takes one.
 For a monotonic <code>TimeSource</code>, use the standard library&#8217;s <code>kotlin.time.TestTimeSource</code>.</p>
 </div>
@@ -859,23 +859,24 @@ fun main() = boot {
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">/** The application's own module, which `main` and the tests share. */
 @DIModule
-interface SessionsModule : @DIModule.Required OpenTelemetryApiModule {
+interface SessionsModule : @DIModule.Required OpenTelemetryApiModule, @DIModule.Required ClockModule {
   val sessions: Sessions
   @AppServices val sessionReaper: SessionReaper
 }
 
-/** The clock is a setting: a parameter, which a test passes. */
-fun sessionsModule(clock: Clock = Clock.System) = SessionsModulePart(
+/** The clock is the application's, from the `ClockModule`, which a test replaces. */
+fun sessionsModule() = SessionsModulePart(
   sessions = Binding.single { Sessions(clock, openTelemetry) },
   sessionReaper = Binding.single { SessionReaper(sessions) },
 )
 
 @DIModule(composed = true)
-interface AppModule : ConfigModule, BootableModule, OpenTelemetryModule, SessionsModule
+interface AppModule : ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, SessionsModule
 
 fun appModule() = AppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   sessionsModule = sessionsModule(),
 )
@@ -1177,15 +1178,16 @@ fun openingASessionIsTracedAndCounted() {
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@DIModule(composed = true)
 interface SessionsTestModule :
-  ConfigModule, BootableModule, OpenTelemetryModule, InMemoryTelemetryModule, SessionsModule
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, InMemoryTelemetryModule, SessionsModule
 
 fun openingASessionIsTracedAndCounted() {
   val module = SessionsTestModule(
     configModule = hopliteConfigModule(),
     bootableModule = bootableModule(),
+    clockModule = clockModule(TestClock()),               // the SDK's clock, and the sessions'
     openTelemetryModule = openTelemetryModule(),
     inMemoryTelemetryModule = inMemoryTelemetryModule(),  // one of the SDK's customizers
-    sessionsModule = sessionsModule(clock = TestClock()),
+    sessionsModule = sessionsModule(),
   )
   val telemetry = module.inMemoryTelemetry
 
@@ -1218,7 +1220,7 @@ fun openingASessionIsTracedAndCounted() {
 </ul>
 </div>
 <div class="paragraph">
-<p>A <code>TestClock</code>, passed to <code>OpenTelemetryService</code> or bound as the <code>Clock</code>, is the SDK&#8217;s clock, so the spans' and measurements' times are the test&#8217;s.
+<p>A <code>TestClock</code>, passed to <code>OpenTelemetryService</code>, bound as the <code>Clock</code>, or, with Inara, composed with <code>clockModule(clock)</code>, is the SDK&#8217;s clock, so the spans' and measurements' times are the test&#8217;s.
 See <a href="../telemetry/index.html#customizers" class="xref page">telemetry:index.adoc#customizers</a> for the SDK&#8217;s customizers.</p>
 </div>
 </div>

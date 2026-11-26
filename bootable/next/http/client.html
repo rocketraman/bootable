@@ -1290,11 +1290,13 @@ fun clientSpanNames(): HttpClientTelemetryCustomizer = HttpClientTelemetryCustom
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@DIModule(composed = true)
 interface TracedClientAppModule :
-  ConfigModule, BootableModule, OpenTelemetryModule, KtorClientModule, ClientModule, HttpClientTelemetryModule
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, KtorClientModule, ClientModule,
+  HttpClientTelemetryModule
 
 fun tracedClientAppModule() = TracedClientAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   ktorClientModule = ktorClientModule(CioClientEngine()),
   clientModule = clientModule(),

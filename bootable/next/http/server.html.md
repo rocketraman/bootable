@@ -547,7 +547,7 @@ Compose `ktorTelemetryModule()`, which requires `openTelemetryModule()`, and an 
 ```kotlin
 @DIModule(composed = true)
 interface TracedServerAppModule :
-  ConfigModule, BootableModule, OpenTelemetryModule, PrometheusTelemetryModule,
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, PrometheusTelemetryModule,
   KtorServerEngineModule, KtorTelemetryModule, KtorHealthModule {
   val serverConfig: ServerConfig
   @AppServices val tracedServer: TracedGreetingServer
@@ -556,6 +556,7 @@ interface TracedServerAppModule :
 fun tracedServerAppModule() = TracedServerAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),              // the application's OpenTelemetry, from boot-telemetry-otel
   prometheusTelemetryModule = prometheusTelemetryModule(),  // a pulled backend, to scrape
   ktorTelemetryModule = ktorTelemetryModule(),              // KtorTelemetry, from telemetry.ktor

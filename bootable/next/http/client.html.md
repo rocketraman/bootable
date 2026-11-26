@@ -598,11 +598,13 @@ Compose `httpClientTelemetryModule()`, which requires the client’s and the Ope
 ```kotlin
 @DIModule(composed = true)
 interface TracedClientAppModule :
-  ConfigModule, BootableModule, OpenTelemetryModule, KtorClientModule, ClientModule, HttpClientTelemetryModule
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, KtorClientModule, ClientModule,
+  HttpClientTelemetryModule
 
 fun tracedClientAppModule() = TracedClientAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   ktorClientModule = ktorClientModule(CioClientEngine()),
   clientModule = clientModule(),

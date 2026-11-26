@@ -204,13 +204,14 @@ fun main() = boot {
 
 ```kotlin
 @DIModule(composed = true)
-interface AppModule : ConfigModule, BootableModule, OpenTelemetryModule, ServiceStartTracingModule {
+interface AppModule : ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, ServiceStartTracingModule {
   // ... and the services that record telemetry, given openTelemetry
 }
 
 fun appModule() = AppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),              // the SDK, from telemetry.sdk, as the openTelemetry member
   serviceStartTracingModule = serviceStartTracingModule(),  // the start, as one trace
 )
@@ -220,7 +221,7 @@ fun main() = boot {
 }
 ```
 
-A `kotlin.time.Clock`, if one is given to `OpenTelemetryService` and `ServiceStartTracing`, or bound with Kodein, Koin, or Metro, or given to the Inara modules' builders, is the time of the spans and measurements, such as a fixed clock in a test; otherwise it is `Clock.System`.
+A `kotlin.time.Clock`, if one is given to `OpenTelemetryService` and `ServiceStartTracing`, or bound with Kodein, Koin, or Metro, or composed with `clockModule(clock)` with Inara, is the time of the spans and measurements, such as a fixed clock in a test; otherwise it is `Clock.System`.
 
 When the OpenTelemetry Java agent is attached, it has already built and registered the process’s SDK: `openTelemetry` is then the agent’s, the config and customizers are ignored, and the agent owns the SDK’s lifecycle.
 

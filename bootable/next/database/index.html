@@ -975,12 +975,13 @@ To change the instrumentation&#8217;s defaults, provide a <code>JdbcTelemetryCon
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@DIModule(composed = true)
 interface TracedAppModule :
-  ConfigModule, BootableModule, JdbcDataSourceModule, HikariPoolModule,
+  ConfigModule, BootableModule, ClockModule, JdbcDataSourceModule, HikariPoolModule,
   OpenTelemetryModule, JdbcTracingModule, HikariPoolMetricsModule
 
 fun tracedAppModule() = TracedAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   jdbcDataSourceModule = jdbcDataSourceModule(SqliteConfigSource),
   hikariPoolModule = hikariPoolModule(),
   openTelemetryModule = openTelemetryModule(),          // the application's OpenTelemetry, from boot-telemetry-otel

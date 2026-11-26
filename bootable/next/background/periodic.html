@@ -704,7 +704,7 @@ Its clock is the graph&#8217;s <code>kotlin.time.Clock</code>, if it has one, an
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@DIModule(composed = true)
 interface PeriodicAppModule :
-  ConfigModule, BootableModule, LeaderElectionModule, OpenTelemetryApiModule, PeriodicModule {
+  ConfigModule, BootableModule, ClockModule, LeaderElectionModule, OpenTelemetryApiModule, PeriodicModule {
   val notifications: Notifications
   @AppServices val notificationsLoop: PeriodicAppService
 }
@@ -712,6 +712,7 @@ interface PeriodicAppModule :
 fun periodicAppModule() = PeriodicAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   leaderElectionModule = AlwaysLeaderModule,         // required: every instance runs the loops
   openTelemetryApiModule = NoopOpenTelemetryModule,  // required: no tracing of the runs
   periodicModule = periodicModule(),                 // periodicServices, gated on the leaderElection
@@ -721,6 +722,9 @@ fun periodicAppModule() = PeriodicAppModule(
   },
 )</code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>Its clock is that of the <code>ClockModule</code> it requires, from <a href="../clock/index.html" class="xref page"><code>boot-clock</code></a>.</p>
 </div>
 </div>
 </div>
@@ -816,11 +820,12 @@ The tracing is the outermost interceptor, around the contributed ones.</p>
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@DIModule(composed = true)
 interface TracedPeriodicAppModule :
   // OpenTelemetryModule in place of OpenTelemetryApiModule: it is one, with the SDK
-  ConfigModule, BootableModule, LeaderElectionModule, OpenTelemetryModule, PeriodicModule
+  ConfigModule, BootableModule, ClockModule, LeaderElectionModule, OpenTelemetryModule, PeriodicModule
 
 fun tracedPeriodicAppModule() = TracedPeriodicAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   leaderElectionModule = AlwaysLeaderModule,
   // the application's OpenTelemetry, from boot-telemetry-otel: periodicModule traces each run
   openTelemetryModule = openTelemetryModule(),

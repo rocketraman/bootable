@@ -782,13 +782,14 @@ fun main() = boot {
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@DIModule(composed = true)
-interface AppModule : ConfigModule, BootableModule, OpenTelemetryModule, ServiceStartTracingModule {
+interface AppModule : ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, ServiceStartTracingModule {
   // ... and the services that record telemetry, given openTelemetry
 }
 
 fun appModule() = AppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),              // the SDK, from telemetry.sdk, as the openTelemetry member
   serviceStartTracingModule = serviceStartTracingModule(),  // the start, as one trace
 )
@@ -802,7 +803,7 @@ fun main() = boot {
 </div>
 </div>
 <div class="paragraph">
-<p>A <code>kotlin.time.Clock</code>, if one is given to <code>OpenTelemetryService</code> and <code>ServiceStartTracing</code>, or bound with Kodein, Koin, or Metro, or given to the Inara modules' builders, is the time of the spans and measurements, such as a fixed clock in a test; otherwise it is <code>Clock.System</code>.</p>
+<p>A <code>kotlin.time.Clock</code>, if one is given to <code>OpenTelemetryService</code> and <code>ServiceStartTracing</code>, or bound with Kodein, Koin, or Metro, or composed with <code>clockModule(clock)</code> with Inara, is the time of the spans and measurements, such as a fixed clock in a test; otherwise it is <code>Clock.System</code>.</p>
 </div>
 <div class="paragraph">
 <p>When the OpenTelemetry Java agent is attached, it has already built and registered the process&#8217;s SDK: <code>openTelemetry</code> is then the agent&#8217;s, the config and customizers are ignored, and the agent owns the SDK&#8217;s lifecycle.</p>

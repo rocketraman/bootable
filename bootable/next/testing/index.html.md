@@ -147,7 +147,7 @@ fun sessionsExpire() {
 }
 ```
 
-Pass it to whatever takes a `Clock`, such as `OpenTelemetryService`, `ServiceStartTracing`, or `PeriodicAppService`, or, with Kodein, Koin, or Metro, bind it as the `Clock`, which they then take their time from; with Inara, which has no optional bindings, pass it to each module’s builder, such as `openTelemetryModule(clock)`. With [`boot-clock`](https://rocketraman.github.io/bootable/bootable/next/clock/index.html.md), give it to the application in place of the bound clock, which makes it the application’s `java.time.Clock` too; `asJavaClock()` is it as a `java.time.Clock`, for a class that takes one. For a monotonic `TimeSource`, use the standard library’s `kotlin.time.TestTimeSource`.
+Pass it to whatever takes a `Clock`, such as `OpenTelemetryService`, `ServiceStartTracing`, or `PeriodicAppService`, or, with Kodein, Koin, or Metro, bind it as the `Clock`, which they then take their time from; with Inara, compose `clockModule(clock)`, from `boot-clock`, which the modules that need a clock require. With [`boot-clock`](https://rocketraman.github.io/bootable/bootable/next/clock/index.html.md), give it to the application in place of the bound clock, which makes it the application’s `java.time.Clock` too; `asJavaClock()` is it as a `java.time.Clock`, for a class that takes one. For a monotonic `TimeSource`, use the standard library’s `kotlin.time.TestTimeSource`.
 
 ### Logs
 
@@ -302,23 +302,24 @@ A partial module of the application’s own members, with a builder function, an
 ```kotlin
 /** The application's own module, which `main` and the tests share. */
 @DIModule
-interface SessionsModule : @DIModule.Required OpenTelemetryApiModule {
+interface SessionsModule : @DIModule.Required OpenTelemetryApiModule, @DIModule.Required ClockModule {
   val sessions: Sessions
   @AppServices val sessionReaper: SessionReaper
 }
 
-/** The clock is a setting: a parameter, which a test passes. */
-fun sessionsModule(clock: Clock = Clock.System) = SessionsModulePart(
+/** The clock is the application's, from the `ClockModule`, which a test replaces. */
+fun sessionsModule() = SessionsModulePart(
   sessions = Binding.single { Sessions(clock, openTelemetry) },
   sessionReaper = Binding.single { SessionReaper(sessions) },
 )
 
 @DIModule(composed = true)
-interface AppModule : ConfigModule, BootableModule, OpenTelemetryModule, SessionsModule
+interface AppModule : ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, SessionsModule
 
 fun appModule() = AppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),
   sessionsModule = sessionsModule(),
 )
@@ -530,15 +531,16 @@ Compose `inMemoryTelemetryModule()`, which marks the `InMemoryTelemetry` as one 
 ```kotlin
 @DIModule(composed = true)
 interface SessionsTestModule :
-  ConfigModule, BootableModule, OpenTelemetryModule, InMemoryTelemetryModule, SessionsModule
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, InMemoryTelemetryModule, SessionsModule
 
 fun openingASessionIsTracedAndCounted() {
   val module = SessionsTestModule(
     configModule = hopliteConfigModule(),
     bootableModule = bootableModule(),
+    clockModule = clockModule(TestClock()),               // the SDK's clock, and the sessions'
     openTelemetryModule = openTelemetryModule(),
     inMemoryTelemetryModule = inMemoryTelemetryModule(),  // one of the SDK's customizers
-    sessionsModule = sessionsModule(clock = TestClock()),
+    sessionsModule = sessionsModule(),
   )
   val telemetry = module.inMemoryTelemetry
 
@@ -555,7 +557,7 @@ With Kodein, Koin, Metro, and Inara, the SDK’s config comes from the test’s 
 - `resetSpans()`: forgets the spans ended so far, such as those of what the test set up, so it sees only its own.
 - `spanExporter` and `metricReader`: OpenTelemetry’s in-memory exporter and reader, for anything else.
 
-A `TestClock`, passed to `OpenTelemetryService` or bound as the `Clock`, is the SDK’s clock, so the spans' and measurements' times are the test’s. See [telemetry:index.adoc#customizers](https://rocketraman.github.io/bootable/bootable/next/telemetry/index.html.md#customizers) for the SDK’s customizers.
+A `TestClock`, passed to `OpenTelemetryService`, bound as the `Clock`, or, with Inara, composed with `clockModule(clock)`, is the SDK’s clock, so the spans' and measurements' times are the test’s. See [telemetry:index.adoc#customizers](https://rocketraman.github.io/bootable/bootable/next/telemetry/index.html.md#customizers) for the SDK’s customizers.
 
 ## Example
 

@@ -497,13 +497,14 @@ Compose `grpcTelemetryModule()`, which requires an `OpenTelemetryApiModule`, suc
 ```kotlin
 @DIModule(composed = true)
 interface TracedGrpcAppModule :
-  ConfigModule, BootableModule, OpenTelemetryModule, GrpcServerModule, GrpcTelemetryModule {
+  ConfigModule, BootableModule, ClockModule, OpenTelemetryModule, GrpcServerModule, GrpcTelemetryModule {
   @GrpcServices val greeterService: GreeterService
 }
 
 fun tracedGrpcAppModule() = TracedGrpcAppModule(
   configModule = hopliteConfigModule(),
   bootableModule = bootableModule(),
+  clockModule = clockModule(),
   openTelemetryModule = openTelemetryModule(),  // the application's OpenTelemetry, from boot-telemetry-otel
   grpcServerModule = grpcServerModule(),
   grpcTelemetryModule = grpcTelemetryModule(),  // GrpcTelemetry, from telemetry.grpc, one of the server's customizers
